@@ -1,6 +1,14 @@
 from dataclasses import dataclass
+from enum import StrEnum
 
 from src.agent.tools import Tool
+
+
+class TaskStatus(StrEnum):
+    """Represent the possible states of execution for a Task"""
+    WAITING = 'Waiting'
+    RUNNING = 'Running'
+    DONE = 'Done'
 
 
 @dataclass
@@ -12,6 +20,11 @@ class Task:
     thought: str
     tool: Tool
     command: str
+    status: TaskStatus = TaskStatus.WAITING
+    output: str = ''
+
+    def __str__(self):
+        return f"Task: {self.command}\nStatus: ({self.status})"
 
 
 @dataclass
@@ -19,9 +32,19 @@ class Plan:
     """Used to manage tasks."""
     tasks: list[Task]
 
+    @staticmethod
+    def from_str(text: str):
+        """Converts a structured LLM response in a Plan object"""
+        pass
+
     def execute(self):
         """Executes the tasks and yields the output of each task"""
         for task in self.tasks:
-            print(f'Running: {task.command}\nReason: {task.thought}')
-            out = task.tool.run(task.command)
-            yield out
+            task.status = TaskStatus.RUNNING
+
+            yield self.tasks
+
+            task.output = task.tool.run(task.command)
+            task.status = TaskStatus.DONE
+
+        yield self.tasks
