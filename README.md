@@ -19,12 +19,13 @@ it enhances great programmers and make them more productive; that's the same obj
 
 ## Key Features
 
-**TODO:** *Knowledge, Collections, Tools etc.*
+**TODO:** *LLM integrations, Knowledge, Collections, Tools etc.*
 
 ## Install
 
 ### End-User
 **Requirements**
+- Ollama
 - Docker
 
 1. **TODO:** *work in progress*
@@ -32,9 +33,10 @@ it enhances great programmers and make them more productive; that's the same obj
 ### Development
 
 **Requirements**
-- Python >= 3.11
+- Ollama
+- Linux
+- Python
 - Node
-- Linux 
 - Docker
 
 1. **TODO:** *work in progress*
