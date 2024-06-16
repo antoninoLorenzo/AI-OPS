@@ -77,7 +77,7 @@ that use JSON Instructions are available in `tools_settings`.
 ```
 
 2. **Custom Class**: tools that require more advanced usage can be implemented extending the class
-`Tool` at `src.agent.tools.base`; you're welcome to open an issue for a tool request/proposal.
+`Tool` at `src.agent.tools.base`; you're welcome to **open an issue** for a tool request/proposal.
 
 
 ## Knowledge 
