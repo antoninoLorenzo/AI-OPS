@@ -1,3 +1,5 @@
+![pylint](https://img.shields.io/badge/PyLint-9.89-yellow?logo=python&logoColor=white)
+
 # AI-OPS
 
 - **AI** powered: uses a LLM AI-Agent to assist and automate
