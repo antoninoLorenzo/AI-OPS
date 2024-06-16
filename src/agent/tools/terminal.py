@@ -1,12 +1,16 @@
 import platform
+
 from src.agent.tools.base import Tool
+
+CUR_OS = platform.system()
 
 
 class Terminal(Tool):
+    """The standard tool to execute commands."""
 
     def __init__(self):
         self.name = 'terminal'
-        self.tool_description = f"""Used to interact with the OS or run programs from command line. The current OS is {platform.system()}"""
+        self.tool_description = f"""Used to interact with {CUR_OS} OS or run programs from command line."""
 
         self.args_description = """Takes as input the command to execute."""
 

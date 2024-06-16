@@ -24,6 +24,7 @@ class Tool:
 
     @staticmethod
     def run(*args):
+        """Execute a tool"""
         if not isinstance(args[0], str):
             raise ValueError(f'Argument must be a string found {type(args[0])}')
 
@@ -39,6 +40,7 @@ class Tool:
         return stdout
 
     def get_documentation(self):
+        """Used to provide documentation for the Agent LLM"""
         return f"""
 Tool: {self.name}
 Description: 
@@ -47,6 +49,4 @@ Arguments:
     {self.args_description}          
 Usage Examples: 
     {self.examples}"""
-
-
 
