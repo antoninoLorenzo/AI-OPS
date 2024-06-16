@@ -6,7 +6,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      SRC_PATH: 'kilogger'
+      SRC_PATH: 'src'
       README_PATH: 'README.md'
       REQUIREMENTS_PATH: 'dev-requirements.txt'
       P_SCORE: 'green'
