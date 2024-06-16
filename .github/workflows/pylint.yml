@@ -1,0 +1,72 @@
+name: "PyLint"
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      SRC_PATH: 'kilogger'
+      README_PATH: 'README.md'
+      REQUIREMENTS_PATH: 'dev-requirements.txt'
+      P_SCORE: 'green'
+      G_SCORE: 'yellow'
+      O_SCORE: 'orange'
+      B_SCORE: 'red'
+      BADGE_TEXT: 'PyLint'
+    steps:
+      -
+        name: "Checkout Repository - PR"
+        uses: actions/checkout@v3
+        if: github.event_name == 'pull_request'
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      -
+        name: "Checkout Repository - PUSH"
+        uses: actions/checkout@v3
+        if: github.event_name != 'pull_request'
+      -
+        name: "Setup python"
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ inputs.python-version }}
+      -
+        name: "Setup installation requirements"
+        run: |
+          pip install --upgrade pip
+          pip install wheel pylint
+          pip install -r ${{env.REQUIREMENTS_PATH}}
+        shell: bash
+      -
+        name: "Lint package(s)"
+        run: |
+          pkgs_pth=$(python3 -c 'import re; print(" ".join(re.findall("([^\s]+)", ${{ toJSON(env.SRC_PATH) }})))')
+          pylint --exit-zero --output-format=text:pylint_score.txt,colorized $pkgs_pth
+        shell: bash
+      -
+        name: "Get numeric pylint score and badge color"
+        id: parameters-badge
+        run: |
+          python static/get_score_color.py \
+          ${{ env.B_SCORE }} \
+          ${{ env.O_SCORE }} \
+          ${{ env.G_SCORE }} \
+          ${{ env.P_SCORE }}
+        shell: bash
+      -
+        name: "Create badge and substitute it in README.md"
+        run: |
+          python static/create_subs_badge.py \
+          ${{ env.README_PATH }} \
+          ${{ steps.parameters-badge.outputs.pylint_score }} \
+          $(echo ${{ env.BADGE_TEXT }} | sed 's/ /%20/g') \
+          ${{ steps.parameters-badge.outputs.badge_color }}
+        shell: bash
+      -
+        name: "Push README with changed badge to origin"
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: 'README.md'
+          default_author: github_actions
+          message: 'Updated pylint badge'
+          push: 'true'
