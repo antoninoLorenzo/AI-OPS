@@ -93,6 +93,7 @@ class Memory:
             raise ValueError(f'Session {sid} does not exist')
 
         session = self.sessions[sid]
+        self.delete_session(sid)
         with open(f'{SESSIONS_PATH}/{sid}__{session.name}.json', 'w+', encoding='utf-8') as fp:
             data = {
                 'id': sid,
