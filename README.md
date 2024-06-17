@@ -7,7 +7,7 @@
 - **P**entesting **S**uite: includes several tools for various use cases
 
 
-## Overview
+## 💡 Overview
 The objective of **AI-OPS** is to enhance Penetration Testing operations with an *AI Agent*
 capable of planning and executing tasks, whether that's about automating the **Reconnaisance**,
 the **Exploitation**, generating a **Report** or just getting another point of view on a target system.
@@ -17,11 +17,11 @@ by design, think it as follows: AI will not replace programmers, it makes bad pr
 it enhances great programmers and make them more productive; that's the same objective of AI-OPS.
 
 
-## Key Features
+### Key Features
 
 **TODO:** *LLM integrations, Knowledge, Collections, Tools etc.*
 
-## Install
+## 💻 Install
 
 ### End-User
 **Requirements**
@@ -41,7 +41,7 @@ it enhances great programmers and make them more productive; that's the same obj
 
 1. **TODO:** *work in progress*
 
-## Tools
+## 🛠️Tools
 
 ### Available Tools
 
@@ -80,7 +80,7 @@ that use JSON Instructions are available in `tools_settings`.
 `Tool` at `src.agent.tools.base`; you're welcome to **open an issue** for a tool request/proposal.
 
 
-## Knowledge 
+## 📚 Knowledge 
 
 **TODO**
 
