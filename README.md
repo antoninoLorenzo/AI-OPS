@@ -58,6 +58,17 @@ it enhances great programmers and make them more productive; that's the same obj
 - Docker
 
 1. **TODO:** *work in progress*
+2. Install `requirements` and `dev-requirements`
+```
+pip install -r requirements.txt
+```
+```
+pip install -r dev-requirements.txt
+```
+2. Install spacy `en_core_web_lg`
+```
+python -m spacy download en_core_web_lg
+```
 
 ## 🛠️Tools
 
