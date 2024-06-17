@@ -20,6 +20,9 @@ PROMPTS = {
             Utilize only the provided TOOLS and follow their usage examples strictly, the available TOOLS are as follows:
             {tools}
             """),
+        },
+        'user': {
+            'plan': '{user_input}'
         }
     }
 }

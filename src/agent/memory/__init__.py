@@ -1,5 +1,3 @@
-from pathlib import Path
+from src.agent.memory.base import Memory, Message, Role
 
-SESSIONS_PATH = Path(Path.home() / '.aiops' / 'sessions')
-if not SESSIONS_PATH.exists():
-    SESSIONS_PATH.mkdir(parents=True, exist_ok=True)
+
