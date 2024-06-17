@@ -22,7 +22,7 @@ PROMPTS = {
             """),
         },
         'user': {
-            'plan': '{user_input}'
+            'plan': '{user_input}\nCONTEXT:\n{context}\nSolve the task given the additional information in CONTEXT.'
         }
     }
 }

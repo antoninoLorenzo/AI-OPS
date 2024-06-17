@@ -73,7 +73,7 @@ class Store:
         self._collections[collection_name].documents.append(document)
         self._collections[collection_name].size = current_len + len(emb_chunks)
 
-    def retrieve(self, query: str, collection_name: str, limit: int = 1):
+    def retrieve(self, query: str, collection_name: str, limit: int = 3):
         """Performs retrieval of chunks from the vector database"""
         if len(query) < 3:
             return None
