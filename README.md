@@ -2,12 +2,30 @@
 
 # AI-OPS
 
+### Table of Contents
+1. [Overview](#-overview)
+
+    - [Key Features](#key-features)
+2. [Install](#-install)
+
+    - [End-User](#end-user)
+    - [Development](#development)
+3. [Tools](#tools)
+
+    - [Available Tools](#available-tools)
+    - [Add a Tool](#add-a-tool)
+4. [Knowledge](#-knowledge-)
+
+    - [Available Collections](#available-collections)
+    - [Add a Collection](#add-a-collection)
+
+## 💡 Overview
+
 - **AI** powered: uses a LLM AI-Agent to assist and automate
 - **O**pen-source: full open-source solution (even the LLM)
 - **P**entesting **S**uite: includes several tools for various use cases
 
 
-## 💡 Overview
 The objective of **AI-OPS** is to enhance Penetration Testing operations with an *AI Agent*
 capable of planning and executing tasks, whether that's about automating the **Reconnaisance**,
 the **Exploitation**, generating a **Report** or just getting another point of view on a target system.
