@@ -9,14 +9,15 @@ nlp = spacy.load("en_core_web_lg")
 def chunk_str(document: str):
     """Chunks a text string"""
     doc = nlp(document)
-    # sentences = [sent for sent in list(doc.sents) if str(sent).strip() not in ['*']]
-    sentences = [sent.text for sent in doc.sents if
-                 not (sent.text.strip().startswith('*') and sent.text.strip().endswith('*'))]
+    sentences = [sent for sent in list(doc.sents) if str(sent).strip() not in ['*']]
 
     similarities = []
     for i in range(1, len(sentences)):
-        sim = sentences[i-1].similarity(sentences[i])
-        similarities.append(sim)
+        if not sentences[i - 1].has_vector or not sentences[i].has_vector:
+            similarities.append(0.0)
+        else:
+            sim = sentences[i-1].similarity(sentences[i])
+            similarities.append(sim)
 
     threshold = 0.5
     max_sent = 4
