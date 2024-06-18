@@ -1,5 +1,3 @@
-import json
-
 import spacy
 
 from src.agent.knowledge.collections import Document
@@ -11,7 +9,9 @@ nlp = spacy.load("en_core_web_lg")
 def chunk_str(document: str):
     """Chunks a text string"""
     doc = nlp(document)
-    sentences = [sent for sent in list(doc.sents) if str(sent).strip() not in ['*']]
+    # sentences = [sent for sent in list(doc.sents) if str(sent).strip() not in ['*']]
+    sentences = [sent.text for sent in doc.sents if
+                 not (sent.text.strip().startswith('*') and sent.text.strip().endswith('*'))]
 
     similarities = []
     for i in range(1, len(sentences)):
