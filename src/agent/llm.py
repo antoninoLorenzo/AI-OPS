@@ -13,12 +13,12 @@ class LLM:
         if self.model not in AVAILABLE_MODELS:
             raise ValueError(f'Model {self.model} is not available')
 
-    def query(self, messages: list):
+    def query(self, messages: list, stream=True):
         """Generator that returns response chunks from Phi3-mini-k4 model"""
         return self.client.chat(
             model=self.model,
             messages=messages,
-            stream=True,
+            stream=stream,
         )
 
 
@@ -30,6 +30,3 @@ if __name__ == "__main__":
 
     for chunk in out:
         print(chunk['message']['content'], end='')
-
-
-
