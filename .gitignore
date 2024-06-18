@@ -1,6 +1,3 @@
-# TODO: remove ignore
-data
-
 # PyCharm
 .idea/
 
@@ -17,6 +14,9 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Jupyter Checkpoints
+test/benchmarks/rag/.ipynb_checkpoints
 
 
 # Distribution / packaging

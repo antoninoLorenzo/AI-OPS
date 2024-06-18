@@ -1,2 +1,4 @@
 isort
 pylint
+tqdm
+pandas
