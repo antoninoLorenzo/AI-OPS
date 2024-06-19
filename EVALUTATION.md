@@ -1,6 +1,10 @@
 **Table of Contents**
 1. [Agent Evaluation](#agent-evaluation)
 2. [RAG Evaluation](#rag-evaluation)
+   1. [Introduction](#introduction)
+   2. [Results](#results)
+      3. [Context Precision](#context-precision)
+      4. [Context Recall](#context-recall)
 
 # Agent Evaluation
 
