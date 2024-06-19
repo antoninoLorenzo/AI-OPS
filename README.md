@@ -4,15 +4,19 @@
 
 ### Table of Contents
 1. [Overview](#-overview)
+   
    2. [Key Features](#key-features)
    3. [Components](#components)
-2. [Install](#-install)
+3. [Install](#-install)
+   
    3. [End-User](#end-user)
    4. [Development](#development)
-3. [Tools](#tools)
+5. [Tools](#tools)
+   
    4. [Available Tools](#available-tools)
    5. [Add a Tool](#add-a-tool)
-4. [Knowledge](#-knowledge-)
+7. [Knowledge](#-knowledge)
+   
    5. [Available Collections](#available-collections)
    6. [Add a Collection](#add-a-collection)
 
