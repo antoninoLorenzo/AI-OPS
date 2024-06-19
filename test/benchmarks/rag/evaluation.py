@@ -50,7 +50,14 @@ def init_knowledge_base(data: dict[str: list[Topic]]) -> Store:
 def evaluate(vdb: Store, synthetic_qa_path: str):
     """Given the Vector Database and the synthetic Q&A dataset
     generated in `dataset_generation.ipynb` runs the evaluation
-    process for the RAG pipeline."""
+    process for the RAG pipeline.
+
+    It consists of:
+
+    - Retrieving the contexts and generating the answers for the questions.
+
+    - Evaluating the full contexts-question-answer-ground_truths dataset.
+    """
     pass
 
 
