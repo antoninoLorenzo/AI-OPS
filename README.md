@@ -48,7 +48,14 @@ whatever hardware setup</ins> you have available (see [Components](#components) 
 
 
 ### Components
-**TODO**
+![Deployment Diagram](static/images/deployment_diagram.svg)
+
+| Component                                  | Description                                                             |
+|--------------------------------------------|-------------------------------------------------------------------------|
+| Frontend                                   | Web interface for the AI Agent built in `React`                         |
+| AI Agent                                   | The implementation of the AI Agent exposed to `Frontend` with `FastAPI` |
+| [Qdrant](https://github.com/qdrant/qdrant) | Vector Database                                                         |
+| [Ollama](https://github.com/ollama/ollama)                              | LLM Provider                                                            | 
 
 
 ## 💻 Install
