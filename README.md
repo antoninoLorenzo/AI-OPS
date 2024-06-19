@@ -27,7 +27,7 @@
 
 
 The objective of **AI-OPS** is to enhance Penetration Testing operations with an *AI Agent*
-capable of planning and executing tasks, whether that's about automating the **Reconnaisance**,
+capable of planning and executing tasks, whether that's about automating the **Reconnaissance**,
 the **Exploitation**, generating a **Report** or just getting another point of view on a target system.
 
 <ins>AI-OPS objective is not replacing human Pentesters</ins>, it is an AI Agent with *human-in-the-loop*
