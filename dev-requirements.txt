@@ -1,4 +1,8 @@
 isort
 pylint
+python-dotenv
 tqdm
 pandas
+requests
+matplotlib
+seaborn
