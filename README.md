@@ -37,7 +37,15 @@ it enhances great programmers and make them more productive; that's the same obj
 
 ### Key Features
 
-**TODO:** *LLM integrations, Knowledge, Collections, Tools etc.*
+- **Full Open-Source** : this project do not require any subscription to third party LLM providers, we use 
+[Ollama](https://github.com/ollama/ollama) as main LLM provider, meaning that you can use <ins>whatever model you 
+want</ins>.
+- **Tool Integration** : the agent can execute Penetration Testing tools, not only the most common tools are available
+  (see [Available Tools](#available-tools)), but you can integrate a <ins>whatever tool you want</ins> without knowing 
+how to code in Python (see [Add a Tool](#add-a-tool)).
+- **Up-to-date Knowledge** : the agent won't leverage only training information, there is a `RAG` system available that
+enables the agent to get up-to-date knowledge, and you can add <ins>whatever document you want</ins> (see 
+[Add a Collection](#add-a-collection)).
 
 ## 💻 Install
 
@@ -45,6 +53,8 @@ it enhances great programmers and make them more productive; that's the same obj
 **Requirements**
 - Ollama
 - Docker
+- Minimum hardware requirements to-be-defined
+
 
 1. **TODO:** *work in progress*
 
