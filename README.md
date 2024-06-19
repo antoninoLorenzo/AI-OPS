@@ -11,7 +11,7 @@
    
    3. [End-User](#end-user)
    4. [Development](#development)
-5. [Tools](#tools)
+5. [Tools](#-tools)
    
    4. [Available Tools](#available-tools)
    5. [Add a Tool](#add-a-tool)
