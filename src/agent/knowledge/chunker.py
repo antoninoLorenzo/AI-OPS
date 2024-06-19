@@ -1,3 +1,6 @@
+"""
+Retrieval Augmented Generation chunking used to put documents into Qdrant.
+"""
 import spacy
 
 from src.agent.knowledge.collections import Document
@@ -7,7 +10,9 @@ nlp = spacy.load("en_core_web_lg")
 
 
 def chunk_str(document: str):
-    """Chunks a text string"""
+    """Chunks a text string.
+    The chunking strategy is NLP sentence extraction -> sentence grouping by similarity.
+    """
     doc = nlp(document)
     sentences = [sent for sent in list(doc.sents) if str(sent).strip() not in ['*']]
 

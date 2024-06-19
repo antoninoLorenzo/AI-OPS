@@ -1,3 +1,4 @@
+"""RAG Vector Database interface"""
 from typing import Dict
 
 import ollama
@@ -8,7 +9,8 @@ from src.agent.knowledge.collections import Document, Collection
 
 
 class Store:
-    """Act as interface for Qdrant database"""
+    """Act as interface for Qdrant database.
+    Manages Collections and implements the Upload/Retrieve operations."""
 
     def __init__(self):
         self._connection = QdrantClient(":memory:")

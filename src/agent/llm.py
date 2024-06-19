@@ -1,17 +1,27 @@
+"""
+Interfaces the AI Agent to the LLM Provider, model availability depends on
+implemented prompts, to use a new model the relative prompts should be written.
+
+LLM providers are:
+- [x] Ollama
+- [ ] HuggingFace
+"""
 from ollama import Client
 from dataclasses import dataclass
 
-AVAILABLE_MODELS = ['phi3', 'gemma:2b']
+AVAILABLE_MODELS = ['phi3', 'gemma:2b', 'gemma:7b']
 
 
 @dataclass
 class LLM:
+    """Ollama model interface"""
     model: str
-    client: Client = Client(host='http://localhost:11434')
+    client_url: str = 'http://localhost:11434'
 
     def __post_init__(self):
         if self.model not in AVAILABLE_MODELS:
             raise ValueError(f'Model {self.model} is not available')
+        self.client = Client(self.client_url)
 
     def query(self, messages: list, stream=True):
         """Generator that returns response chunks from Phi3-mini-k4 model"""
