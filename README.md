@@ -4,20 +4,16 @@
 
 ### Table of Contents
 1. [Overview](#-overview)
-
-    - [Key Features](#key-features)
+   2. [Key Features](#key-features)
 2. [Install](#-install)
-
-    - [End-User](#end-user)
-    - [Development](#development)
+   3. [End-User](#end-user)
+   4. [Development](#development)
 3. [Tools](#tools)
-
-    - [Available Tools](#available-tools)
-    - [Add a Tool](#add-a-tool)
+   4. [Available Tools](#available-tools)
+   5. [Add a Tool](#add-a-tool)
 4. [Knowledge](#-knowledge-)
-
-    - [Available Collections](#available-collections)
-    - [Add a Collection](#add-a-collection)
+   5. [Available Collections](#available-collections)
+   6. [Add a Collection](#add-a-collection)
 
 ## 💡 Overview
 
