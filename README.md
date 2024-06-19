@@ -42,7 +42,7 @@ it enhances great programmers and make them more productive; that's the same obj
 [Ollama](https://github.com/ollama/ollama) as main LLM provider, meaning that you can use <ins>whatever model you 
 want</ins>.
 - 🔧 **Tool Integration** : the agent can execute Penetration Testing tools, not only the most common tools are 
-available (see [Available Tools](#available-tools)), but you can integrate a <ins>whatever tool you want</ins> without 
+available (see [Available Tools](#available-tools)), but you can integrate <ins>whatever tool you want</ins> without 
 knowing how to code in Python (see [Add a Tool](#add-a-tool)).
 - 📚 **Up-to-date Knowledge** : the agent won't leverage only training information, there is a `RAG` system available 
 that enables the agent to get up-to-date knowledge, and you can add <ins>whatever document you want</ins> (see 
