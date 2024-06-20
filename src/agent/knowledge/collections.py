@@ -4,10 +4,25 @@ from enum import StrEnum
 from typing import List, Optional
 
 
-class Topic(StrEnum):
+@dataclass
+class Topic:
     """One of the possible Penetration Testing topics, used to choose a collection
     and to filter documents"""
-    WebPenetrationTesting = 'Web Penetration Testing'
+    name: str
+
+    def __str__(self):
+        return self.name
+
+    def __hash__(self):
+        return hash(self.name)
+
+    def __eq__(self, other):
+        if isinstance(other, Topic):
+            return self.name == other.name
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 
 @dataclass
@@ -36,6 +51,4 @@ class Collection:
         for doc in self.documents:
             docs += f'    | - {doc.name}\n'
         return f'Title: {self.title} ({self.id})\n| - Topics: {", ".join(self.topics)}\n{docs}'
-
-
 
