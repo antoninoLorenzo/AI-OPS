@@ -6,8 +6,8 @@ LLM providers are:
 - [x] Ollama
 - [ ] HuggingFace
 """
-from ollama import Client
 from dataclasses import dataclass
+from ollama import Client
 
 AVAILABLE_MODELS = ['phi3', 'gemma:2b', 'gemma:7b']
 

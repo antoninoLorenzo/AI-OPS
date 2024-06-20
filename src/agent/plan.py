@@ -14,8 +14,8 @@ class TaskStatus(StrEnum):
 @dataclass
 class Task:
     """
-    A Task represent a single unit of execution of a Tool with a specific command.
-    The thought is the reason why the command should be executed.
+    A Task represent a single unit of execution of a Tool with a specific
+    command. The thought is the reason why the command should be executed.
     """
     thought: str
     tool: Tool
@@ -35,7 +35,6 @@ class Plan:
     @staticmethod
     def from_str(text: str):
         """Converts a structured LLM response in a Plan object"""
-        pass
 
     def execute(self):
         """Executes the tasks and yields the output of each task"""

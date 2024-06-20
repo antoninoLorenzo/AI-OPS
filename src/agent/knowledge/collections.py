@@ -1,6 +1,5 @@
 """RAG related data"""
 from dataclasses import dataclass
-from enum import StrEnum
 from typing import List, Optional
 
 
@@ -40,19 +39,21 @@ class Document:
 @dataclass
 class Collection:
     """Represents a Qdrant collection"""
-    id: int
+    collection_id: int
     title: str
     documents: List[Document]
     topics: List[Topic]
     size: Optional[int] = 0  # points to the number of chunks in a Collection
 
     def document_names(self) -> list:
-        """The document names are used to filter queries to the Knowledge Database"""
+        """The document names are used to filter queries to the
+        Knowledge Database"""
         return [doc.name for doc in self.documents]
 
     def __str__(self):
         docs = "| - Documents\n"
         for doc in self.documents:
             docs += f'    | - {doc.name}\n'
-        return (f'Title: {self.title} ({self.id})\n'
-                f'| - Topics: {", ".join([topic.name for topic in self.topics])}\n{docs}')
+        return (f'Title: {self.title} ({self.collection_id})\n'
+                f'| - Topics: {", ".join([topic.name for topic in self.topics])}\n'
+                f'{docs}')

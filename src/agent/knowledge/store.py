@@ -87,7 +87,7 @@ class Store:
                     })
 
             collection_metadata = {
-                'id': collection.id,
+                'id': collection.collection_id,
                 'title': collection.title,
                 'documents': docs,
                 'topics': [topic.name for topic in collection.topics]
@@ -180,7 +180,7 @@ class Store:
                     ))
 
                 collections.append(Collection(
-                    id=data['id'],
+                    collection_id=data['id'],
                     title=data['title'],
                     documents=docs,
                     topics=[Topic(topic) for topic in data['topics']]

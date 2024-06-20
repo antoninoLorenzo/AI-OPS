@@ -17,16 +17,16 @@ def extract_keywords(text: str, top_k: int = 3) -> list:
     return [kw for kw, score in sorted(candidates, key=lambda x: x[1])][:top_k]
 
 
-def similarity(a: str, b: str) -> float:
+def similarity(text_a: str, text_b: str) -> float:
     """Computes similarity between two strings"""
-    doc1 = nlp(a)
-    doc2 = nlp(b)
+    doc1 = nlp(text_a)
+    doc2 = nlp(text_b)
     return doc1.similarity(doc2)
 
 
 def chunk_str(document: str):
-    """Chunks a text string.
-    The chunking strategy is NLP sentence extraction -> sentence grouping by similarity.
+    """Chunks a text string, the chunking strategy is:
+    NLP sentence extraction -> sentence grouping by similarity.
     """
     doc = nlp(document)
     sentences = [sent for sent in list(doc.sents) if str(sent).strip() not in ['*']]

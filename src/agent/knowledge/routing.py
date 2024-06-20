@@ -2,12 +2,10 @@
 """
 import json
 from abc import ABC, abstractmethod
-from typing import Dict
 
 from src.agent.llm import LLM
 from src.agent.prompts import PROMPTS
 from src.agent.knowledge.nlp import extract_keywords, similarity
-from src.agent.knowledge.collections import Collection
 
 
 class Router(ABC):
@@ -27,25 +25,29 @@ class SimilarityRouter(Router):
         print(f'Collections: {collections}')
         keywords = extract_keywords(user_query)
         points = {}
-        for c_name, collection in collections.items():
+        for _, collection in collections.items():
             doc_names = collection.document_names()
 
             similarities = []
             threshold = 0.7
-            for kw in keywords:
+            for key in keywords:
                 for doc_name in doc_names:
-                    if kw.strip().lower() == doc_name.strip().lower():
+                    if key.strip().lower() == doc_name.strip().lower():
                         sim = 1
                     else:
-                        sim = similarity(kw, doc_name)
+                        sim = similarity(key, doc_name)
 
                     similarities.append({
                         'document': doc_name,
-                        'keyword': kw,
+                        'keyword': key,
                         'similarity': sim
                     })
 
-            similarities = sorted(similarities, key=lambda k: k['similarity'], reverse=True)
+            similarities = sorted(
+                similarities,
+                key=lambda k: k['similarity'],
+                reverse=True
+            )
             # add documents with high similarity to filter
 
             similarities = [sim for sim in similarities if sim['similarity'] > threshold]
@@ -55,6 +57,9 @@ class SimilarityRouter(Router):
 
 
 class LLMRouter(Router):
+    """Uses a Large Language Model to find candidate collection for given query.
+    Using a local model is not the best choice for performance, HuggingFace Inference
+    API could be used in future"""
 
     def __init__(self, model: str = 'gemma:2b'):
         self.llm = LLM(model)
@@ -66,9 +71,13 @@ class LLMRouter(Router):
         for _, collection in collections.items():
             collection_string += str(collection)
 
+        prompt = self.user_prompt.format(
+            user_query=user_query,
+            collections=collection_string
+        )
         messages = [
             {'role': 'system', 'content': self.system_prompt},
-            {'role': 'user', 'content': self.user_prompt.format(user_query=user_query, collections=collection_string)}
+            {'role': 'user', 'content': prompt}
         ]
 
         if verbose:

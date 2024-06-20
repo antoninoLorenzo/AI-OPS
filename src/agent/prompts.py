@@ -1,3 +1,15 @@
+"""
+Contains the prompts for the entire system, prompts are organized in a
+hierarchical structure, they are grouped by model, then objective, finally
+divided in system prompts (instructions) and user prompts.
+
+model: {
+    objective: {
+        system: '...',
+        user: '...'
+    }
+}
+"""
 import textwrap
 
 PROMPTS = {
