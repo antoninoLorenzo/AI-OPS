@@ -62,6 +62,13 @@ whatever hardware setup</ins> you have available (see [Components](#components) 
 | [Ollama](https://github.com/ollama/ollama)                              | LLM Provider                                                            | 
 
 
+### Supported Ollama Models
+| Name     | Implemented (prompts) |
+|----------|-----------------------|
+| gemma:2b | &check;               |
+| gemma:7b | &cross;               |
+| phi3     | &cross;               | 
+
 ## 💻 Install
 
 ### End-User
@@ -82,18 +89,42 @@ whatever hardware setup</ins> you have available (see [Components](#components) 
 - Node
 - Docker
 
-1. **TODO:** *work in progress*
-2. Install `requirements` and `dev-requirements`
+
+1. **Python Dependencies**
 ```
 pip install -r requirements.txt
 ```
 ```
 pip install -r dev-requirements.txt
 ```
-2. Install spacy `en_core_web_lg`
+
+Install spacy `en_core_web_lg`
 ```
 python -m spacy download en_core_web_lg
 ```
+
+2. **Run Ollama**
+
+Ensure Ollama service is running, to do so `ollama list` is enough.
+```
+ollama list
+```
+
+Ensure at least one of the [supported models](#supported-ollama-models) is available.
+```
+ollama pull model-name
+```
+
+3. **Run Qdrant**
+```
+docker run -p 6333:6333 -p 6334:6334 -v C:\Users\anton\.aiops\qdrant_storage:/qdrant/storage:z qdrant/qdrant
+```
+
+4. **Run React**
+
+
+5. **Run Agent**
+
 
 ## 🛠️Tools
 
