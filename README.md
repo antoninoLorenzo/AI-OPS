@@ -63,10 +63,10 @@ whatever hardware setup</ins> you have available (see [Components](#components) 
 
 
 ### Supported Ollama Models
-| Name | Implemented (prompts) |
-|------|-----------------------|
-| .    | &check;               |
-| .    | &cross;               |
+| Name        | Implemented (prompts) |
+|-------------|-----------------------|
+| .           | &check;               |
+| **LLama 3** | &cross;               |
 
 ## 💻 Install
 
