@@ -6,11 +6,13 @@
 1. [Overview](#-overview)
    
    2. [Key Features](#key-features)
-   3. [Components](#components)
 3. [Install](#-install)
    
    3. [End-User](#end-user)
    4. [Development](#development)
+5. [System Structure](#system-structure)
+
+   6. [Components](#components)
 5. [Tools](#-tools)
    
    4. [Available Tools](#available-tools)
@@ -50,23 +52,6 @@ that enables the agent to get up-to-date knowledge, and you can add <ins>whateve
 - ⚙️ **Scalability** : every component of the agent is independently deployable, meaning that you can leverage <ins>
 whatever hardware setup</ins> you have available (see [Components](#components) and [End-User](#end-user) installation).
 
-
-### Components
-![Deployment Diagram](static/images/deployment_diagram.svg)
-
-| Component                                  | Description                                                             |
-|--------------------------------------------|-------------------------------------------------------------------------|
-| Frontend                                   | Web interface for the AI Agent built in `React`                         |
-| AI Agent                                   | The implementation of the AI Agent exposed to `Frontend` with `FastAPI` |
-| [Qdrant](https://github.com/qdrant/qdrant) | Vector Database                                                         |
-| [Ollama](https://github.com/ollama/ollama)                              | LLM Provider                                                            | 
-
-
-### Supported Ollama Models
-| Name        | Implemented (prompts) |
-|-------------|-----------------------|
-| .           | &check;               |
-| **LLama 3** | &cross;               |
 
 ## 💻 Install
 
@@ -123,6 +108,27 @@ docker run -p 6333:6333 -p 6334:6334 -v C:\Users\anton\.aiops\qdrant_storage:/qd
 
 
 5. **Run Agent**
+
+
+## 📝System Structure
+
+### Components
+![Deployment Diagram](static/images/deployment_diagram.svg)
+
+| Component                                  | Description                                                             |
+|--------------------------------------------|-------------------------------------------------------------------------|
+| Frontend                                   | Web interface for the AI Agent built in `React`                         |
+| AI Agent                                   | The implementation of the AI Agent exposed to `Frontend` with `FastAPI` |
+| [Qdrant](https://github.com/qdrant/qdrant) | Vector Database                                                         |
+| [Ollama](https://github.com/ollama/ollama) | LLM Provider                                                            | 
+
+
+### Supported Ollama Models
+| Name        | Implemented (prompts) |
+|-------------|-----------------------|
+| .           | &check;               |
+| **LLama 3** | &cross;               |
+
 
 
 ## 🛠️Tools
