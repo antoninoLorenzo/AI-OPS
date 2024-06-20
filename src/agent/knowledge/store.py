@@ -1,20 +1,37 @@
 """RAG Vector Database interface"""
+import json
 from typing import Dict
+from pathlib import Path
 
 import ollama
 from qdrant_client import QdrantClient, models
 
 from src.agent.knowledge.chunker import chunk
-from src.agent.knowledge.collections import Document, Collection
+from src.agent.knowledge.collections import Document, Collection, Topic
 
 
 class Store:
     """Act as interface for Qdrant database.
     Manages Collections and implements the Upload/Retrieve operations."""
 
-    def __init__(self):
-        self._connection = QdrantClient(":memory:")
-        self._collections: Dict[str: Collection] = {}
+    def __init__(self, url: str = 'http://localhost:6333', in_memory: bool = False):
+        self._in_memory = in_memory
+
+        if in_memory:
+            self._connection = QdrantClient(':memory:')
+            self._collections: Dict[str: Collection] = {}
+        else:
+            self._connection = QdrantClient(url)
+            self._metadata: Path = Path(Path.home() / '.aiops' / 'knowledge')
+            if not self._metadata.exists():
+                self._metadata.mkdir(parents=True, exist_ok=True)
+
+            available = self.get_available_collections()
+            if available:
+                coll = {name: collection for name, collection in available}
+            else:
+                coll = {}
+            self._collections: Dict[str: Collection] = coll
 
         self._encoder = ollama.embeddings
         self._embedding_model: str = 'nomic-embed-text'
@@ -26,7 +43,12 @@ class Store:
         )
 
     def create_collection(self, collection: Collection):
-        """Creates a new Qdrant collection"""
+        """Creates a new Qdrant collection, uploads the collection documents
+        using `upload` and creates a metadata file for collection."""
+        if collection.title in self.collections:
+            print('Already exists')
+            return None
+
         done = self._connection.create_collection(
             collection_name=collection.title,
             vectors_config=models.VectorParams(
@@ -34,6 +56,7 @@ class Store:
                 distance=models.Distance.COSINE
             )
         )
+
         if done:
             self._collections[collection.title] = collection
 
@@ -41,6 +64,33 @@ class Store:
         if len(collection.documents) > 0:
             for document in collection.documents:
                 self.upload(document, collection.title)
+        print(f'Collection {collection.title}: initialized with {len(collection.documents)} documents')
+
+        # update metadata in production
+        if not self._in_memory:
+            file_name = collection.title if collection.title.endswith('.json') else collection.title + '.json'
+            new_file = str(Path(self._metadata / file_name))
+
+            docs = []
+            if len(collection.documents) > 0:
+                for document in collection.documents:
+                    docs.append({
+                        'name': document.name,
+                        'content': '',  # document.content,
+                        'topic': document.topic.name
+                    })
+
+            collection_metadata = {
+                'id': collection.id,
+                'title': collection.title,
+                'documents': docs,
+                'topics': [topic.name for topic in collection.topics]
+            }
+
+            with open(new_file, 'w+', encoding='utf-8') as fp:
+                json.dump(collection_metadata, fp)
+
+            print(f'Collection {collection.title}: saved metadata to {new_file}')
 
     def upload(self, document: Document, collection_name: str):
         """Performs chunking and embedding of a document and uploads it to the specified collection"""
@@ -51,7 +101,7 @@ class Store:
         doc_chunks = chunk(document)
         emb_chunks = [{
             'title': document.name,
-            # 'topic': str(document.topic)
+            'topic': str(document.topic),
             'text': ch,
             'embedding': self._encoder(self._embedding_model, ch)
         } for ch in doc_chunks]
@@ -61,7 +111,7 @@ class Store:
             models.PointStruct(
                 id=current_len + i,
                 vector=item['embedding']['embedding'],
-                payload={'text': item['text'], 'title': item['title']}
+                payload={'text': item['text'], 'title': item['title'], 'topic': item['topic']}
             )
             for i, item in enumerate(emb_chunks)
         ]
@@ -72,7 +122,7 @@ class Store:
             points=points
         )
 
-        self._collections[collection_name].documents.append(document)
+        # self._collections[collection_name].documents.append(document)
         self._collections[collection_name].size = current_len + len(emb_chunks)
 
     def retrieve(self, query: str, collection_name: str, limit: int = 3):
@@ -95,3 +145,44 @@ class Store:
         if name not in self.collections:
             return None
         return self._collections[name]
+
+    def get_available_collections(self):
+        """Makes a query to Qdrant and uses collections metadata to get
+        existing collections."""
+        if self._in_memory:
+            return None
+
+        available = self._connection.get_collections()
+        names = []
+        for collection in available.collections:
+            names.append(collection.name)
+
+        collections = []
+        for p in self._metadata.iterdir():
+            if not (p.exists() and p.suffix == '.json' and p.name in names):
+                p.unlink()
+                continue
+
+            with open(str(p), 'r', encoding='utf-8') as fp:
+                data = json.load(fp)
+
+                docs = []
+                for doc in data['documents']:
+                    docs.append(Document(
+                        name=doc['name'],
+                        content=doc['content'],
+                        topic=Topic(doc['topic'])
+                    ))
+
+                collections.append(Collection(
+                    id=data['id'],
+                    title=data['title'],
+                    documents=docs,
+                    topics=[Topic(topic) for topic in data['topics']]
+                ))
+
+        return zip(names, collections)
+
+
+if __name__ == '__main__':
+    store = Store()
