@@ -7,11 +7,11 @@
       3. [Context Precision](#context-precision)
       4. [Context Recall](#context-recall)
 
-# Agent Evaluation
+# 📈Agent Evaluation
 
 **TODO**
 
-# RAG Evaluation
+# 📊RAG Evaluation
 
 ## Introduction
 
