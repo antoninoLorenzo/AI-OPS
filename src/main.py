@@ -4,7 +4,6 @@ from src.agent.tools import TOOLS
 from src.agent.knowledge import Store
 
 
-
 # Enter: new 1
 # Enter: rename plan_no_rag
 # Enter: save 1
