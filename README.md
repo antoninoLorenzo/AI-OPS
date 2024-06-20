@@ -63,11 +63,10 @@ whatever hardware setup</ins> you have available (see [Components](#components) 
 
 
 ### Supported Ollama Models
-| Name     | Implemented (prompts) |
-|----------|-----------------------|
-| gemma:2b | &check;               |
-| gemma:7b | &cross;               |
-| phi3     | &cross;               | 
+| Name | Implemented (prompts) |
+|------|-----------------------|
+| .    | &check;               |
+| .    | &cross;               |
 
 ## 💻 Install
 
