@@ -1,33 +1,27 @@
-import json
+from src import upload_knowledge
 from src.agent import Agent
 from src.agent.tools import TOOLS
 from src.agent.knowledge import Store
-from src.agent.knowledge import Collection, Document, Topic
 
+
+
+# Enter: new 1
+# Enter: rename plan_no_rag
+# Enter: save 1
+# Hi, we need to plan the Reconnaissance phase for the website example.com
+# I need to ensure that the user credentials are safe from hackers, so my objective is to ensure there are no database
+# vulnerabilities, cross-site scripting vulnerabilities and ways to access the host for the server. so for the current
+# phase our objective is to gain as much information as possible
+
+# TODO: how do we provide output of one task to another? how to manage task dependencies?
 
 def cli_test():
     """testing Agent"""
-    ollama_model = 'gemma:2b'
+    ollama_model = 'llama3'
     tools_documentation = '\n'.join([tool.get_documentation() for tool in TOOLS])
 
     vector_db = Store()
-    web_pt = Collection(
-        id=1,
-        title='Web Penetration Testing',
-        documents=[],
-        topics=[Topic.WebPenetrationTesting],
-    )
-    vector_db.create_collection(web_pt)
-
-    with open('../data/json/owasp.json', 'r', encoding='utf-8') as file:
-        owasp_data = json.load(file)
-
-    for ow_data in owasp_data:
-        vector_db.upload(Document(
-            name=ow_data['title'],
-            content=ow_data['content'],
-            topic=None
-        ), web_pt.title)
+    upload_knowledge('../data/json', vector_db)
 
     # =================================================================
     agent = Agent(model=ollama_model, tools_docs=tools_documentation, knowledge_base=vector_db)
@@ -56,7 +50,7 @@ def cli_test():
             agent.rename_session(current_session, user_input.split(" ")[1])
 
         else:  # query
-            for chunk in agent.query(current_session, user_input):
+            for chunk in agent.query(current_session, user_input, rag=False):
                 print(chunk, end='')
             print()
 

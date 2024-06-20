@@ -8,18 +8,18 @@ from src.agent.prompts import PROMPTS
 class Agent:
     """Penetration Testing Assistant"""
     def __init__(self, model: str, tools_docs: str, knowledge_base: Store):
+        # Agent Components
         self.llm = LLM(model=model)
         self.mem = Memory()
         self.vdb = knowledge_base
-        # PROMPTS[model]['system']['plan'].format(tools=tools_docs)
-        self.system_prompt = 'You are an assistant in penetration testing'
-        self.user_prompt = PROMPTS[model]['plan']['user']
+        # 'You are an assistant in penetration testing'
 
-    def new_session(self, sid: int):
-        self.mem.store_message(sid, Message(Role.SYS, self.system_prompt))
-
-    def get_session(self, sid: int):
-        return self.mem.get_session(sid)
+        # Prompts
+        self._available_tools = tools_docs
+        self.system_plan_gen = PROMPTS[model]['plan']['system']
+        self.user_plan_gen = PROMPTS[model]['plan']['user']
+        self.system_plan_con = PROMPTS[model]['plan_conversion']['system']
+        self.user_plan_con = PROMPTS[model]['plan_conversion']['user']
 
     def query(self, sid: int, user_in: str, rag=True):
         """Performs a query to the Large Language Model, set `rag=True`
@@ -29,7 +29,7 @@ class Agent:
             context = self._retrieve(user_in)
 
         # user prompt
-        prompt = self.user_prompt.format(user_input=user_in, context=context)
+        prompt = self.user_plan_gen.format(user_input=user_in, tools=self._available_tools, context=context)
         self.mem.store_message(
             sid,
             Message(Role.USER, prompt)
@@ -47,13 +47,16 @@ class Agent:
             Message(Role.ASSISTANT, response)
         )
 
-    def _retrieve(self, user_in: str):
-        """Get context from Qdrant"""
-        context = ''
-        for retrieved in self.vdb.retrieve(user_in):
-            context += (f"{retrieved.payload['title']}:"
-                        f"\n{retrieved.payload['text']}\n\n")
-        return context
+    def execute_plan(self, sid):
+        """Executes the last plan stored in memory"""
+
+    def new_session(self, sid: int):
+        """Initializes a new conversation"""
+        self.mem.store_message(sid, Message(Role.SYS, self.system_plan_gen))
+
+    def get_session(self, sid: int):
+        """Open existing conversation"""
+        return self.mem.get_session(sid)
 
     def save_session(self, sid: int):
         """Saves the specified session to JSON"""
@@ -66,6 +69,14 @@ class Agent:
     def rename_session(self, sid: int, session_name: str):
         """Rename the specified session"""
         self.mem.rename_session(sid, session_name)
+
+    def _retrieve(self, user_in: str):
+        """Get context from Qdrant"""
+        context = ''
+        for retrieved in self.vdb.retrieve(user_in):
+            context += (f"{retrieved.payload['title']}:"
+                        f"\n{retrieved.payload['text']}\n\n")
+        return context
 
 
 if __name__ == '__main__':

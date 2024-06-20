@@ -52,7 +52,6 @@ class Store:
         """Creates a new Qdrant collection, uploads the collection documents
         using `upload` and creates a metadata file for collection."""
         if collection.title in self.collections:
-            print('Already exists')
             return None
 
         done = self._connection.create_collection(

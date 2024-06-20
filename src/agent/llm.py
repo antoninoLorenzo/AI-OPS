@@ -9,7 +9,7 @@ LLM providers are:
 from dataclasses import dataclass
 from ollama import Client
 
-AVAILABLE_MODELS = ['phi3', 'gemma:2b', 'gemma:7b']
+AVAILABLE_MODELS = ['gemma:2b', 'gemma:7b', 'llama3']
 
 
 @dataclass
