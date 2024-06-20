@@ -46,8 +46,13 @@ class Collection:
     topics: List[Topic]
     size: Optional[int] = 0  # points to the number of chunks in a Collection
 
+    def document_names(self) -> list:
+        """The document names are used to filter queries to the Knowledge Database"""
+        return [doc.name for doc in self.documents]
+
     def __str__(self):
         docs = "| - Documents\n"
         for doc in self.documents:
             docs += f'    | - {doc.name}\n'
-        return f'Title: {self.title} ({self.id})\n| - Topics: {", ".join(self.topics)}\n{docs}'
+        return (f'Title: {self.title} ({self.id})\n'
+                f'| - Topics: {", ".join([topic.name for topic in self.topics])}\n{docs}')

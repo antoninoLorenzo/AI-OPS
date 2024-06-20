@@ -6,7 +6,8 @@ from pathlib import Path
 import ollama
 from qdrant_client import QdrantClient, models
 
-from src.agent.knowledge.chunker import chunk
+from src.agent.knowledge.nlp import chunk
+from src.agent.knowledge.routing import Router
 from src.agent.knowledge.collections import Document, Collection, Topic
 
 
@@ -14,7 +15,11 @@ class Store:
     """Act as interface for Qdrant database.
     Manages Collections and implements the Upload/Retrieve operations."""
 
-    def __init__(self, url: str = 'http://localhost:6333', in_memory: bool = False):
+    def __init__(self,
+                 url: str = 'http://localhost:6333',
+                 in_memory: bool = False,
+                 router: Router = None
+                 ):
         self._in_memory = in_memory
 
         if in_memory:
@@ -41,6 +46,7 @@ class Store:
                 prompt='init'
             )['embedding']
         )
+        self._query_router: Router | None = router
 
     def create_collection(self, collection: Collection):
         """Creates a new Qdrant collection, uploads the collection documents
@@ -125,7 +131,14 @@ class Store:
         # self._collections[collection_name].documents.append(document)
         self._collections[collection_name].size = current_len + len(emb_chunks)
 
-    def retrieve(self, query: str, collection_name: str, limit: int = 3):
+    def retrieve(self, query: str, limit: int = 3):
+        """Performs Query Routing and Retrieval of chunks"""
+        if not self._query_router:
+            raise RuntimeError('retrieve can be called only with a query router')
+        collection_name = self._query_router.find_route(user_query=query, collections=self._collections)
+        return self.retrieve_from(query, collection_name, limit)
+
+    def retrieve_from(self, query: str, collection_name: str, limit: int = 3):
         """Performs retrieval of chunks from the vector database"""
         if len(query) < 3:
             return None
@@ -133,18 +146,10 @@ class Store:
         hits = self._connection.search(
             collection_name=collection_name,
             query_vector=self._encoder(self._embedding_model, query)['embedding'],
-            limit=limit
+            limit=limit,
+            score_threshold=0.5
         )
         return hits
-
-    @property
-    def collections(self):
-        return self._collections
-
-    def get_collection(self, name):
-        if name not in self.collections:
-            return None
-        return self._collections[name]
 
     def get_available_collections(self):
         """Makes a query to Qdrant and uses collections metadata to get
@@ -182,6 +187,15 @@ class Store:
                 ))
 
         return zip(names, collections)
+
+    @property
+    def collections(self):
+        return self._collections
+
+    def get_collection(self, name):
+        if name not in self.collections:
+            return None
+        return self._collections[name]
 
 
 if __name__ == '__main__':
