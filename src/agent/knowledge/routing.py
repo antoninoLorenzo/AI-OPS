@@ -1,9 +1,11 @@
 """Implementation of Query Routing mechanism to choose between Collections
 """
+import json
 from abc import ABC, abstractmethod
 from typing import Dict
 
 from src.agent.llm import LLM
+from src.agent.prompts import PROMPTS
 from src.agent.knowledge.nlp import extract_keywords, similarity
 from src.agent.knowledge.collections import Collection
 
@@ -53,6 +55,33 @@ class SimilarityRouter(Router):
 
 
 class LLMRouter(Router):
-    def find_route(self, user_query: str, collections) -> str:
-        pass
+
+    def __init__(self, model: str = 'gemma:2b'):
+        self.llm = LLM(model)
+        self.system_prompt = PROMPTS[model]['routing']['system']
+        self.user_prompt = PROMPTS[model]['routing']['user']
+
+    def find_route(self, user_query: str, collections, verbose=False) -> str:
+        collection_string = ''
+        for _, collection in collections.items():
+            collection_string += str(collection)
+
+        messages = [
+            {'role': 'system', 'content': self.system_prompt},
+            {'role': 'user', 'content': self.user_prompt.format(user_query=user_query, collections=collection_string)}
+        ]
+
+        if verbose:
+            response = self.llm.query(messages=messages, stream=True)
+            text = ''
+            for chunk in response:
+                print(chunk['message']['content'], end='')
+                text += chunk['message']['content']
+            print()
+            output = json.loads(text)
+            return output['collection_name']
+
+        response = self.llm.query(messages, stream=False)
+        output = json.loads(response['message']['content'])
+        return output['collection_name']
 
