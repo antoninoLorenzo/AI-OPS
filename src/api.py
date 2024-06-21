@@ -1,0 +1,125 @@
+from fastapi import FastAPI
+
+from src import upload_knowledge
+from src.agent import Agent
+from src.agent.knowledge import Store
+from src.agent.tools import TOOLS
+
+# setup
+model = 'llama3'
+tools = '\n'.join([tool.get_documentation() for tool in TOOLS])
+store = Store()
+upload_knowledge('../data/json', store)
+agent = Agent(model=model, tools_docs=tools, knowledge_base=store)
+
+app = FastAPI()
+
+
+# --- SESSION RELATED
+@app.get('/session/list')
+def list_sessions():
+    """
+    Return all sessions.
+    Returns a JSON list of Session objects.
+    """
+
+
+@app.get('/session/get/')
+def get_session(sid: int):
+    """
+    Return a specific session by id.
+    Returns JSON representation for a Session object.
+    """
+
+
+@app.get('/session/new/')
+def new_session(name: str):
+    """
+    Creates a new session.
+    Returns True (Success) or False (Failure).
+    """
+
+
+@app.get('/session/{sid}/rename/')
+def rename_session(sid: int, new_name: str):
+    """
+    Rename a session.
+    Returns True (Success) or False (Failure).
+    """
+
+
+@app.get('/session/{sid}/save/')
+def save_session(sid: int):
+    """
+    Save a session.
+    Returns True (Success) or False (Failure).
+    """
+
+
+@app.get('/session/{sid}/delete/')
+def delete_session(sid: int):
+    """
+    Delete a session.
+    Returns True (Success) or False (Failure).
+    """
+
+
+# --- AGENT RELATED
+@app.get('/session/{sid}/query/')
+def query(sid: int, q: str):
+    """
+    Makes a query to the Agent.
+    Returns the stream for the response.
+    """
+
+
+# --- PLAN RELATED
+@app.get('/session/{sid}/plan/list')
+def list_plans(sid: int):
+    """
+    Return all Plans.
+    Returns the JSON representation of all Plans in the current Session.
+    """
+
+
+@app.get('/session/{sid}/plan/execute')
+def execute_plan(sid: int):
+    """
+    Executes last plan.
+    Returns a stream that provide status for plan tasks execution.
+    """
+
+
+# --- KNOWLEDGE RELATED
+@app.get('collections/list')
+def list_collections():
+    """
+    Returns available Collections.
+    Returns a JSON list of available Collections.
+    """
+
+
+@app.post('collections/new')
+def create_collection(title: str, base_path: str, topics: list):
+    """
+    Creates a new Collection.
+    :param title: unique collection title
+    :param base_path: the local path to the json file containing the collection dataset
+    :param topics: a list of collection topics
+
+    Returns a stream to notify progress if input is valid.
+
+    Returns error message for any validation error.
+    1. title should be unique
+    2. base_path should exist and be a json file
+    3. the json file should follow this format:
+    [
+        {
+            "title": "collection title",
+            "content": "...",
+            "category": "document topic"
+        },
+        ...
+    ]
+    """
+
