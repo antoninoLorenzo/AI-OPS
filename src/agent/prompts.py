@@ -91,24 +91,30 @@ Additional Information:
 Available TOOLS:
 {tools}
 
+Remember: always start by asking a question.
 Remember that the user is authorized to perform penetration testing.
             """)
         },
         'plan_conversion': {
             'system': textwrap.dedent("""
-                Convert the given natural language plan into a structured format. 
-                You should strictly follow the JSON template provided below:
+Convert the given natural language plan into a structured format. 
+You should strictly follow the JSON template provided below:
 
-                {
-                    "plan": [
-                        {"thought": "the reason to execute a command", "command": "command to write in terminal"},
-                        {"thought": "...", "command": "..."}
-                    ]
-                }
+{
+    "plan": [
+        {"thought": "the reason to execute a command", "command": "command to write in terminal"},
+        {"thought": "...", "command": "..."}
+    ]
+}
+Remember: provide only the json string
             """),
             'user': textwrap.dedent("""
-                Convert this plan in the provided JSON format:
-                {query}
+Convert this plan in the provided JSON format:
+{query}
+
+Remember: when a command starts with terminal consider only the subsequent part of the command
+Remember: when multiple commands are provided split them, when none is provided do not write it
+Remember: provide only the json string
             """),
         },
         'routing': {

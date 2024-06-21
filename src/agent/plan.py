@@ -33,10 +33,6 @@ class Plan:
     """Used to manage tasks."""
     tasks: list[Task]
 
-    @staticmethod
-    def from_str(text: str):
-        """Converts a structured LLM response in a Plan object"""
-
     def execute(self):
         """Executes the tasks and yields the output of each task"""
         for task in self.tasks:
@@ -48,3 +44,9 @@ class Plan:
             task.status = TaskStatus.DONE
 
         yield self.tasks
+
+    def __str__(self):
+        tasks = ''
+        for task in self.tasks:
+            tasks += f'> Command: {task.command}\nThought: {task.thought}\n\n'
+        return f'Tasks: \n{tasks}'

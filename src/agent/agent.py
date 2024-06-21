@@ -1,14 +1,19 @@
 """Contains the class `Agent`, the core of the system."""
+import json
+from json import JSONDecodeError
+
 from src.agent.llm import LLM
 from src.agent.knowledge import Store
 from src.agent.memory import Memory, Message, Role
+from src.agent.plan import Plan, Task
+from src.agent.tools import Terminal
 from src.agent.prompts import PROMPTS
 
 
 class Agent:
     """Penetration Testing Assistant"""
 
-    def __init__(self, model: str, tools_docs: str, knowledge_base: Store = None):
+    def __init__(self, model: str, tools_docs: str = '', knowledge_base: Store = None):
         # Agent Components
         self.llm = LLM(model=model)
         self.mem = Memory()
@@ -54,6 +59,31 @@ class Agent:
             Message(Role.ASSISTANT, response, tokens=response_tokens)
         )
 
+    def extract_plan(self, plan_nl):
+        """Converts a structured LLM response in a Plan object"""
+        messages = [
+            {'role': 'system', 'content': self.system_plan_con},
+            {'role': 'system', 'content': self.user_plan_con.format(query=plan_nl)}
+        ]
+        response = self.llm.query(messages=messages, stream=False)
+        try:
+            plan_data = json.loads(response['message']['content'])
+
+            tasks = []
+            for task in plan_data['plan']:
+                if len(task['command']) == 0:
+                    continue
+                tasks.append(Task(
+                    command=task['command'],
+                    thought=task['thought'],
+                    tool=Terminal
+                ))
+
+            return Plan(tasks)
+        except JSONDecodeError:
+            print(response)  # use regex (or retry)
+            return None
+
     def execute_plan(self, sid):
         """Executes the last plan stored in memory"""
 
@@ -92,7 +122,7 @@ if __name__ == '__main__':
     from src.agent.knowledge.routing import LLMRouter
 
     # vector_db = Store(router=LLMRouter())
-    agent = Agent(model='llama3', tools_docs='')  # , knowledge_base=vector_db)
+    agent = Agent(model='llama3')  # , knowledge_base=vector_db)
 
     user_query = 'what are most common authentication issues in websites?'
     # user_query = 'How do I perform host discovery with nmap?'

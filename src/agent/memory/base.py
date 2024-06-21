@@ -45,8 +45,18 @@ class Session:
     """Represents a conversation"""
     name: str
     messages: List[Message]
+    __plans: List[Plan] = None  # mutable not allowed here
 
-    # plan
+    @property
+    def plans(self):
+        """Interface to private plan property"""
+        return self.__plans
+
+    def add_plan(self, plan: Plan):
+        """Initialize plan list and add a Plan"""
+        if not self.__plans:
+            self.__plans = []
+        self.__plans.append(plan)
 
     def messages_to_dict_list(self):
         """Converts the message list into a format compatible with Ollama"""
