@@ -52,23 +52,5 @@ def cli_test():
             print()
 
 
-def api_test():
-    s = requests.Session()
-    url = 'http://127.0.0.1:8000/session/0/query'
-    params = {'q': 'tell me how to make a search engine'}
-
-    with s.get(url, params=params, headers=None, stream=True) as resp:
-        print('Assistant: ')
-        text = ''
-        for chunk in resp.iter_content():
-            if chunk:
-                text += chunk.decode()
-                print(chunk.decode(), end='')
-                if len(text) % 200 == 0:
-                    print()
-        print()
-
-
 if __name__ == "__main__":
-    # cli_test()
-    api_test()
+    cli_test()

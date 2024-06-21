@@ -152,6 +152,10 @@ Remember: provide only the json string
                 
                 {context}
             """)
+        },
+        'plan_conversion': {
+            'system': '',
+            'user': ''
         }
     }
 }

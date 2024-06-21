@@ -23,6 +23,7 @@ Knowledge Related:
 import argparse
 from argparse import ArgumentParser
 
+import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -35,10 +36,9 @@ from src.agent.knowledge import Store
 from src.agent.tools import TOOLS
 
 # Agent Setup
-# model = 'llama3'
-# tools = '\n'.join([tool.get_documentation() for tool in TOOLS])
-model = 'gemma:2b'  # testing setup
-tools = ''
+model = 'llama3'
+tools = '\n'.join([tool.get_documentation() for tool in TOOLS])
+llm = LLM('gemma:2b')
 # store = Store()
 # upload_knowledge('../data/json', store)
 agent = Agent(model=model, tools_docs=tools)# , knowledge_base=store)
@@ -149,11 +149,21 @@ def delete_session(sid: int):
 
 def query_generator(sid: int, q: str):
     # testing with llm only
+    # stream = agent.query(sid, q, rag=False)
+    # stream = llm.query(messages=[
+    #    {'role': 'system', 'content': 'You are an assistant.'},
+    #    {'role': 'user', 'content': q}
+    #])
     stream = agent.query(sid, q, rag=False)
     for chunk in stream:
+        # print(chunk['message']['content'], end='')
+        # yield chunk['message']['content']
+        print(chunk, end='')
         yield chunk
+    print()
 
 
+# TODO: query should be body parameter
 @app.get('/session/{sid}/query/')
 def query(sid: int, q: str):
     """
@@ -213,7 +223,4 @@ def create_collection(title: str, base_path: str, topics: list):
     ]
     """
 
-
-if __name__ == "__main__":
-    # get api settings ...
-    pass
+#  fastapi.exe dev .\src\api.py

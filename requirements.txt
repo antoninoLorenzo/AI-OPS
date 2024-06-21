@@ -2,3 +2,12 @@ fastapi
 ollama
 qdrant-client
 spacy
+uvicorn
+isort
+pylint
+python-dotenv
+tqdm
+pandas
+requests
+matplotlib
+seaborn
