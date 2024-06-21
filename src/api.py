@@ -20,10 +20,6 @@ Knowledge Related:
 - /collections/list: Returns available Collections.
 - /collections/new: Creates a new Collection.
 """
-import argparse
-from argparse import ArgumentParser
-
-import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -148,19 +144,9 @@ def delete_session(sid: int):
 # --- AGENT RELATED
 
 def query_generator(sid: int, q: str):
-    # testing with llm only
-    # stream = agent.query(sid, q, rag=False)
-    # stream = llm.query(messages=[
-    #    {'role': 'system', 'content': 'You are an assistant.'},
-    #    {'role': 'user', 'content': q}
-    #])
     stream = agent.query(sid, q, rag=False)
     for chunk in stream:
-        # print(chunk['message']['content'], end='')
-        # yield chunk['message']['content']
-        print(chunk, end='')
         yield chunk
-    print()
 
 
 # TODO: query should be body parameter
@@ -222,5 +208,3 @@ def create_collection(title: str, base_path: str, topics: list):
         ...
     ]
     """
-
-#  fastapi.exe dev .\src\api.py

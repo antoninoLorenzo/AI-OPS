@@ -74,7 +74,7 @@ fastapi.exe dev ./src/api.py
 ```
 
 ```
-python ./cli_client.py
+python ./ai-ops-cli.py
 ```
 
 2. (b) **Run with GUI**
