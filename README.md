@@ -61,8 +61,24 @@ whatever hardware setup</ins> you have available (see [Components](#components) 
 - Docker
 - Minimum hardware requirements to-be-defined
 
+1. **Python Requirements**
+```
+pip install -r requirements.txt
+```
 
-1. **TODO:** *work in progress*
+...
+
+2. (a) **Run with CLI**
+```
+fastapi.exe dev ./src/api.py
+```
+
+```
+python ./cli_client.py
+```
+
+2. (b) **Run with GUI**
+...
 
 ### Development
 
