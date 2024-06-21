@@ -5,7 +5,7 @@ import json
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import List
+from typing import List, Dict
 
 from src.agent.plan import Plan
 
@@ -86,7 +86,7 @@ class Memory:
     """
 
     def __init__(self):
-        self.sessions = {}
+        self.sessions: Dict[int: Session] = {}
         self.load_sessions()
 
     def store_message(self, sid: int, message: Message):

@@ -35,12 +35,13 @@ from src.agent.knowledge import Store
 from src.agent.tools import TOOLS
 
 # Agent Setup
-model = 'llama3'
-tools = '\n'.join([tool.get_documentation() for tool in TOOLS])
+# model = 'llama3'
+# tools = '\n'.join([tool.get_documentation() for tool in TOOLS])
+model = 'gemma:2b'  # testing setup
+tools = ''
 # store = Store()
 # upload_knowledge('../data/json', store)
-# agent = Agent(model=model, tools_docs=tools)# , knowledge_base=store)
-llm = LLM(model)
+agent = Agent(model=model, tools_docs=tools)# , knowledge_base=store)
 
 # API Setup
 origins = [
@@ -64,6 +65,16 @@ def list_sessions():
     Return all sessions.
     Returns a JSON list of Session objects.
     """
+    sessions = agent.get_sessions()
+    json_sessions = []
+    for sid, session in sessions.items():
+        json_sessions.append({
+            'sid': sid,
+            'name': session.name,
+            'messages': session.messages_to_dict_list(),
+            # '': session.plans
+        })
+    return json_sessions
 
 
 @app.get('/session/get/')
@@ -71,51 +82,76 @@ def get_session(sid: int):
     """
     Return a specific session by id.
     Returns JSON representation for a Session object.
+
+    If session do not exist returns JSON response:
+        {'success': False, 'message': 'error message'}
     """
+    session = agent.get_session(sid)
+    if not session:
+        return {'success': False, 'message': 'Invalid session id'}
+    return {
+        'sid': sid,
+        'name': session.name,
+        'messages': session.messages_to_dict_list()
+    }
 
 
 @app.get('/session/new/')
 def new_session(name: str):
     """
     Creates a new session.
-    Returns True (Success) or False (Failure). (or redirects to load the new session)
+    Returns the new session id.
     """
+    sessions = agent.get_sessions()
+
+    if len(sessions) == 0:
+        new_id = 1
+    else:
+        new_id = max(sorted(sessions.keys())) + 1
+    agent.new_session(new_id)
+
+    return {'sid': new_id}
 
 
 @app.get('/session/{sid}/rename/')
 def rename_session(sid: int, new_name: str):
-    """
-    Rename a session.
-    Returns True (Success) or False (Failure). (or redirects to load the renamed session)
-    """
+    """Rename a session."""
+    agent.rename_session(sid, new_name)  # should return a page reload signal?
 
 
 @app.get('/session/{sid}/save/')
 def save_session(sid: int):
     """
     Save a session.
-    Returns True (Success) or False (Failure).
+    Returns JSON response with 'success' (True or False) and 'message'.
     """
+    try:
+        agent.save_session(sid)
+        return {'success': True, 'message': f'Saved session {sid}'}
+    except ValueError as err:
+        return {'success': False, 'message': err}
 
 
 @app.get('/session/{sid}/delete/')
 def delete_session(sid: int):
     """
     Delete a session.
-    Returns True (Success) or False (Failure). (or redirects to load the updated responses)
+    Returns JSON response with 'success' (True or False) and 'message'.
     """
+    try:
+        agent.delete_session(sid)
+        return {'success': True, 'message': f'Deleted session {sid}'}
+    except ValueError as err:
+        return {'success': False, 'message': err}
 
 
 # --- AGENT RELATED
 
 def query_generator(sid: int, q: str):
     # testing with llm only
-    stream = llm.query(messages=[
-        {'role': 'system', 'content': 'You are an assistant'},
-        {'role': 'user', 'content': q}
-    ])
+    stream = agent.query(sid, q, rag=False)
     for chunk in stream:
-        yield chunk['message']['content']
+        yield chunk
 
 
 @app.get('/session/{sid}/query/')

@@ -140,6 +140,19 @@ Remember: provide only the json string
             {collections}
             """)
         }
+    },
+    'gemma:2b': {
+        'plan': {
+            'system': textwrap.dedent("""
+            
+            """),
+            'user': textwrap.dedent("""
+                User: {user_input}
+                {tools}
+                
+                {context}
+            """)
+        }
     }
 }
 

@@ -95,6 +95,10 @@ class Agent:
         """Open existing conversation"""
         return self.mem.get_session(sid)
 
+    def get_sessions(self):
+        """Returns list of Session objects"""
+        return self.mem.get_sessions()
+
     def save_session(self, sid: int):
         """Saves the specified session to JSON"""
         self.mem.save_session(sid)
