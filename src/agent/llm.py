@@ -9,7 +9,20 @@ LLM providers are:
 from dataclasses import dataclass
 from ollama import Client
 
-AVAILABLE_MODELS = ['gemma:2b', 'gemma:7b', 'llama3']
+AVAILABLE_MODELS = {
+    'gemma:2b': {
+        'options': None
+    },
+    'gemma:7b': {
+        'options': None
+    },
+    'llama3': {
+        'options': {
+            'temperature': 0.5,
+            'num_ctx': 8000
+        }
+    }
+}
 
 
 @dataclass
@@ -19,7 +32,7 @@ class LLM:
     client_url: str = 'http://localhost:11434'
 
     def __post_init__(self):
-        if self.model not in AVAILABLE_MODELS:
+        if self.model not in AVAILABLE_MODELS.keys():
             raise ValueError(f'Model {self.model} is not available')
         self.client = Client(self.client_url)
 
@@ -29,6 +42,7 @@ class LLM:
             model=self.model,
             messages=messages,
             stream=stream,
+            options=AVAILABLE_MODELS[self.model]['options']
         )
 
 
