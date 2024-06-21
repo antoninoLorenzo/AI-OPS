@@ -1,14 +1,14 @@
 """RAG Vector Database interface"""
 import json
-from typing import Dict
 from pathlib import Path
+from typing import Dict
 
 import ollama
 from qdrant_client import QdrantClient, models
 
+from src.agent.knowledge.collections import Collection, Document, Topic
 from src.agent.knowledge.nlp import chunk
 from src.agent.knowledge.routing import Router
-from src.agent.knowledge.collections import Document, Collection, Topic
 
 
 class Store:

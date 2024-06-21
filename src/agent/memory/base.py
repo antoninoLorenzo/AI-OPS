@@ -3,9 +3,9 @@ Contains the classes that represent Memory.
 """
 import json
 from dataclasses import dataclass
-from typing import List
 from enum import StrEnum
 from pathlib import Path
+from typing import List
 
 from src.agent.plan import Plan
 

@@ -7,6 +7,7 @@ LLM providers are:
 - [ ] HuggingFace
 """
 from dataclasses import dataclass
+
 from ollama import Client
 
 AVAILABLE_MODELS = {

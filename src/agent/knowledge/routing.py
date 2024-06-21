@@ -3,9 +3,9 @@
 import json
 from abc import ABC, abstractmethod
 
+from src.agent.knowledge.nlp import extract_keywords, similarity
 from src.agent.llm import LLM
 from src.agent.prompts import PROMPTS
-from src.agent.knowledge.nlp import extract_keywords, similarity
 
 
 class Router(ABC):

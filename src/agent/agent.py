@@ -2,12 +2,12 @@
 import json
 from json import JSONDecodeError
 
-from src.agent.llm import LLM
 from src.agent.knowledge import Store
+from src.agent.llm import LLM
 from src.agent.memory import Memory, Message, Role
 from src.agent.plan import Plan, Task
-from src.agent.tools import Terminal
 from src.agent.prompts import PROMPTS
+from src.agent.tools import Terminal
 
 
 class Agent:

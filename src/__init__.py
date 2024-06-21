@@ -1,8 +1,7 @@
 import json
 from pathlib import Path
 
-from src.agent.knowledge import Store
-from src.agent.knowledge import Collection, Document, Topic
+from src.agent.knowledge import Collection, Document, Store, Topic
 
 
 def upload_knowledge(path: str, vdb: Store):

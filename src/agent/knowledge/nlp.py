@@ -6,7 +6,6 @@ import yake
 
 from src.agent.knowledge.collections import Document
 
-
 nlp = spacy.load("en_core_web_lg")
 kw_extractor = yake.KeywordExtractor()
 
