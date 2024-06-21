@@ -7,12 +7,12 @@ from src.agent.prompts import PROMPTS
 
 class Agent:
     """Penetration Testing Assistant"""
-    def __init__(self, model: str, tools_docs: str, knowledge_base: Store):
+
+    def __init__(self, model: str, tools_docs: str, knowledge_base: Store = None):
         # Agent Components
         self.llm = LLM(model=model)
         self.mem = Memory()
-        self.vdb = knowledge_base
-        # 'You are an assistant in penetration testing'
+        self.vdb: Store | None = knowledge_base
 
         # Prompts
         self._available_tools = tools_docs
@@ -21,7 +21,7 @@ class Agent:
         self.system_plan_con = PROMPTS[model]['plan_conversion']['system']
         self.user_plan_con = PROMPTS[model]['plan_conversion']['user']
 
-    def query(self, sid: int, user_in: str, rag=True):
+    def query(self, sid: int, user_in: str, rag=True, stream=True):
         """Performs a query to the Large Language Model, set `rag=True`
         to leverage Retrieval Augmented Generation."""
         context = ''
@@ -38,13 +38,20 @@ class Agent:
 
         # generate response
         response = ''
+        prompt_tokens = 0
+        response_tokens = 0
         for chunk in self.llm.query(messages):
+            if chunk['done']:
+                prompt_tokens = chunk['prompt_eval_count']
+                response_tokens = chunk['eval_count']
             yield chunk['message']['content']
+
             response += chunk['message']['content']
 
+        self.mem.get_session(sid).messages[-1].tokens = prompt_tokens
         self.mem.store_message(
             sid,
-            Message(Role.ASSISTANT, response)
+            Message(Role.ASSISTANT, response, tokens=response_tokens)
         )
 
     def execute_plan(self, sid):
@@ -72,6 +79,8 @@ class Agent:
 
     def _retrieve(self, user_in: str):
         """Get context from Qdrant"""
+        if not self.vdb:
+            raise RuntimeError('Trying to use Agent with RAG but it is not initialized')
         context = ''
         for retrieved in self.vdb.retrieve(user_in):
             context += (f"{retrieved.payload['title']}:"
@@ -82,12 +91,12 @@ class Agent:
 if __name__ == '__main__':
     from src.agent.knowledge.routing import LLMRouter
 
-    vector_db = Store(router=LLMRouter())
-    agent = Agent(model='gemma:2b', tools_docs='', knowledge_base=vector_db)
+    # vector_db = Store(router=LLMRouter())
+    agent = Agent(model='llama3', tools_docs='')  # , knowledge_base=vector_db)
 
     user_query = 'what are most common authentication issues in websites?'
     # user_query = 'How do I perform host discovery with nmap?'
 
-    for chunk in agent.query(1, user_query):
+    for chunk in agent.query(1, user_query, rag=False):
         print(chunk, end='')
-    print()
+    print(f'Tokens used: {agent.get_session(1).token_length()}')

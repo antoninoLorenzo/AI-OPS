@@ -1,3 +1,6 @@
+"""
+Contains the classes that represent Memory.
+"""
 import json
 from dataclasses import dataclass
 from typing import List
@@ -12,6 +15,7 @@ if not SESSIONS_PATH.exists():
 
 
 class Role(StrEnum):
+    """Message role"""
     SYS = 'system'
     USER = 'user'
     ASSISTANT = 'assistant'
@@ -30,12 +34,15 @@ class Role(StrEnum):
 
 @dataclass
 class Message:
+    """Message object"""
     role: Role
     content: str
+    tokens: int = 0
 
 
 @dataclass
 class Session:
+    """Represents a conversation"""
     name: str
     messages: List[Message]
 
@@ -44,6 +51,13 @@ class Session:
     def messages_to_dict_list(self):
         """Converts the message list into a format compatible with Ollama"""
         return [{'role': str(msg.role), 'content': msg.content} for msg in self.messages]
+
+    def token_length(self):
+        """Get the number of tokens used until now"""
+        tok_len = 0
+        for msg in self.messages:
+            tok_len += msg.tokens
+        return tok_len
 
     @staticmethod
     def from_json(path: str):
