@@ -8,7 +8,7 @@ jobs:
     env:
       SRC_PATH: 'src'
       README_PATH: 'README.md'
-      REQUIREMENTS_PATH: 'dev-requirements.txt'
+      REQUIREMENTS_PATH: 'requirements.txt'
       P_SCORE: 'green'
       G_SCORE: 'yellow'
       O_SCORE: 'orange'
