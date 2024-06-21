@@ -1,3 +1,25 @@
+"""
+API Interface for AI-OPS, here is provided the list of available endpoints.
+
+Session Related:
+- /session/list: Return all sessions.
+- /session/get/{sid}: Return a specific session by ID.
+- /session/new/{name}: Creates a new session.
+- /session/{sid}/rename/{new_name}: Rename a session.
+- /session/{sid}/save: Save a session.
+- /session/{sid}/delete: Delete a session.
+
+Agent Related:
+- /session/{sid}/query/{q}: Makes a query to the Agent.
+
+Plan Related:
+- /session/{sid}/plan/list: Return all Plans in the current Session.
+- /session/{sid}/plan/execute: Executes the last plan.
+
+Knowledge Related:
+- /collections/list: Returns available Collections.
+- /collections/new: Creates a new Collection.
+"""
 from fastapi import FastAPI
 
 from src import upload_knowledge
