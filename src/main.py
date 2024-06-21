@@ -1,7 +1,10 @@
+import requests
+
 from src import upload_knowledge
 from src.agent import Agent
 from src.agent.knowledge import Store
 from src.agent.tools import TOOLS
+
 
 # Enter: new 1
 # Enter: rename plan_no_rag
@@ -18,7 +21,7 @@ def cli_test():
     # upload_knowledge('../data/json', vector_db)
 
     # =================================================================
-    agent = Agent(model=ollama_model, tools_docs=tools_documentation)#, knowledge_base=vector_db)
+    agent = Agent(model=ollama_model, tools_docs=tools_documentation)  # , knowledge_base=vector_db)
     current_session = 0
     while True:
         user_input = input("Enter: ")
@@ -49,5 +52,23 @@ def cli_test():
             print()
 
 
+def api_test():
+    s = requests.Session()
+    url = 'http://127.0.0.1:8000/session/0/query'
+    params = {'q': 'tell me how to make a search engine'}
+
+    with s.get(url, params=params, headers=None, stream=True) as resp:
+        print('Assistant: ')
+        text = ''
+        for chunk in resp.iter_content():
+            if chunk:
+                text += chunk.decode()
+                print(chunk.decode(), end='')
+                if len(text) % 200 == 0:
+                    print()
+        print()
+
+
 if __name__ == "__main__":
-    cli_test()
+    # cli_test()
+    api_test()

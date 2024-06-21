@@ -20,21 +20,41 @@ Knowledge Related:
 - /collections/list: Returns available Collections.
 - /collections/new: Creates a new Collection.
 """
+import argparse
+from argparse import ArgumentParser
+
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+
 
 from src import upload_knowledge
 from src.agent import Agent
+from src.agent.llm import LLM
 from src.agent.knowledge import Store
 from src.agent.tools import TOOLS
 
-# setup
+# Agent Setup
 model = 'llama3'
 tools = '\n'.join([tool.get_documentation() for tool in TOOLS])
-store = Store()
-upload_knowledge('../data/json', store)
-agent = Agent(model=model, tools_docs=tools, knowledge_base=store)
+# store = Store()
+# upload_knowledge('../data/json', store)
+# agent = Agent(model=model, tools_docs=tools)# , knowledge_base=store)
+llm = LLM(model)
+
+# API Setup
+origins = [
+    'http://localhost:3000'  # default frontend port
+]
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # --- SESSION RELATED
@@ -58,7 +78,7 @@ def get_session(sid: int):
 def new_session(name: str):
     """
     Creates a new session.
-    Returns True (Success) or False (Failure).
+    Returns True (Success) or False (Failure). (or redirects to load the new session)
     """
 
 
@@ -66,7 +86,7 @@ def new_session(name: str):
 def rename_session(sid: int, new_name: str):
     """
     Rename a session.
-    Returns True (Success) or False (Failure).
+    Returns True (Success) or False (Failure). (or redirects to load the renamed session)
     """
 
 
@@ -82,17 +102,29 @@ def save_session(sid: int):
 def delete_session(sid: int):
     """
     Delete a session.
-    Returns True (Success) or False (Failure).
+    Returns True (Success) or False (Failure). (or redirects to load the updated responses)
     """
 
 
 # --- AGENT RELATED
+
+def query_generator(sid: int, q: str):
+    # testing with llm only
+    stream = llm.query(messages=[
+        {'role': 'system', 'content': 'You are an assistant'},
+        {'role': 'user', 'content': q}
+    ])
+    for chunk in stream:
+        yield chunk['message']['content']
+
+
 @app.get('/session/{sid}/query/')
 def query(sid: int, q: str):
     """
     Makes a query to the Agent.
     Returns the stream for the response.
     """
+    return StreamingResponse(query_generator(sid, q))
 
 
 # --- PLAN RELATED
@@ -145,3 +177,7 @@ def create_collection(title: str, base_path: str, topics: list):
     ]
     """
 
+
+if __name__ == "__main__":
+    # get api settings ...
+    pass
