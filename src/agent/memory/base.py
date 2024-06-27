@@ -60,7 +60,10 @@ class Session:
 
     def messages_to_dict_list(self):
         """Converts the message list into a format compatible with Ollama"""
-        return [{'role': str(msg.role), 'content': msg.content} for msg in self.messages]
+        return [
+            {'role': str(msg.role), 'content': msg.content}
+            for msg in self.messages
+        ]
 
     def token_length(self):
         """Get the number of tokens used until now"""
@@ -76,7 +79,10 @@ class Session:
             data = json.load(fp)
             return data['id'], Session(
                 name=data['name'],
-                messages=[Message(Role.from_str(msg['role']), msg['content']) for msg in data['messages']]
+                messages=[
+                    Message(Role.from_str(msg['role']), msg['content'])
+                    for msg in data['messages']
+                ]
             )
 
 
@@ -90,7 +96,8 @@ class Memory:
         self.load_sessions()
 
     def store_message(self, sid: int, message: Message):
-        """Add a message to a session identified by session id or creates a new one"""
+        """Add a message to a session identified by session id.
+        Creates a new session if the specified do not exists."""
         if not isinstance(message, Message):
             raise ValueError(f'Not a message: {message}')
         if sid not in self.sessions:
@@ -99,7 +106,7 @@ class Memory:
         self.sessions[sid].messages.append(message)
 
     def store_plan(self, sid: int, plan: Plan):
-        pass
+        """"""
 
     def get_session(self, sid: int) -> Session:
         """
