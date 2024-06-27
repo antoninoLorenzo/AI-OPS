@@ -1,5 +1,6 @@
 """
-Retrieval Augmented Generation chunking used to put documents into Qdrant.
+Retrieval Augmented Generation chunking used to put documents
+into Qdrant.
 """
 import spacy
 import yake

@@ -5,8 +5,8 @@ from typing import List, Optional
 
 @dataclass
 class Topic:
-    """One of the possible Penetration Testing topics, used to choose a collection
-    and to filter documents"""
+    """One of the possible Penetration Testing topics, used to choose
+    a collection and to filter documents"""
     name: str
 
     def __str__(self):

@@ -58,8 +58,8 @@ class SimilarityRouter(Router):
 
 class LLMRouter(Router):
     """Uses a Large Language Model to find candidate collection for given query.
-    Using a local model is not the best choice for performance, HuggingFace Inference
-    API could be used in future"""
+    Using a local model is not the best choice for performance, HuggingFace
+    Inference API could be used in future"""
 
     def __init__(self, model: str = 'gemma:2b'):
         self.llm = LLM(model)
@@ -93,4 +93,3 @@ class LLMRouter(Router):
         response = self.llm.query(messages, stream=False)
         output = json.loads(response['message']['content'])
         return output['collection_name']
-

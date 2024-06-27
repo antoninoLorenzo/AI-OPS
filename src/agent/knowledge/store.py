@@ -69,7 +69,8 @@ class Store:
         if len(collection.documents) > 0:
             for document in collection.documents:
                 self.upload(document, collection.title)
-        print(f'Collection {collection.title}: initialized with {len(collection.documents)} documents')
+        print(f'Collection {collection.title}: '
+              f'initialized with {len(collection.documents)} documents')
 
         # update metadata in production
         if not self._in_memory:
@@ -95,10 +96,11 @@ class Store:
             with open(new_file, 'w+', encoding='utf-8') as fp:
                 json.dump(collection_metadata, fp)
 
-            print(f'Collection {collection.title}: saved metadata to {new_file}')
+            print(f'Collection {collection.title}: saved to {new_file}')
 
     def upload(self, document: Document, collection_name: str):
-        """Performs chunking and embedding of a document and uploads it to the specified collection"""
+        """Performs chunking and embedding of a document
+        and uploads it to the specified collection"""
         if collection_name not in self._collections:
             raise ValueError('Collection does not exist')
 
@@ -134,7 +136,10 @@ class Store:
         """Performs Query Routing and Retrieval of chunks"""
         if not self._query_router:
             raise RuntimeError('retrieve can be called only with a query router')
-        collection_name = self._query_router.find_route(user_query=query, collections=self._collections)
+        collection_name = self._query_router.find_route(
+            user_query=query,
+            collections=self._collections
+        )
         return self.retrieve_from(query, collection_name, limit)
 
     def retrieve_from(self, query: str, collection_name: str, limit: int = 3):
@@ -189,9 +194,13 @@ class Store:
 
     @property
     def collections(self):
+        """All stored collections
+        :return dict str: Collection
+        """
         return self._collections
 
     def get_collection(self, name):
+        """Get a collection by name"""
         if name not in self.collections:
             return None
         return self._collections[name]
