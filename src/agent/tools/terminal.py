@@ -1,3 +1,4 @@
+"""Terminal Tool"""
 import platform
 
 from src.agent.tools.base import Tool
@@ -10,7 +11,8 @@ class Terminal(Tool):
 
     def __init__(self):
         self.name = 'terminal'
-        self.tool_description = f"""Used to interact with {CUR_OS} OS or run programs from command line."""
+        self.tool_description = \
+            f"""Used to interact with {CUR_OS} OS or run programs from command line."""
 
         self.args_description = """Takes as input the command to execute."""
 

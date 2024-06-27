@@ -1,8 +1,10 @@
+"""Tool base class"""
 import json
 import subprocess
 
 
 class Tool:
+    """Represents a Penetration Testing Tool"""
     name: str
     tool_description: str
     args_description: str
@@ -30,7 +32,7 @@ class Tool:
 
         command = args[0].encode('utf-8').decode('utf-8')
         arguments = command.split()
-        result = subprocess.run(arguments, capture_output=True)
+        result = subprocess.run(arguments, capture_output=True, check=False)
 
         stdout = result.stdout.decode('utf-8', errors='replace')
         stderr = result.stderr.decode('utf-8', errors='replace')
