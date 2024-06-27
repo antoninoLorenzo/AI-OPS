@@ -54,50 +54,37 @@ whatever hardware setup</ins> you have available (see [Components](#components) 
 
 
 ## 💻 Install
-
-### End-User
 **Requirements**
-- Ollama
-- Docker
+- Ollama (see [Ollama](https://github.com/ollama/ollama))
+- Docker (see [Docker Desktop](https://docs.docker.com/desktop/))
 - Minimum hardware requirements to-be-defined
 
-1. **Python Requirements**
+
+### End-User
+
+1. Setup
+
+```
+git clone https://github.com/antoninoLorenzo/AI-OPS.git
+```
+
 ```
 pip install -r requirements.txt
 ```
 
-...
-
-2. (a) **Run with CLI**
+2. Run API
 ```
-fastapi.exe dev ./src/api.py
+fastapi.exe dev ./src/api.py 
 ```
 
+3. CLI Client
 ```
 python ./ai-ops-cli.py
 ```
 
-2. (b) **Run with GUI**
-...
-
 ### Development
-
-**Requirements**
-- Ollama
-- Linux
-- Python
-- Node
-- Docker
-
-
-1. **Python Dependencies**
-```
-pip install -r requirements.txt
-```
-```
-pip install -r dev-requirements.txt
-```
-
+**TODO**
+<!--
 Install spacy `en_core_web_lg`
 ```
 python -m spacy download en_core_web_lg
@@ -124,7 +111,7 @@ docker run -p 6333:6333 -p 6334:6334 -v C:\Users\anton\.aiops\qdrant_storage:/qd
 
 
 5. **Run Agent**
-
+-->
 
 ## 📝System Structure
 
