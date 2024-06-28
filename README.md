@@ -65,6 +65,7 @@ whatever hardware setup</ins> you have available (see [Components](#components) 
 1. **Setup**
 - Clone Repository `git clone https://github.com/antoninoLorenzo/AI-OPS.git`
 - Install Python requirements `pip install -r requirements.txt`
+- Install spacy model `python -m spacy download en_core_web_lg`
 
 
 2. **Ollama**
