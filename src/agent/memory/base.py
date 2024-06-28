@@ -87,7 +87,7 @@ class Session:
             data = json.load(fp)
 
             plans = None
-            if 'plans' in data:
+            if 'plans' in data and data['plans'] is not None:
                 plans = [plan_list for plan_list in data['plans']]
 
             session = Session(
