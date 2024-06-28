@@ -186,9 +186,9 @@ def execute_plan_stream(sid: int):
     execution = agent.execute_plan(sid)
     for iteration in execution:
         for i, task in enumerate(iteration):
-            task_str = f'{i + 1}. {task}'
+            task_str = f'{i + 1}. {task.thought}\n'
             if task.status == TaskStatus.DONE:
-                task_str += f'Output:\n{task.output}'
+                task_str += f'ai-ops:~$ {task.command}\n{task.output}\n'
             yield task_str
 
 
