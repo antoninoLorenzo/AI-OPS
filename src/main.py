@@ -4,13 +4,8 @@ from src import upload_knowledge
 from src.agent import Agent
 from src.agent.knowledge import Store
 from src.agent.tools import TOOLS
+from src.agent.plan import TaskStatus
 
-
-# Enter: new 1
-# Enter: rename plan_no_rag
-# Enter: save 1
-
-# TODO: how do we provide output of one task to another? how to manage task dependencies?
 
 def cli_test():
     """testing Agent"""
@@ -28,7 +23,12 @@ def cli_test():
         if user_input == "-1":
             break
         elif user_input == "exec":  # execute plan
-            pass
+            execution = agent.execute_plan(current_session)
+            for output in execution:
+                for i, task_overview in enumerate(output):
+                    print(f'{i+1}. {task_overview}')
+                    if task_overview.status == TaskStatus.DONE:
+                        print(f'Output:\n{task_overview.output}')
 
         elif user_input.split(" ")[0] == "new":  # create session
             agent.new_session(int(user_input.split(" ")[1]))
@@ -42,6 +42,12 @@ def cli_test():
             session_history = agent.get_session(current_session)
             for msg in session_history.messages_to_dict_list():
                 print(f'\n> {msg["role"]}: {msg["content"]}')
+            print('> Plans: ')
+            if session_history.plans is None:
+                print('NaN')
+            else:
+                for plan in session_history.plans:
+                    print(plan)
 
         elif user_input.split(" ")[0] == "rename":  # rename session
             agent.rename_session(current_session, user_input.split(" ")[1])

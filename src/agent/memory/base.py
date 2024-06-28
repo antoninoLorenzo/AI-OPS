@@ -7,7 +7,8 @@ from enum import StrEnum
 from pathlib import Path
 from typing import List, Dict
 
-from src.agent.plan import Plan
+from src.agent.tools import Terminal
+from src.agent.plan import Plan, Task
 
 SESSIONS_PATH = Path(Path.home() / '.aiops' / 'sessions')
 if not SESSIONS_PATH.exists():
@@ -65,6 +66,13 @@ class Session:
             for msg in self.messages
         ]
 
+    def plans_to_dict_list(self):
+        """Converts the plans list into a format writable in JSON"""
+        return [
+            plan.plan_to_dict_list()
+            for plan in self.plans
+        ]
+
     def token_length(self):
         """Get the number of tokens used until now"""
         tok_len = 0
@@ -77,13 +85,31 @@ class Session:
         """Get a session from a JSON file"""
         with open(str(path), 'r', encoding='utf-8') as fp:
             data = json.load(fp)
-            return data['id'], Session(
+
+            plans = [plan_list for plan_list in data['plans']] if 'plans' in data else None
+
+            session = Session(
                 name=data['name'],
                 messages=[
                     Message(Role.from_str(msg['role']), msg['content'])
                     for msg in data['messages']
-                ]
+                ],
             )
+
+            if not plans:
+                return data['id'], session
+
+            for plan in plans:
+                tasks = []
+                for task in plan:
+                    tasks.append(Task(
+                        command=task['command'],
+                        thought=task['thought'],
+                        tool=Terminal,
+                        output=task['output']
+                    ))
+                session.add_plan(Plan(tasks))
+            return data['id'], session
 
 
 class Memory:
@@ -97,16 +123,13 @@ class Memory:
 
     def store_message(self, sid: int, message: Message):
         """Add a message to a session identified by session id.
-        Creates a new session if the specified do not exists."""
+        Creates a new session if the specified do not exist."""
         if not isinstance(message, Message):
             raise ValueError(f'Not a message: {message}')
         if sid not in self.sessions:
             self.sessions[sid] = Session(name='New Session', messages=[])
 
         self.sessions[sid].messages.append(message)
-
-    def store_plan(self, sid: int, plan: Plan):
-        """"""
 
     def get_session(self, sid: int) -> Session:
         """
@@ -129,7 +152,8 @@ class Memory:
             data = {
                 'id': sid,
                 'name': session.name,
-                'messages': session.messages_to_dict_list()
+                'messages': session.messages_to_dict_list(),
+                'plans': session.plans_to_dict_list() if session.plans is not None else None
             }
             json.dump(data, fp)
 
@@ -155,3 +179,14 @@ class Memory:
             if path.is_file() and path.suffix == '.json':
                 sid, session = Session.from_json(str(path))
                 self.sessions[sid] = session
+
+    def store_plan(self, sid: int, plan: Plan):
+        """Add plan to session"""
+        self.sessions[sid].add_plan(plan)
+
+    def get_plan(self, sid):
+        """
+        :return: last plan stored in session
+        """
+        plans = self.sessions[sid].plans
+        return plans[-1] if len(plans) > 0 else None

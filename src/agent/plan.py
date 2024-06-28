@@ -45,8 +45,21 @@ class Plan:
 
         yield self.tasks
 
+    def plan_to_dict_list(self):
+        """Converts the plan to a dictionary"""
+        return [
+            {
+                'thought': task.thought,
+                'command': task.command,
+                'output': task.output,
+            }
+            for task in self.tasks
+        ]
+
     def __str__(self):
         tasks = ''
         for task in self.tasks:
-            tasks += f'> Command: {task.command}\nThought: {task.thought}\n\n'
+            tasks += f'> Command: {task.command}\nThought: {task.thought}\n'
+            if len(task.output) > 0:
+                tasks += f'Output:\n{task.output}\n\n'
         return f'Tasks: \n{tasks}'
