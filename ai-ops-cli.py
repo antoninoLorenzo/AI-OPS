@@ -10,7 +10,6 @@ import requests
 
 class AgentClient:
     """Client for Agent API"""
-    # TODO: add help
 
     def __init__(self, api_url: str = 'http://127.0.0.1:8000'):
         self.api_url = api_url
