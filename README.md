@@ -56,28 +56,31 @@ whatever hardware setup</ins> you have available (see [Components](#components) 
 ## 💻 Install
 **Requirements**
 - Ollama (see [Ollama](https://github.com/ollama/ollama))
-- Docker (see [Docker Desktop](https://docs.docker.com/desktop/))
+- Docker (see [Docker Desktop](https://docs.docker.com/desktop/)) (*in development*)
 - Minimum hardware requirements to-be-defined
 
 
 ### End-User
 
-1. Setup
+1. **Setup**
+- Clone Repository `git clone https://github.com/antoninoLorenzo/AI-OPS.git`
+- Install Python requirements `pip install -r requirements.txt`
 
-```
-git clone https://github.com/antoninoLorenzo/AI-OPS.git
-```
 
-```
-pip install -r requirements.txt
-```
+2. **Ollama**
+- Set remote origins environment variable:  `OLLAMA_ORIGINS=1.2.3.4,...` *(Optional)*
+- Set host environment variable: `OLLAMA_HOST=0.0.0.0:11434` *(Optional)*
+- Run ollama: `ollama list`
 
-2. Run API
-```
-fastapi.exe dev ./src/api.py 
-```
 
-3. CLI Client
+
+3. **Run API**
+- Launch Agent API (*in development*): `fastapi.exe dev ./src/api.py`
+  
+  -  access from other machines: `fastapi.exe dev --host 0.0.0.0 ./src/api.py`
+
+
+4. **CLI Client**
 ```
 python ./ai-ops-cli.py
 ```
