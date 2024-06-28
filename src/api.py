@@ -37,10 +37,11 @@ tools = '\n'.join([tool.get_documentation() for tool in TOOLS])
 llm = LLM('gemma:2b')
 # store = Store()
 # upload_knowledge('../data/json', store)
-agent = Agent(model=model, tools_docs=tools)# , knowledge_base=store)
+agent = Agent(model=model, tools_docs=tools)  # , knowledge_base=store)
 
 # API Setup
 origins = [
+    # '*',  # development only
     'http://localhost:3000'  # default frontend port
 ]
 
@@ -52,6 +53,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get('/')
+def root():
+    return 'AI-OPS'
 
 
 # --- SESSION RELATED
