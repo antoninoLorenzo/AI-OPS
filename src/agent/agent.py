@@ -13,7 +13,9 @@ from src.agent.tools import Terminal
 class Agent:
     """Penetration Testing Assistant"""
 
-    def __init__(self, model: str, tools_docs: str = '', knowledge_base: Store = None):
+    def __init__(self, model: str,
+                 tools_docs: str = '',
+                 knowledge_base: Store = None):
         # Agent Components
         self.llm = LLM(model=model)
         self.mem = Memory()
@@ -27,14 +29,18 @@ class Agent:
         self.user_plan_con = PROMPTS[model]['plan_conversion']['user']
 
     def query(self, sid: int, user_in: str, rag=True, stream=True):
-        """Performs a query to the Large Language Model, set `rag=True`
-        to leverage Retrieval Augmented Generation."""
+        """Performs a query to the Large Language Model,
+        set `rag=True` to leverage Retrieval Augmented Generation."""
         context = ''
         if rag:
             context = self._retrieve(user_in)
 
         # user prompt
-        prompt = self.user_plan_gen.format(user_input=user_in, tools=self._available_tools, context=context)
+        prompt = self.user_plan_gen.format(
+            user_input=user_in,
+            tools=self._available_tools,
+            context=context
+        )
         self.mem.store_message(
             sid,
             Message(Role.USER, prompt)
@@ -58,34 +64,6 @@ class Agent:
             sid,
             Message(Role.ASSISTANT, response, tokens=response_tokens)
         )
-
-    def extract_plan(self, plan_nl):
-        """Converts a structured LLM response in a Plan object"""
-        messages = [
-            {'role': 'system', 'content': self.system_plan_con},
-            {'role': 'system', 'content': self.user_plan_con.format(query=plan_nl)}
-        ]
-        response = self.llm.query(messages=messages, stream=False)
-        try:
-            plan_data = json.loads(response['message']['content'])
-
-            tasks = []
-            for task in plan_data['plan']:
-                if len(task['command']) == 0:
-                    continue
-                tasks.append(Task(
-                    command=task['command'],
-                    thought=task['thought'],
-                    tool=Terminal
-                ))
-
-            return Plan(tasks)
-        except JSONDecodeError:
-            print(response)  # use regex (or retry)
-            return None
-
-    def execute_plan(self, sid):
-        """Executes the last plan stored in memory"""
 
     def new_session(self, sid: int):
         """Initializes a new conversation"""
@@ -111,26 +89,52 @@ class Agent:
         """Rename the specified session"""
         self.mem.rename_session(sid, session_name)
 
+    def extract_plan(self, plan_nl):
+        """Converts a structured LLM response in a Plan object"""
+        prompt = self.user_plan_con.format(query=plan_nl)
+        messages = [
+            {'role': 'system', 'content': self.system_plan_con},
+            {'role': 'system', 'content': prompt}
+        ]
+        response = self.llm.query(messages=messages, stream=False)
+        try:
+            plan_data = json.loads(response['message']['content'])
+
+            tasks = []
+            for task in plan_data['plan']:
+                if len(task['command']) == 0:
+                    continue
+                tasks.append(Task(
+                    command=task['command'],
+                    thought=task['thought'],
+                    tool=Terminal
+                ))
+
+            return Plan(tasks)
+        except JSONDecodeError:
+            print(response)  # use regex (or retry)
+            return None
+
+    def execute_plan(self, sid):
+        """Extracts the plan from last message,
+        stores it in memory and executes it."""
+        messages = self.mem.get_session(sid).messages
+        if len(messages) <= 1:
+            return None
+
+        msg = messages[-1] if messages[-1].role == Role.SYS else messages[-2]
+        plan = self.extract_plan(msg.content)
+        for tasks_status in plan.execute():
+            yield tasks_status
+
+        self.mem.store_plan(sid, plan)
+
     def _retrieve(self, user_in: str):
         """Get context from Qdrant"""
         if not self.vdb:
-            raise RuntimeError('Trying to use Agent with RAG but it is not initialized')
+            raise RuntimeError('RAG is not initialized')
         context = ''
         for retrieved in self.vdb.retrieve(user_in):
             context += (f"{retrieved.payload['title']}:"
                         f"\n{retrieved.payload['text']}\n\n")
         return context
-
-
-if __name__ == '__main__':
-    from src.agent.knowledge.routing import LLMRouter
-
-    # vector_db = Store(router=LLMRouter())
-    agent = Agent(model='llama3')  # , knowledge_base=vector_db)
-
-    user_query = 'what are most common authentication issues in websites?'
-    # user_query = 'How do I perform host discovery with nmap?'
-
-    for chunk in agent.query(1, user_query, rag=False):
-        print(chunk, end='')
-    print(f'Tokens used: {agent.get_session(1).token_length()}')

@@ -86,7 +86,9 @@ class Session:
         with open(str(path), 'r', encoding='utf-8') as fp:
             data = json.load(fp)
 
-            plans = [plan_list for plan_list in data['plans']] if 'plans' in data else None
+            plans = None
+            if 'plans' in data:
+                plans = [plan_list for plan_list in data['plans']]
 
             session = Session(
                 name=data['name'],
@@ -114,7 +116,7 @@ class Session:
 
 class Memory:
     """
-    Contains the chat history for each session, it is bounded to the Agent class.
+    Contains the chat history for each session.
     """
 
     def __init__(self):

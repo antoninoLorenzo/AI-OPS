@@ -16,7 +16,10 @@ def cli_test():
     # upload_knowledge('../data/json', vector_db)
 
     # =================================================================
-    agent = Agent(model=ollama_model, tools_docs=tools_documentation)  # , knowledge_base=vector_db)
+    agent = Agent(
+        model=ollama_model,
+        tools_docs=tools_documentation
+    )  # , knowledge_base=vector_db)
     current_session = 0
     while True:
         user_input = input("Enter: ")
