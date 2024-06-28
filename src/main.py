@@ -3,8 +3,8 @@ import requests
 from src import upload_knowledge
 from src.agent import Agent
 from src.agent.knowledge import Store
-from src.agent.tools import TOOLS
 from src.agent.plan import TaskStatus
+from src.agent.tools import TOOLS
 
 
 def cli_test():

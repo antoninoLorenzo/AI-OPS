@@ -24,13 +24,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
-
 from src import upload_knowledge
 from src.agent import Agent
-from src.agent.llm import LLM
 from src.agent.knowledge import Store
-from src.agent.tools import TOOLS
+from src.agent.llm import LLM
 from src.agent.plan import TaskStatus
+from src.agent.tools import TOOLS
 
 # Agent Setup
 model = 'llama3'

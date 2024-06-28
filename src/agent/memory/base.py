@@ -5,10 +5,10 @@ import json
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import List, Dict
+from typing import Dict, List
 
-from src.agent.tools import Terminal
 from src.agent.plan import Plan, Task
+from src.agent.tools import Terminal
 
 SESSIONS_PATH = Path(Path.home() / '.aiops' / 'sessions')
 if not SESSIONS_PATH.exists():
