@@ -30,6 +30,7 @@ from src.agent import Agent
 from src.agent.llm import LLM
 from src.agent.knowledge import Store
 from src.agent.tools import TOOLS
+from src.agent.plan import TaskStatus
 
 # Agent Setup
 model = 'llama3'
@@ -166,6 +167,29 @@ def list_plans(sid: int):
     Return all Plans.
     Returns the JSON representation of all Plans in the current Session.
     """
+    session = agent.get_session(sid)
+    plans = {}
+    for i, plan in enumerate(session.plans):
+        tasks = []
+        for task in plan.tasks:
+            tasks.append({
+                'thought': task.thought,
+                'command': task.command,
+                'output': task.output
+            })
+        plans[i] = tasks
+    return plans
+
+
+def execute_plan_stream(sid: int):
+    """Generator for plan execution and status updates"""
+    execution = agent.execute_plan(sid)
+    for iteration in execution:
+        for i, task in enumerate(iteration):
+            task_str = f'{i + 1}. {task}'
+            if task.status == TaskStatus.DONE:
+                task_str += f'Output:\n{task.output}'
+            yield task_str
 
 
 @app.get('/session/{sid}/plan/execute')
@@ -174,6 +198,7 @@ def execute_plan(sid: int):
     Executes last plan.
     Returns a stream that provide status for plan tasks execution.
     """
+    return StreamingResponse(execute_plan_stream(sid))
 
 
 # --- KNOWLEDGE RELATED
@@ -190,7 +215,7 @@ def create_collection(title: str, base_path: str, topics: list):
     """
     Creates a new Collection.
     :param title: unique collection title
-    :param base_path: the local path to the json file containing the collection dataset
+    :param base_path: local path to collection json file
     :param topics: a list of collection topics
 
     Returns a stream to notify progress if input is valid.
