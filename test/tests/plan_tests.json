@@ -28,6 +28,17 @@
     },
     {
         "content": [
+            "To do a port scan and version scan on 192.168.1.252, I'll use the following command:\n\n",
+            "`nmap -p 1-1024 -sV 192.168.1.252`\n\n",
+            "This command will perform a quick port scan (nmap -p 1-1024) to identify all open ports from 1 to 1024 on the target IP address, and then do a version scan (nmap -sV) to detect the operating system and any services running on those open ports.\n\n",
+            "Would you like me to run this command for you?\n"
+        ],
+        "commands": [
+            "nmap -p 1-1024 -sV 192.168.1.252"
+        ]
+    },
+    {
+        "content": [
             "**Plan for Reconnaissance Phase:**\n\n",
             "**Target System:** 154.142.1.1 (IP Camera).\n",
             "**Objective:** Gather information about the operating system, services, data transmission, and potential vulnerabilities.\n",
@@ -46,17 +57,6 @@
             "nmap -O -sV 154.142.1.1",
             "nmap --script sshvuln 154.142.1.1",
             "nmap --script ftp-vuln 154.142.1.1"
-        ]
-    },
-    {
-        "content": [
-            "To do a port scan and version scan on 192.168.1.252, I'll use the following command:\n\n",
-            "`nmap -p 1-1024 -sV 192.168.1.252`\n\n",
-            "This command will perform a quick port scan (nmap -p 1-1024) to identify all open ports from 1 to 1024 on the target IP address, and then do a version scan (nmap -sV) to detect the operating system and any services running on those open ports.\n\n",
-            "Would you like me to run this command for you?\n"
-        ],
-        "commands": [
-            "nmap -p 1-1024 -sV 192.168.1.252"
         ]
     }
 ]

@@ -23,6 +23,8 @@ class TestPlan(unittest.TestCase):
     #                 print(f'Output:\n{task_overview.output}')
 
     def test_from_response(self):
+        """Tests the conversion from natural language plan produced
+        by the llm to tasks, so tests the efficiency of the prompt."""
         agent = Agent(model='llama3')
         with open('plan_tests.json', 'r', encoding='utf-8') as fp:
             test_cases = json.load(fp)
@@ -39,21 +41,14 @@ class TestPlan(unittest.TestCase):
             self.assertEquals(
                 len(commands),
                 len(expected_commands),
-                f"commands {len(commands)} != expected {len(expected_commands)}"
+                f"Found {len(commands)} commands, expected {len(expected_commands)}\n"
+                f"Commands:\n{commands}\nExpected:\n{expected_commands}"
             )
             self.assertEquals(
                 commands,
                 expected_commands,
                 f"Commands:\n{commands}\nExpected:\n{expected_commands}"
             )
-
-
-
-    # def test_should_timeout(self):
-    #     pass
-
-    # def test_multi_step_task(self):
-    #     pass
 
 
 if __name__ == "__main__":
