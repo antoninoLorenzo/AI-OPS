@@ -8,7 +8,6 @@ class Tool:
     name: str
     tool_description: str
     args_description: str
-    examples: str
 
     @staticmethod
     def load_tool(path: str):
@@ -20,7 +19,6 @@ class Tool:
             tool.name = tool_data['name']
             tool.tool_description = ''.join(tool_data['tool_description'])
             tool.args_description = ''.join(tool_data['args_description'])
-            tool.examples = ''.join(tool_data['examples'])
 
             return tool
 
@@ -49,6 +47,5 @@ Description:
     {self.tool_description}
 Arguments:
     {self.args_description}          
-Usage Examples: 
-    {self.examples}"""
+"""
 

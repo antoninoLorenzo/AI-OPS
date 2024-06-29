@@ -1,13 +1,8 @@
 {
     "name": "nmap",
-    "tool_description": "Nmap (“Network Mapper”) is an open source tool for network exploration and security auditing.",
+    "tool_description": "Nmap is a tool for network exploration used during Reconnaissance in Penetration Testing.",
     "args_description": [
         "The most important nmap command argument is the iPv4 address of the target machine.\n",
-        "Ensure that the IP address is in the format xxx.xxx.xxx.xxx with points separating the octets,",
-        " otherwise the command will fail running"
-    ],
-    "examples": [
-        "<THOUGHT>I need to know what services are exposed on the current device</THOUGHT>\n",
-        "<TOOL>nmap -sV 127.0.0.1</TOOL>\n"
+        "Ensure that the IP address is in the format xxx.xxx.xxx.xxx with points separating the octets.",
     ]
 }
