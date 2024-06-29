@@ -3,6 +3,6 @@
     "tool_description": "Nmap is a tool for network exploration used during Reconnaissance in Penetration Testing.",
     "args_description": [
         "The most important nmap command argument is the iPv4 address of the target machine.\n",
-        "Ensure that the IP address is in the format xxx.xxx.xxx.xxx with points separating the octets.",
+        "Ensure that the IP address is in the format xxx.xxx.xxx.xxx with points separating the octets."
     ]
 }
