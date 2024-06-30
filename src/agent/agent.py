@@ -24,7 +24,9 @@ class Agent:
 
         # Prompts
         self._available_tools = tools_docs
-        self.system_plan_gen = PROMPTS[model]['plan']['system']
+        self.system_plan_gen = PROMPTS[model]['plan']['system'].format(
+            tools=self._available_tools
+        )
         self.user_plan_gen = PROMPTS[model]['plan']['user']
         self.system_plan_con = PROMPTS[model]['plan_conversion']['system']
         self.user_plan_con = PROMPTS[model]['plan_conversion']['user']
@@ -32,16 +34,16 @@ class Agent:
     def query(self, sid: int, user_in: str, rag=True, stream=True):
         """Performs a query to the Large Language Model,
         set `rag=True` to leverage Retrieval Augmented Generation."""
-        context = ''
         if rag:
             context = self._retrieve(user_in)
+            prompt = self.user_plan_gen.format(
+                user_input=user_in,
+                context=context
+            )
+        else:
+            prompt = '\n'.join(self.user_plan_gen.split('\n')[-3])
+            prompt.format(user_input=user_in)
 
-        # user prompt
-        prompt = self.user_plan_gen.format(
-            user_input=user_in,
-            tools=self._available_tools,
-            context=context
-        )
         self.mem.store_message(
             sid,
             Message(Role.USER, prompt)
