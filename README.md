@@ -78,7 +78,12 @@ whatever hardware setup</ins> you have available (see [Components](#components) 
 3. **Run API**
 - Launch Agent API (*in development*): `fastapi.exe dev ./src/api.py`
   
-  -  access from other machines: `fastapi.exe dev --host 0.0.0.0 ./src/api.py`
+  -  Access from other machines: `fastapi.exe dev --host 0.0.0.0 ./src/api.py`
+  -  Additional Settings in `.env` file:
+  ```
+  MODEL=model_name
+  ENDPOINT=ollama_url
+  ```
 
 
 4. **CLI Client**
