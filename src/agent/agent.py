@@ -16,9 +16,10 @@ class Agent:
 
     def __init__(self, model: str,
                  tools_docs: str = '',
-                 knowledge_base: Store = None):
+                 knowledge_base: Store = None,
+                 llm_endpoint: str = 'http://localhost:11434'):
         # Agent Components
-        self.llm = LLM(model=model)
+        self.llm = LLM(model=model, client_url=llm_endpoint)
         self.mem = Memory()
         self.vdb: Store | None = knowledge_base
 

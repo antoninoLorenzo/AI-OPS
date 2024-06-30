@@ -20,44 +20,55 @@ Knowledge Related:
 - /collections/list: Returns available Collections.
 - /collections/new: Creates a new Collection.
 """
+import os
+
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from pydantic_settings import BaseSettings
 
-from src import upload_knowledge
+# from src import upload_knowledge
 from src.agent import Agent
-from src.agent.knowledge import Store
-from src.agent.llm import LLM
+# from src.agent.knowledge import Store
 from src.agent.plan import TaskStatus
 from src.agent.tools import TOOLS
 
-# Agent Setup
-model = 'llama3'
-tools = '\n'.join([tool.get_documentation() for tool in TOOLS])
-llm = LLM('gemma:2b')
-# store = Store()
-# upload_knowledge('../data/json', store)
-agent = Agent(model=model, tools_docs=tools)  # , knowledge_base=store)
+load_dotenv()
 
-# API Setup
-origins = [
-    # '*',  # development only
-    'http://localhost:3000'  # default frontend port
-]
+
+class AgentSettings(BaseSettings):
+    """Setup for AI Agent"""
+    # PROVIDER = 'ollama'
+    MODEL: str = os.environ.get('MODEL', 'llama3')
+    ENDPOINT: str = os.environ.get('ENDPOINT', 'http://localhost:11434')
+
+
+class APISettings(BaseSettings):
+    """Setup for API"""
+    ORIGINS: list = [
+        # '*',  # development only
+        'http://localhost:3000'  # default frontend port
+    ]
+
+
+agent_settings = AgentSettings()
+api_settings = APISettings()
+
+agent = Agent(
+    model=agent_settings.MODEL,
+    llm_endpoint=agent_settings.ENDPOINT,
+    tools_docs='\n'.join([tool.get_documentation() for tool in TOOLS])
+)
 
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=api_settings.ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.get('/')
-def root():
-    return 'AI-OPS'
 
 
 # --- SESSION RELATED
@@ -162,6 +173,7 @@ def query(sid: int, q: str):
     Makes a query to the Agent.
     Returns the stream for the response.
     """
+    # TODO: query should go in body
     return StreamingResponse(query_generator(sid, q))
 
 
