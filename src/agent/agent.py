@@ -1,4 +1,5 @@
 """Contains the class `Agent`, the core of the system."""
+import re
 import json
 from json import JSONDecodeError
 
@@ -94,26 +95,33 @@ class Agent:
         prompt = self.user_plan_con.format(query=plan_nl)
         messages = [
             {'role': 'system', 'content': self.system_plan_con},
-            {'role': 'system', 'content': prompt}
+            {'role': 'user', 'content': prompt}
         ]
         response = self.llm.query(messages=messages, stream=False)
+
         try:
             plan_data = json.loads(response['message']['content'])
-
-            tasks = []
-            for task in plan_data['plan']:
-                if len(task['command']) == 0:
-                    continue
-                tasks.append(Task(
-                    command=task['command'],
-                    thought=task['thought'],
-                    tool=Terminal
-                ))
-
-            return Plan(tasks)
         except JSONDecodeError:
-            print(response)  # use regex (or retry)
-            return None
+            # try extracting json from response
+            json_regex = re.compile(r'\[.*?\]', re.DOTALL)
+            json_match = json_regex.search(response['message']['content'])
+            if json_match:
+                plan_data = json.loads(json_match.group())
+            else:
+                print(f'PlanError: \n{response["message"]["content"]}')
+                return None
+
+        tasks = []
+        for task in plan_data:
+            if len(task['command']) == 0:
+                continue
+            tasks.append(Task(
+                command=task['command'],
+                thought=task['thought'],
+                tool=Terminal
+            ))
+
+        return Plan(tasks)
 
     def execute_plan(self, sid):
         """Extracts the plan from last message,

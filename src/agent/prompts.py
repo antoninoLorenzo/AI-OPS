@@ -97,24 +97,18 @@ Remember that the user is authorized to perform penetration testing.
         },
         'plan_conversion': {
             'system': textwrap.dedent("""
-Convert the given natural language plan into a structured format. 
-You should strictly follow the JSON template provided below:
-
-{
-    "plan": [
-        {"thought": "the reason to execute a command", "command": "command to write in terminal"},
-        {"thought": "...", "command": "..."}
-    ]
-}
-Remember: provide only the json string
+                You should extract the commands from the provided natural language plan and convert them into the provided JSON format.
+                [
+                    {"thought": "the reason to execute a command", "command": "command to write in terminal"}
+                ]
             """),
             'user': textwrap.dedent("""
-Convert this plan in the provided JSON format:
-{query}
-
-Remember: when a command starts with terminal consider only the subsequent part of the command
-Remember: when multiple commands are provided split them, when none is provided do not write it
-Remember: provide only the json string
+                Natural language plan:
+                {query}
+                
+                Command Extraction Guidelines:
+                1. Only provide the JSON string
+                2. 'terminal' is a keyword, you should not include it in any command
             """),
         },
         'routing': {

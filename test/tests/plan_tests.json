@@ -36,27 +36,5 @@
         "commands": [
             "nmap -p 1-1024 -sV 192.168.1.252"
         ]
-    },
-    {
-        "content": [
-            "**Plan for Reconnaissance Phase:**\n\n",
-            "**Target System:** 154.142.1.1 (IP Camera).\n",
-            "**Objective:** Gather information about the operating system, services, data transmission, and potential vulnerabilities.\n",
-            "**Tasks:**\n\n",
-            "1. **Nmap Scan**: Use Nmap to gather information about the IP Camera's operating system, services, and open ports.\n",
-            "   - Execute the following command: `nmap -O -sV 154.142.1.1`\n",
-            "2. **Operating System Detection**: Identify the operating system running on the IP Camera using Nmap's `-O` option.\n",
-            "3. **Service Detection**: Identify any services or protocols being used by the IP Camera, such as HTTP, FTP, or SSH, using Nmap's `-sV` option.\n",
-            "4. **Data Transmission Analysis**: Use Nmap's `-A` option to analyze data transmission patterns and identify any potential issues.\n",
-            "5. **SSH and FTP Vulnerability Scan**: Run a vulnerability scan for SSH and FTP protocols using Nmap's `--script` option with the following commands:\n",
-            "   - `nmap --script sshvuln 154.142.1.1`\n",
-            "   - `nmap --script ftp-vuln 154.142.1.1`\n\n",
-            "Please let me know if you'd like to proceed with this plan or if you have any specific requirements or concerns.\n"
-        ],
-        "commands": [
-            "nmap -O -sV 154.142.1.1",
-            "nmap --script sshvuln 154.142.1.1",
-            "nmap --script ftp-vuln 154.142.1.1"
-        ]
     }
 ]
