@@ -127,6 +127,7 @@ class AgentClient:
         if print_name:
             print(f'+ {self.current_session["name"]} ({self.current_session["sid"]})')
         query_url = f'{self.api_url}/session/{self.current_session["sid"]}/query'
+        
         while True:
             q = input('user: ')
             if q == '-1':
@@ -137,10 +138,11 @@ class AgentClient:
                     json={'query': q},
                     headers=None,
                     stream=True) as resp:
+                resp.raise_for_status()
                 print('assistant: ')
                 for chunk in resp.iter_content():
                     if chunk:
-                        print(chunk.decode(), end='')
+                        print(chunk.decode(), end='', flush=True)
                 print()
 
     def execute_plan(self):

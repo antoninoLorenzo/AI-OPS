@@ -42,8 +42,10 @@ class Agent:
                 context=context
             )
         else:
-            prompt = '\n'.join(self.user_plan_gen.split('\n')[-3])
-            prompt.format(user_input=user_in)
+            print('Cutted: \n', self.user_plan_gen.split('\n')[:-3])
+            prompt = '\n'.join(self.user_plan_gen.split('\n')[:-3])
+            print(f'Prompt ({len(prompt)}):\n{prompt}')
+            prompt = prompt.format(user_input=user_in)
 
         self.mem.store_message(
             sid,
