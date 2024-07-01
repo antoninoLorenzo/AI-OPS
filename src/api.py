@@ -23,7 +23,7 @@ Knowledge Related:
 import os
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic_settings import BaseSettings
@@ -166,14 +166,15 @@ def query_generator(sid: int, q: str):
         yield chunk
 
 
-# TODO: query should be body parameter
-@app.get('/session/{sid}/query/')
-def query(sid: int, q: str):
+@app.post('/session/{sid}/query/')
+def query(sid: int, body: dict = Body(...)):
     """
     Makes a query to the Agent.
     Returns the stream for the response.
     """
-    # TODO: query should go in body
+    q = body.get("query")
+    if not q:
+        raise HTTPException(status_code=400, detail="Query parameter is required")
     return StreamingResponse(query_generator(sid, q))
 
 

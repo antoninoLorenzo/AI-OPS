@@ -132,9 +132,9 @@ class AgentClient:
             if q == '-1':
                 break
 
-            with self.client.get(
+            with self.client.post(
                     query_url,
-                    params={'q': q},
+                    json={'query': q},
                     headers=None,
                     stream=True) as resp:
                 print('assistant: ')
