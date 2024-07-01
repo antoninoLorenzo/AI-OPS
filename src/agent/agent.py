@@ -44,7 +44,7 @@ class Agent:
         else:
             prompt = '\n'.join(self.user_plan_gen.split('\n')[:-3])
             prompt = prompt.format(user_input=user_in)
-
+   
         self.mem.store_message(
             sid,
             Message(Role.USER, prompt)

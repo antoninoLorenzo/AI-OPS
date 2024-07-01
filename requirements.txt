@@ -12,3 +12,4 @@ requests
 matplotlib
 seaborn
 yake
+rich

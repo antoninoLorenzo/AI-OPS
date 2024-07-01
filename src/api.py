@@ -71,6 +71,11 @@ app.add_middleware(
 )
 
 
+@app.get('/')
+def ping():
+    return ''
+
+
 # --- SESSION RELATED
 @app.get('/session/list')
 def list_sessions():
