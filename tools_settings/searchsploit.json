@@ -1,0 +1,11 @@
+{
+    "name": "searchsploit",
+    "tool_description": "Used during Reconnaissance/Initial Access to search for exploits and shellcodes using one or more search.",
+    "args_description": [
+        "command: searchsploit [options] search_term1 [search_term2] ... [search_termN]\n",
+        "The output will contain an Exploit Title with informations about the exploit and\n",
+        "the Path to the exploit.\n",
+        "The search can be performed also using a specific CVE code, for example:\n",
+        "searchsploit --cve 2021-44228\n"
+    ]
+}
