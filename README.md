@@ -84,7 +84,7 @@ whatever hardware setup</ins> you have available (see [Components](#components) 
   MODEL=model_name
   ENDPOINT=ollama_url
   ```
-  *Note: some tools require* **root**, *in that case API should be runned as sudo, however the folder `.aiops` where data is stored is user dependent*.
+  *Note: the tools that require root would require also the API to be runned as root*
 
 
 4. **CLI Client**
