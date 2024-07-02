@@ -214,11 +214,11 @@ def execute_plan_stream(sid: int):
                 yield task_str
 
     plan = agent.mem.get_plan(sid)
-    eval = 'Task Results:\n'
+    eval_results = 'Task Results:\n'
     for p in plan.plan_to_dict_list():
-        eval += f'{p["command"]}\n{p["output"]}\n\n'
-    print(f'Eval:\n{eval}')
-    for chunk in query_generator(sid, eval):
+        eval_results += f'{p["command"]}\n{p["output"]}\n\n'
+
+    for chunk in query_generator(sid, eval_results):
         yield chunk
 
 @app.get('/session/{sid}/plan/execute')
