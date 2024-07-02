@@ -19,6 +19,7 @@
         "  version     Shows the current version of gobuster.\n",
         "              Example: gobuster version\n",
         "  vhost       Uses virtual host enumeration mode (you most probably want to use the IP address as the URL parameter).\n",
-        "              Example: gobuster vhost -u http://192.168.1.1 -w vhostlist.txt\n"
+        "              Example: gobuster vhost -u http://192.168.1.1 -w vhostlist.txt\n\n",
+        "When using gobuster with a wordlist remember to ALWAYS ask the path to the wordlist to the user."
     ]
 }
