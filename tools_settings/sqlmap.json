@@ -1,0 +1,25 @@
+{
+    "name": "sqlmap",
+    "tool_description": "sqlmap is an open source penetration testing tool that automates the process of detecting and exploiting SQL injection flaws and taking over database servers.",
+    "args_description": [
+        "command: The primary command to run sqlmap. It includes the script name 'sqlmap.py' followed by various options and arguments to specify the target and the desired actions.",
+        "-u <URL>: The target URL to scan for SQL injection vulnerabilities.",
+        "--level=<LEVEL>: The level of tests to perform (default is 1). Levels range from 1 to 5, with higher levels being more exhaustive.",
+        "--risk=<RISK>: The risk level of tests to perform (default is 1). Risk levels range from 1 to 3, with higher levels being more aggressive.",
+        "--dbs: Enumerate the databases on the target server.",
+        "-D <DATABASE_NAME>: Specify the database name for further enumeration or data extraction.",
+        "--tables: Enumerate the tables in a specified database.",
+        "-T <TABLE_NAME>: Specify the table name for further enumeration or data extraction.",
+        "--columns: Enumerate the columns in a specified table.",
+        "-C <COLUMN_NAME>: Specify the column name for data extraction.",
+        "--dump: Dump the entries of the specified database, table, or column.",
+        "--batch: Automatically accept all prompts and run non-interactively.",
+        "--proxy=<PROXY>: Route all HTTP requests through a specified proxy.",
+        "--tamper=<TAMPER_SCRIPTS>: Use tamper scripts to bypass WAF/IPS protections.",
+        "--technique=<TECHNIQUES>: Specify which SQL injection techniques to use (e.g., B for boolean-based, E for error-based, T for time-based, U for UNION query-based, S for stacked queries).",
+        "--cookie=<COOKIE>: Use specified cookie for HTTP requests.",
+        "--headers=<HEADERS>: Add additional headers to HTTP requests.",
+        "--auth-type=<AUTH_TYPE>: Specify the authentication type (e.g., Basic, Digest, NTLM).",
+        "--auth-cred=<AUTH_CRED>: Specify authentication credentials (e.g., username:password)."
+    ]
+}
