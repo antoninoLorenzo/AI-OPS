@@ -76,7 +76,7 @@ class AgentClient:
         response.raise_for_status()
 
         self.current_session = {'sid': response.json()['sid'], 'name': session_name}
-        self.chat()
+        self.chat(print_name=True)
 
     def save_session(self):
         """Save the current session"""
@@ -87,7 +87,6 @@ class AgentClient:
             self.console.print(f'[!] Failed: {response.status_code}')
         else:
             self.console.print(f'[+] Saved')
-        self.chat()
 
     def rename_session(self):
         """Renames the current session"""
@@ -102,7 +101,7 @@ class AgentClient:
         )
         response.raise_for_status()
         self.current_session['name'] = session_name
-        self.chat()
+        self.chat(print_name=True)
 
     def delete_session(self):
         """Deletes the current session"""
@@ -199,6 +198,8 @@ class AgentClient:
             for task_str in resp.iter_content():
                 if task_str:
                     self.console.print(task_str.decode(), end='')
+            print()
+        self.chat()
 
     def list_plans(self):
         """Retrieve the plans in the current session and
