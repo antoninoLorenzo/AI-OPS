@@ -1,0 +1,8 @@
+{
+    "name": "",
+    "tool_description": "",
+    "args_description": [
+        "command: \n",
+        "When using gobuster with a wordlist remember to ALWAYS ask the path to the wordlist to the user."
+    ]
+}
