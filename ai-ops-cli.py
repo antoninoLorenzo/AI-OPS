@@ -145,6 +145,9 @@ class AgentClient:
         response.raise_for_status()
 
         body = response.json()
+        if 'success' in body:
+            self.console.print(f'No session for {session_id}', style='red')
+
         sid = body['sid']
         name = body['name']
         self.current_session = {'sid': sid, 'name': name}
