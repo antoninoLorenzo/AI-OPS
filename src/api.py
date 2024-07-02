@@ -134,7 +134,7 @@ def new_session(name: str):
 @app.get('/session/{sid}/rename/')
 def rename_session(sid: int, new_name: str):
     """Rename a session."""
-    agent.rename_session(sid, new_name)  # should return a page reload signal?
+    agent.rename_session(sid, new_name)  
 
 
 @app.get('/session/{sid}/save/')
@@ -209,11 +209,17 @@ def execute_plan_stream(sid: int):
     execution = agent.execute_plan(sid)
     for iteration in execution:
         for i, task in enumerate(iteration):
-            task_str = f'{i + 1}. {task.thought}\n\t{task.command}\n'
             if task.status == TaskStatus.DONE:
-                task_str += f'ai-ops:~$ {task.command}\n{task.output}\n'
-            yield task_str
+                task_str = f'ai-ops:~$ {task.command}\n{task.output}\n'
+                yield task_str
 
+    plan = agent.mem.get_plan(sid)
+    eval = 'Task Results:\n'
+    for p in plan.plan_to_dict_list():
+        eval += f'{p["command"]}\n{p["output"]}\n\n'
+    print(f'Eval:\n{eval}')
+    for chunk in query_generator(sid, eval):
+        yield chunk
 
 @app.get('/session/{sid}/plan/execute')
 def execute_plan(sid: int):

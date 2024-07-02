@@ -133,7 +133,7 @@ class Agent:
         if len(messages) <= 1:
             return None
 
-        msg = messages[-1] if messages[-1].role == Role.SYS else messages[-2]
+        msg = messages[-1] if messages[-1].role == Role.ASSISTANT else messages[-2]
         plan = self.extract_plan(msg.content)
         for tasks_status in plan.execute():
             yield tasks_status

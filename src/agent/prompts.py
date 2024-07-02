@@ -42,7 +42,7 @@ Additional Information:
         },
         'plan_conversion': {
             'system': textwrap.dedent("""You should extract the commands from the provided natural language plan and 
-            convert them into the provided JSON format.
+convert them into the provided JSON format.
     [
         {"thought": "the reason to execute a command", "command": "command to write in terminal"}
     ]"""),
@@ -51,7 +51,8 @@ Additional Information:
 
 Command Extraction Guidelines:
 1. Only provide the JSON string
-2. 'terminal' is a keyword, you should not include it in any command"""),
+2. 'terminal' is a keyword, you should not include it in any command
+3. Your response should contain only commands contained in the natural language plan"""),
         },
         'routing': {
             'system': textwrap.dedent("""
