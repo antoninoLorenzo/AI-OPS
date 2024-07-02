@@ -84,6 +84,7 @@ whatever hardware setup</ins> you have available (see [Components](#components) 
   MODEL=model_name
   ENDPOINT=ollama_url
   ```
+  *Note: some tools require root, so API should be runned as sudo*
 
 
 4. **CLI Client**
