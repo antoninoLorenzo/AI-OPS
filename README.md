@@ -86,8 +86,10 @@ whatever hardware setup</ins> you have available (see [Components](#components) 
   ```
   *Note: the tools that require root would require also the API to be runned as root*
 
+4. **Setup Tools** (*first time only*)
+- move the content of `tools_settings` to `<user home>/.aiops/tools`.
 
-4. **CLI Client**
+5. **CLI Client**
 ```
 python ./ai-ops-cli.py
 ```
