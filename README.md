@@ -61,6 +61,9 @@ whatever hardware setup</ins> you have available (see [Components](#components) 
 
 
 ### End-User
+**TODO**
+
+### Development
 
 1. **Setup**
 - Clone Repository `git clone https://github.com/antoninoLorenzo/AI-OPS.git`
@@ -71,7 +74,7 @@ whatever hardware setup</ins> you have available (see [Components](#components) 
 2. **Ollama**
 - Set remote origins environment variable:  `OLLAMA_ORIGINS=1.2.3.4,...` *(Optional)*
 - Set host environment variable: `OLLAMA_HOST=0.0.0.0:11434` *(Optional)*
-- Run ollama: `ollama list`
+- Run ollama: `ollama serve`
 
 
 
@@ -93,37 +96,6 @@ whatever hardware setup</ins> you have available (see [Components](#components) 
 ```
 python ./ai-ops-cli.py
 ```
-
-### Development
-**TODO**
-<!--
-Install spacy `en_core_web_lg`
-```
-python -m spacy download en_core_web_lg
-```
-
-2. **Run Ollama**
-
-Ensure Ollama service is running, to do so `ollama list` is enough.
-```
-ollama list
-```
-
-Ensure at least one of the [supported models](#supported-ollama-models) is available.
-```
-ollama pull model-name
-```
-
-3. **Run Qdrant**
-```
-docker run -p 6333:6333 -p 6334:6334 -v C:\Users\anton\.aiops\qdrant_storage:/qdrant/storage:z qdrant/qdrant
-```
-
-4. **Run React**
-
-
-5. **Run Agent**
--->
 
 ## 📝System Structure
 
