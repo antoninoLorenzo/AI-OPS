@@ -127,6 +127,7 @@ def new_session(name: str):
     else:
         new_id = max(sorted(sessions.keys())) + 1
     agent.new_session(new_id)
+    agent.get_session(new_id).name = name
 
     return {'sid': new_id}
 

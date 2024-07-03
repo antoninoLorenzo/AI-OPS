@@ -1,8 +1,25 @@
 {
-    "name": "",
-    "tool_description": "",
+    "name": "hashcat",
+    "tool_description": "Hashcat is a password cracking tool that is used to crack hashed passwords.",
     "args_description": [
-        "command: \n",
-        "When using gobuster with a wordlist remember to ALWAYS ask the path to the wordlist to the user."
+        "command: hashcat -m [hash-type] -a [attack-mode] -o [output-file] [hash-file] [wordlist]\n",
+        "Arguments:\n",
+        "- `-m [hash-type]`: Specifies the hash type to be cracked. Common hash types include:\n",
+        "  - 100: SHA1\n",
+        "  - 1400: SHA256\n",
+        "  - 1800: sha512crypt $6$, SHA512 (Unix)\n",
+        "  - 3200: bcrypt $2*$, Blowfish (Unix)\n",
+        "- `-a [attack-mode]`: Specifies the attack mode to be used. Common attack modes include:\n",
+        "  - 0: Dictionary Attack\n",
+        "  - 1: Combination Attack\n",
+        "  - 3: Brute Force Attack\n",
+        "  - 6: Dictionary + Mask Hybrid Attack\n",
+        "  - 7: Mask + Dictionary Hybrid Attack\n",
+        "- `-o [output-file]`: Specifies the file where cracked passwords will be saved.\n",
+        "- `[hash-file]`: Path to the file containing the hashes to be cracked.\n",
+        "- `[wordlist]`: Path to the wordlist file used for dictionary attacks. Ensure to ask the user for the correct path to the wordlist.\n",
+        "\nGuidelines:\n",
+        "- When using hashcat with a wordlist remember to ALWAYS ask the path to the wordlist to the user.\n",
+        "- When writing the output to a file, the next command should be `cat <output_file>`"
     ]
 }
