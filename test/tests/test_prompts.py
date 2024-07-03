@@ -12,19 +12,34 @@ load_dotenv()
 
 
 class TestPrompts(unittest.TestCase):
-    MODELS = ['llama3']
+    """
+    Conversion:
+    - llama3  : ok
+    - gemma2b : failing
+    - gemma7b : ok
+    - phi3    : ok
+    - qwen4b  : failing (a lot)
+    """
+    MODELS = ['llama3', 'phi3', 'gemma:7b']
     GEMINI_KEY = os.getenv('GEMINI_API_KEY')
 
-    @unittest.skip('')
+    # @unittest.skip('')
     def test_conversion(self):
         """Tests the conversion from natural language plan produced
-        by the llm to tasks, so tests the efficiency of the prompt."""
+        by the llm to tasks, so tests the efficiency of the prompt.
+        TODO:
+            + edge case: no commands in natural language plan
+            + add test cases in conversion.json
+        """
         with open('test_cases/conversion.json', 'r', encoding='utf-8') as fp:
             test_cases = json.load(fp)
 
         inference_times = {model: {'times': [], 'mean': 0} for model in self.MODELS}
         for model in self.MODELS:
             agent = Agent(model=model)
+            # TODO:
+            #   should make a first query to load LLM into Ollama,
+            #   otherwise, conversion times are biased by loading time
             for test_case in test_cases:
                 plan_nl = test_case['content']
                 expected_commands = test_case['commands']
@@ -33,18 +48,18 @@ class TestPrompts(unittest.TestCase):
                 plan = agent.extract_plan(plan_nl)
                 t = time.time() - start
 
-                self.assertIsNotNone(plan, "Plan is None:")
+                self.assertIsNotNone(plan, f"[{model}] Plan is None:")
                 commands = [task.command for task in plan.tasks]
                 self.assertEquals(
                     len(commands),
                     len(expected_commands),
-                    f"Found {len(commands)} commands, expected {len(expected_commands)}\n"
+                    f"[{model}] Found {len(commands)} commands, expected {len(expected_commands)}\n"
                     f"Commands:\n{commands}\nExpected:\n{expected_commands}"
                 )
                 self.assertEquals(
                     commands,
                     expected_commands,
-                    f"Commands:\n{commands}\nExpected:\n{expected_commands}"
+                    f"[{model}] Commands:\n{commands}\nExpected:\n{expected_commands}"
                 )
 
                 inference_times[model]['times'].append(t)
@@ -55,7 +70,7 @@ class TestPrompts(unittest.TestCase):
                 inference_times[model]['mean'] = mean_time
             json.dump(inference_times, fp)
 
-    # @unittest.skip('')
+    @unittest.skip('')
     def test_planning(self):
         """Tests the instruction following capability of the llm"""
         self.assertIsNotNone(self.GEMINI_KEY, 'Missing Gemini API Key')
