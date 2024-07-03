@@ -1,54 +1,64 @@
+import os
 import json
+import time
 import unittest
 
+import numpy as np
+from dotenv import load_dotenv
+
 from src.agent import Agent
-from src.agent.tools import Terminal
-from src.agent.plan import Plan, Task, TaskStatus
+
+load_dotenv()
 
 
-class TestPlan(unittest.TestCase):
+class TestPrompts(unittest.TestCase):
+    MODELS = ['llama3']
+    GEMINI_KEY = os.getenv('GEMINI_API_KEY')
 
-    # def test_execute(self):
-    #     tasks = [
-    #         Task(thought="Get directory content", tool=Terminal, command="ls"),
-    #         Task(thought="Get machine host name", tool=Terminal, command="hostname")
-    #     ]
-
-    #     plan = Plan(tasks)
-    #     for output in plan.execute():
-    #         print('---------------------------------')
-    #         for i, task_overview in enumerate(output):
-    #             print(f'{i+1}. {task_overview}')
-    #             if task_overview.status == TaskStatus.DONE:
-    #                 print(f'Output:\n{task_overview.output}')
-
-    def test_from_response(self):
+    @unittest.skip('')
+    def test_conversion(self):
         """Tests the conversion from natural language plan produced
         by the llm to tasks, so tests the efficiency of the prompt."""
-        agent = Agent(model='llama3')
-        with open('plan_tests.json', 'r', encoding='utf-8') as fp:
+        with open('test_cases/conversion.json', 'r', encoding='utf-8') as fp:
             test_cases = json.load(fp)
 
-        for test_case in test_cases:
-            plan_nl = test_case['content']
-            expected_commands = test_case['commands']
+        inference_times = {model: {'times': [], 'mean': 0} for model in self.MODELS}
+        for model in self.MODELS:
+            agent = Agent(model=model)
+            for test_case in test_cases:
+                plan_nl = test_case['content']
+                expected_commands = test_case['commands']
 
-            plan = agent.extract_plan(plan_nl)
-            self.assertIsNotNone(plan, "Plan is None:")
+                start = time.time()
+                plan = agent.extract_plan(plan_nl)
+                t = time.time() - start
 
-            commands = [task.command for task in plan.tasks]
+                self.assertIsNotNone(plan, "Plan is None:")
+                commands = [task.command for task in plan.tasks]
+                self.assertEquals(
+                    len(commands),
+                    len(expected_commands),
+                    f"Found {len(commands)} commands, expected {len(expected_commands)}\n"
+                    f"Commands:\n{commands}\nExpected:\n{expected_commands}"
+                )
+                self.assertEquals(
+                    commands,
+                    expected_commands,
+                    f"Commands:\n{commands}\nExpected:\n{expected_commands}"
+                )
 
-            self.assertEquals(
-                len(commands),
-                len(expected_commands),
-                f"Found {len(commands)} commands, expected {len(expected_commands)}\n"
-                f"Commands:\n{commands}\nExpected:\n{expected_commands}"
-            )
-            self.assertEquals(
-                commands,
-                expected_commands,
-                f"Commands:\n{commands}\nExpected:\n{expected_commands}"
-            )
+                inference_times[model]['times'].append(t)
+
+        with open('results/conversion_times.json', 'w+', encoding='utf-8') as fp:
+            for model in self.MODELS:
+                mean_time = np.array(inference_times[model]['times']).mean()
+                inference_times[model]['mean'] = mean_time
+            json.dump(inference_times, fp)
+
+    # @unittest.skip('')
+    def test_planning(self):
+        """Tests the instruction following capability of the llm"""
+        self.assertIsNotNone(self.GEMINI_KEY, 'Missing Gemini API Key')
 
 
 if __name__ == "__main__":

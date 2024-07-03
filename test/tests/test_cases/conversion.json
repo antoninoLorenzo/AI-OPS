@@ -43,11 +43,11 @@
             "SQL Injection Testing:\n\n",
             "We can use sqlmap to test for SQL injection vulnerabilities in the login.php page. Here's a plan:\n\n",
             "1. Initial Scan: Run sqlmap with the -T option to identify potential SQL injection points.\n",
-            "Command: sqlmap -T \"login.php\" http://10.10.62.242\n",
+            "Command: sqlmap -T login.php http://10.10.62.242\n",
             "2. Fingerprinting: Use sqlmap's fingerprinting feature to gather more information about the database and its schema.\n",
             "Command: sqlmap -F http://10.10.62.242/login.php\n",
             "3. Injection Testing: Run sqlmap with the -b option to test for SQL injection vulnerabilities.\n",
-            "Command: sqlmap -b \"login.php\" http://10.10.62.242\n\n",
+            "Command: sqlmap -b login.php http://10.10.62.242\n\n",
             "Accessing .htpasswd:\n\n",
             "Since the .htpasswd file is protected, we can try using Nmap's -script option to run a script that can help us access it.\n\n",
             "1. HTPasswd Script: Run Nmap with the htpasswd script to see if it can help us access the file.\n",
@@ -62,9 +62,9 @@
             "(Note: As always, I'll ensure that the necessary information is provided, and we stay within the scope of authorized penetration testing.)\n"
             ],
         "commands": [
-            "sqlmap -T \"login.php\" http://10.10.62.242",
+            "sqlmap -T login.php http://10.10.62.242",
             "sqlmap -F http://10.10.62.242/login.php",
-            "sqlmap -b \"login.php\" http://10.10.62.242",
+            "sqlmap -b login.php http://10.10.62.242",
             "nmap -script htpasswd http://10.10.62.242",
             "nmap -script http http://10.10.62.242"
         ]
