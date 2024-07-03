@@ -111,7 +111,7 @@ class Agent:
             if json_match:
                 plan_data = json.loads(json_match.group())
             else:
-                print(f'PlanError: \n{response["message"]["content"]}')
+                print(f'PlanError: Response: \n{response["message"]["content"]}')
                 return None
 
         tasks = []
@@ -120,7 +120,7 @@ class Agent:
                 continue
             tasks.append(Task(
                 command=task['command'],
-                thought=task['thought'],
+                thought=task['thought'] if 'thought' in task else None,
                 tool=Terminal
             ))
 
