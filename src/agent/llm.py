@@ -4,25 +4,33 @@ implemented prompts, to use a new model the relative prompts should be written.
 
 LLM providers are:
 - [x] Ollama
-- [ ] HuggingFace
 """
 from dataclasses import dataclass
 
 from ollama import Client
 
 AVAILABLE_MODELS = {
-    'gemma:2b': {
-        'options': None
-    },
-    'gemma:7b': {
-        'options': None
-    },
     'llama3': {
         'options': {
             'temperature': 0.5,
             'num_ctx': 8000
         }
-    }
+    },
+    'gemma:2b': {
+        'options': {
+            'temperature': 0.5,
+        }
+    },
+    'gemma:7b': {
+        'options': {
+            'temperature': 0.5,
+        }
+    },
+    'phi3': {
+        'options': {
+            'temperature': 0.5,
+        }
+    },
 }
 
 
