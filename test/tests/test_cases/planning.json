@@ -1,0 +1,14 @@
+[
+    {
+        "query": [
+            "I need to do penetration testing of a website."
+        ],
+        "tools": "nmap, terminal, gobuster, hashcat, searchsploit, sqlmap"
+    },
+    {
+        "query": [
+            "I need to perform penetration testing on a IP Camera."
+        ],
+        "tools": "nmap, terminal, gobuster, hashcat, searchsploit, sqlmap"
+    }
+]
