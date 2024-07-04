@@ -35,7 +35,7 @@ class Agent:
         # Start Ollama
         self._startup_ollama()
 
-    def query(self, sid: int, user_in: str, rag=True, stream=True):
+    def query(self, sid: int, user_in: str, rag=True):
         """Performs a query to the Large Language Model,
         set `rag=True` to leverage Retrieval Augmented Generation."""
         if rag:
