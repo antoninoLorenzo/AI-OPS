@@ -44,6 +44,7 @@ class AgentClient:
     def run(self):
         """Runs the main loop of the client"""
         while True:
+            user_input = None
             try:
                 user_input = Prompt.ask(
                     '> ', 
@@ -97,10 +98,10 @@ class AgentClient:
 
         response = self.client.get(
             f'{self.api_url}/session/{self.current_session["sid"]}/rename',
-            params={'new_name': session_name}
+            params={'new_name': str(session_name)}
         )
         response.raise_for_status()
-        self.current_session['name'] = session_name
+        self.current_session['name'] = str(session_name)
         self.chat(print_name=True)
 
     def delete_session(self):
