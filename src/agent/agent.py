@@ -32,6 +32,9 @@ class Agent:
         self.system_plan_con = PROMPTS[model]['plan_conversion']['system']
         self.user_plan_con = PROMPTS[model]['plan_conversion']['user']
 
+        # Start Ollama
+        self._startup_ollama()
+
     def query(self, sid: int, user_in: str, rag=True, stream=True):
         """Performs a query to the Large Language Model,
         set `rag=True` to leverage Retrieval Augmented Generation."""
@@ -149,3 +152,12 @@ class Agent:
             context += (f"{retrieved.payload['title']}:"
                         f"\n{retrieved.payload['text']}\n\n")
         return context
+
+    def _startup_ollama(self):
+        """Make a query to load model into Ollama"""
+        self.llm.query(
+            messages=[
+                {'role': 'user', 'content': 'Hi'}
+            ],
+            stream=False
+        )
