@@ -180,7 +180,7 @@ def query(sid: int, body: dict = Body(...)):
     """
     q = body.get("query")
     if not q:
-        raise HTTPException(status_code=400, detail="Query parameter is required")
+        raise HTTPException(status_code=400, detail="Query parameter required")
     return StreamingResponse(query_generator(sid, q))
 
 
@@ -209,7 +209,7 @@ def execute_plan_stream(sid: int):
     """Generator for plan execution and status updates"""
     execution = agent.execute_plan(sid)
     for iteration in execution:
-        for i, task in enumerate(iteration):
+        for task in iteration:
             if task.status == TaskStatus.DONE:
                 task_str = f'ai-ops:~$ {task.command}\n{task.output}\n'
                 yield task_str
@@ -219,8 +219,8 @@ def execute_plan_stream(sid: int):
     for p in plan.plan_to_dict_list():
         eval_results += f'{p["command"]}\n{p["output"]}\n\n'
 
-    for chunk in query_generator(sid, eval_results):
-        yield chunk
+    yield from query_generator(sid, eval_results)
+
 
 @app.get('/session/{sid}/plan/execute')
 def execute_plan(sid: int):

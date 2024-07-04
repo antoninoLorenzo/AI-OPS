@@ -39,6 +39,7 @@ class LLM:
     """Ollama model interface"""
     model: str
     client_url: str = 'http://localhost:11434'
+    client: Client | None = None
 
     def __post_init__(self):
         if self.model not in AVAILABLE_MODELS.keys():

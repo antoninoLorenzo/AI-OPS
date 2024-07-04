@@ -1,3 +1,4 @@
+"""Tool package"""
 from pathlib import Path
 
 from src.agent.tools.base import Tool
@@ -11,4 +12,3 @@ TOOLS = [Terminal()]
 for path in TOOLS_PATH.iterdir():
     tool = Tool.load_tool(str(path))
     TOOLS.append(tool)
-

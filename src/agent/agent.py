@@ -111,7 +111,7 @@ class Agent:
             if json_match:
                 plan_data = json.loads(json_match.group())
             else:
-                print(f'PlanError: Response: \n{response["message"]["content"]}')
+                print(f'PlanError:\n{response["message"]["content"]}')
                 return None
 
         tasks = []
@@ -134,9 +134,9 @@ class Agent:
             return None
 
         msg = messages[-1] if messages[-1].role == Role.ASSISTANT else messages[-2]
+
         plan = self.extract_plan(msg.content)
-        for tasks_status in plan.execute():
-            yield tasks_status
+        yield from plan.execute()
 
         self.mem.store_plan(sid, plan)
 

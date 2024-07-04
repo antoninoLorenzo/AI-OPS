@@ -25,12 +25,11 @@ class Role(StrEnum):
     def from_str(item):
         if item == 'user':
             return Role.USER
-        elif item == 'assistant':
+        if item == 'assistant':
             return Role.ASSISTANT
-        elif item == 'system':
+        if item == 'system':
             return Role.SYS
-        else:
-            return None
+        return None
 
 
 @dataclass
@@ -88,7 +87,7 @@ class Session:
 
             plans = None
             if 'plans' in data and data['plans'] is not None:
-                plans = [plan_list for plan_list in data['plans']]
+                plans = list(data['plans'])
 
             session = Session(
                 name=data['name'],
@@ -150,12 +149,15 @@ class Memory:
 
         session = self.sessions[sid]
         self.delete_session(sid)
-        with open(f'{SESSIONS_PATH}/{sid}__{session.name}.json', 'w+', encoding='utf-8') as fp:
+
+        path = f'{SESSIONS_PATH}/{sid}__{session.name}.json'
+        plans = session.plans_to_dict_list() if session.plans else None
+        with open(path, 'w+', encoding='utf-8') as fp:
             data = {
                 'id': sid,
                 'name': session.name,
                 'messages': session.messages_to_dict_list(),
-                'plans': session.plans_to_dict_list() if session.plans is not None else None
+                'plans': plans
             }
             json.dump(data, fp)
 
