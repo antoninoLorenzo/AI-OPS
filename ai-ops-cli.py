@@ -4,6 +4,7 @@ when executing the frontend is not convenient.
 
 """
 import sys
+import argparse
 
 import requests
 from requests.exceptions import Timeout, ConnectionError
@@ -245,9 +246,16 @@ class AgentClient:
 
 
 if __name__ == "__main__":
-    # TODO: define arguments (eg. api_url, database_url, etc.)
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        '--api',
+        default='http://127.0.0.1:8000',
+        help='The Agent API address'
+    )
     try:
-        client = AgentClient()
+        args = parser.parse_args(sys.argv[1:])
+        client = AgentClient(api_url=args.api)
         client.run()
     except KeyboardInterrupt:
         sys.exit()
