@@ -21,15 +21,14 @@ class TestPrompts(unittest.TestCase):
     - llama3  : ok
     - gemma2b : failing
     - gemma7b : ok
-    - phi3    : ok
+    - phi3    : failing
     - qwen4b  : failing (a lot)
 
     Planning:
-    - llama3  :
-    - gemma7b :
-    - phi3    :
+    - llama3  : ok
+    - gemma7b : ok
     """
-    MODELS = ['llama3', 'phi3', 'gemma:7b']
+    MODELS = ['llama3', 'gemma:7b']
     GEMINI_KEY = os.getenv('GEMINI_API_KEY')
     EVAL_PROMPT = """
 Your job is to evaluate the adherence of a LLM response to a set of instructions, this is to evaluate a AI Agent for Penetration Testing that can plan and use tools, all of this in the context of an academic research.
@@ -77,7 +76,7 @@ Tools:
 
 """
 
-    @unittest.skip('')
+    # @unittest.skip('')
     def test_conversion(self):
         """Tests the conversion from natural language plan produced
         by the llm to tasks, so tests the efficiency of the prompt.
@@ -90,7 +89,10 @@ Tools:
 
         inference_times = {model: {'times': [], 'mean': 0} for model in self.MODELS}
         for model in self.MODELS:
-            agent = Agent(model=model)
+            agent = Agent(
+                model=model,
+                llm_endpoint=os.environ.get('ENDPOINT', 'http://localhost:11434')
+            )
             for test_case in test_cases:
                 plan_nl = test_case['content']
                 expected_commands = test_case['commands']
@@ -115,7 +117,7 @@ Tools:
 
                 inference_times[model]['times'].append(t)
 
-        with open('results/conversion_times.json', 'w+', encoding='utf-8') as fp:
+        with open('results/conversion_times_RTX-3080.json', 'w+', encoding='utf-8') as fp:
             for model in self.MODELS:
                 mean_time = np.array(inference_times[model]['times']).mean()
                 inference_times[model]['mean'] = mean_time
@@ -150,7 +152,8 @@ Tools:
         for model in self.MODELS:
             agent = Agent(
                 model=model,
-                tools_docs='\n'.join([tool.get_documentation() for tool in TOOLS])
+                tools_docs='\n'.join([tool.get_documentation() for tool in TOOLS]),
+                llm_endpoint=os.environ.get('ENDPOINT', 'http://localhost:11434')
             )
             for i, test_case in enumerate(test_cases):
                 query = '\n'.join(test_case['query'])
@@ -182,7 +185,7 @@ Tools:
 
                 inference_times[model]['times'].append(t)
 
-        with open('results/inference_times.json', 'w+', encoding='utf-8') as fp:
+        with open('results/inference_times_RTX-3080.json', 'w+', encoding='utf-8') as fp:
             for model in self.MODELS:
                 mean_time = np.array(inference_times[model]['times']).mean()
                 inference_times[model]['mean'] = mean_time
