@@ -32,9 +32,6 @@ class Agent:
         self.system_plan_con = PROMPTS[model]['plan_conversion']['system']
         self.user_plan_con = PROMPTS[model]['plan_conversion']['user']
 
-        # Start Ollama
-        self._startup_ollama()
-
     def query(self, sid: int, user_in: str, rag=True):
         """Performs a query to the Large Language Model,
         set `rag=True` to leverage Retrieval Augmented Generation."""
@@ -47,7 +44,11 @@ class Agent:
         else:
             prompt = '\n'.join(self.user_plan_gen.split('\n')[:-3])
             prompt = prompt.format(user_input=user_in)
-   
+
+        # ensure session is initialized (otherwise llm has no system prompt)
+        if sid not in self.mem.sessions.keys():
+            self.new_session(sid)
+
         self.mem.store_message(
             sid,
             Message(Role.USER, prompt)
@@ -60,7 +61,7 @@ class Agent:
         response_tokens = 0
         for chunk in self.llm.query(messages):
             if chunk['done']:
-                prompt_tokens = chunk['prompt_eval_count']
+                prompt_tokens = chunk['prompt_eval_count'] if 'prompt_eval_count' in chunk else None
                 response_tokens = chunk['eval_count']
             yield chunk['message']['content']
 
@@ -152,12 +153,3 @@ class Agent:
             context += (f"{retrieved.payload['title']}:"
                         f"\n{retrieved.payload['text']}\n\n")
         return context
-
-    def _startup_ollama(self):
-        """Make a query to load model into Ollama"""
-        self.llm.query(
-            messages=[
-                {'role': 'user', 'content': 'Hi'}
-            ],
-            stream=False
-        )

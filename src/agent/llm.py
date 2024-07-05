@@ -16,11 +16,6 @@ AVAILABLE_MODELS = {
             'num_ctx': 8000
         }
     },
-    'gemma:2b': {
-        'options': {
-            'temperature': 0.5,
-        }
-    },
     'gemma:7b': {
         'options': {
             'temperature': 0.5,
@@ -47,20 +42,10 @@ class LLM:
         self.client = Client(self.client_url)
 
     def query(self, messages: list, stream=True):
-        """Generator that returns response chunks from Phi3-mini-k4 model"""
+        """Generator that returns response chunks."""
         return self.client.chat(
             model=self.model,
             messages=messages,
             stream=stream,
             options=AVAILABLE_MODELS[self.model]['options']
         )
-
-
-if __name__ == "__main__":
-    llm = LLM('gemma:2b')
-    out = llm.query([
-        {'role': 'user', 'content': 'How do I build a search engine?'}
-    ])
-
-    for chunk in out:
-        print(chunk['message']['content'], end='')
