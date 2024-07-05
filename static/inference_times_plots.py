@@ -9,8 +9,9 @@ import seaborn as sns
 if __name__ == "__main__":
     CASES = ['conversion', 'inference']  # inference == planning
     GPUS = ['GTX-1660-Ti', 'RTX-3080']
+    # GPUS = ['RTX-3080']
 
-    fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(16, 16))
+    fig, axes = plt.subplots(nrows=len(CASES), ncols=len(GPUS), figsize=(16, 16))
     fig.suptitle('Inference Times')
     sns.set(style="whitegrid")
 
@@ -38,7 +39,10 @@ if __name__ == "__main__":
     for i, case in enumerate(CASES):
         for j, gpu in enumerate(GPUS):
             df = times[f'{case}_{gpu}']
-            ax = axes[i, j]
+            if len(GPUS) > 1:
+                ax = axes[i, j]
+            else:
+                ax = axes[i]
             sns.barplot(x='model', y='time', data=df, ax=ax)
 
             ax.set_title(f'{case[:1].upper()}{case[1:]} Times ({gpu})')
@@ -48,7 +52,7 @@ if __name__ == "__main__":
             ax.tick_params(axis='x', rotation=45)
 
     plt.savefig(
-        './images/inference_times_plot.png',
+        './images/inference_times_plot_RTX.png',
         dpi=300,
         bbox_inches='tight'
     )
