@@ -1,38 +1,57 @@
 import json
+import sys
+from json import JSONDecodeError
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
 if __name__ == "__main__":
-    with open('../test/tests/results/conversion_times.json', 'r', encoding='utf-8') as fp:
-        data_conv = json.load(fp)
+    CASES = ['conversion', 'inference']  # inference == planning
+    GPUS = ['GTX-1660-Ti', 'RTX-3080']
 
-    with open('../test/tests/results/inference_times.json', 'r', encoding='utf-8') as fp:
-        data_plan = json.load(fp)
-
-    inference_times_conv = [{'model': k, 'time': v['mean']} for k, v in data_conv.items()]
-    inference_times_plan = [{'model': k, 'time': v['mean']} for k, v in data_conv.items()]
-
-    df_conv = pd.DataFrame(inference_times_conv)
-    df_plan = pd.DataFrame(inference_times_plan)
-
-    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(16, 16))
+    fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(16, 16))
     fig.suptitle('Inference Times')
     sns.set(style="whitegrid")
 
-    ax_plan = axes[0, 0]
-    sns.barplot(x='model', y='time', data=df_plan, ax=ax_plan)
-    ax_plan.set_title('Planning Times')
-    ax_plan.set_xlabel('Model')
-    ax_plan.set_ylabel('Time')
-    ax_plan.xticks(rotation=45)
+    times = {}
+    max_time = 0
+    for case in CASES:
+        for gpu in GPUS:
+            path = f'../test/tests/results/{case}_times_{gpu}.json'
+            with open(path, 'r', encoding='utf-8') as fp:
+                # load data
+                try:
+                    data = json.load(fp)
+                except JSONDecodeError as err:
+                    print(f'Failed extracting {path}\nError: {err}')
+                    sys.exit(1)
 
-    ax_conv = axes[0, 1]
-    sns.barplot(x='model', y='time', data=df_conv, ax=ax_conv)
-    ax_plan.set_title('Conversion Times')
-    ax_plan.set_xlabel('Model')
-    ax_plan.set_ylabel('Time')
-    ax_plan.xticks(rotation=45)
+                # store data and find max inference time
+                t = [{'model': k, 'time': v['mean']} for k, v in data.items()]
+                for item in t:
+                    if item['time'] > max_time:
+                        max_time = item['time']
+                times[f'{case}_{gpu}'] = pd.DataFrame(t)
+
+    # make subplots
+    for i, case in enumerate(CASES):
+        for j, gpu in enumerate(GPUS):
+            df = times[f'{case}_{gpu}']
+            ax = axes[i, j]
+            sns.barplot(x='model', y='time', data=df, ax=ax)
+
+            ax.set_title(f'{case[:1].upper()}{case[1:]} Times ({gpu})')
+            ax.set_xlabel('Model')
+            ax.set_ylabel('Time')
+            ax.set_ylim([0, max_time + 10])
+            ax.tick_params(axis='x', rotation=45)
+
+    plt.savefig(
+        './images/inference_times_plot.png',
+        dpi=300,
+        bbox_inches='tight'
+    )
 
     plt.tight_layout()
     plt.subplots_adjust(top=0.92)
