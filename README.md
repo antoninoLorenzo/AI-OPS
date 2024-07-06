@@ -61,8 +61,32 @@ whatever hardware setup</ins> you have available (see [Components](#components) 
 
 
 ### End-User
-**TODO**
+1. **Setup**
+-  Clone Repository `git clone https://github.com/antoninoLorenzo/AI-OPS.git`
 
+2. **Ollama**
+- Launch Ollama
+  ```
+  ./scripts/ollama_serve.* -i OLLAMA_HOST -o OLLAMA_ORIGINS
+  ```
+  *Note: there is ollama_serve.sh for Linux and ollama_serve.bat for Windows*
+
+3. **Agent API**
+- Build Docker Image
+  ```
+  docker build -t ai-ops:api-dev --build-arg ollama_endpoint=ENDPOINT ollama_model=MODEL .
+  ```
+- Run Docker Container
+  ```
+  docker run -p 8000:8000 ai-ops:api-dev
+  ```
+
+4. **CLI Client**
+- Run Client
+  ```
+  python ai-ops-cli.py --api AGENT_API_ADDRESS
+  ```
+  
 ### Development
 
 1. **Setup**
@@ -77,8 +101,7 @@ whatever hardware setup</ins> you have available (see [Components](#components) 
 - Run ollama: `ollama serve`
 
 
-
-3. **Run API**
+3. **Agent API**
 - Launch Agent API (*in development*): `fastapi.exe dev ./src/api.py`
   
   -  Access from other machines: `fastapi.exe dev --host 0.0.0.0 ./src/api.py`
@@ -93,9 +116,10 @@ whatever hardware setup</ins> you have available (see [Components](#components) 
 - move the content of `tools_settings` to `<user home>/.aiops/tools`.
 
 5. **CLI Client**
-```
-python ./ai-ops-cli.py
-```
+- Run Client
+  ```
+  python ai-ops-cli.py --api AGENT_API_ADDRESS
+  ```
 
 ## 📝System Structure
 
