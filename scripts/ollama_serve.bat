@@ -30,9 +30,9 @@ goto :init
 :parse
     if "%~1"=="" goto :main
 
-    if /i "%~1"=="/?"         call :header & call :usage "%~2" & goto :end
-    if /i "%~1"=="-?"         call :header & call :usage "%~2" & goto :end
-    if /i "%~1"=="--help"     call :header & call :usage "%~2" & goto :end
+    if /i "%~1"=="/?"         call :usage "%~2" & goto :end
+    if /i "%~1"=="-?"         call :usage "%~2" & goto :end
+    if /i "%~1"=="--help"     call :usage "%~2" & goto :end
 
     if /i "%~1"=="--ip"       set "OllamaIP=%~2"   & shift & shift & goto :parse
     if /i "%~1"=="-i"         set "OllamaIP=%~2"   & shift & shift & goto :parse
