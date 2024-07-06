@@ -3,6 +3,11 @@
     "tool_description": "Nmap is a tool for network exploration used during Reconnaissance in Penetration Testing.",
     "args_description": [
         "The most important nmap command argument is the iPv4 address of the target machine.\n",
-        "Ensure that the IP address is in the format xxx.xxx.xxx.xxx with points separating the octets."
+        "Ensure that the IP address is in the format xxx.xxx.xxx.xxx with points separating the octets.\n",
+        "Some of the other arguments are as follows:\n",
+        "-p     : Specifies the port(s) to scan.\n",
+        "-sV    : Enables version detection on open ports\n",
+        "-sC    : Executes a set of default scripts that are deemed useful for most scanning situations.\n",
+        "-T<0-5>: Sets the timing template (higher is faster)\n"
     ]
 }
