@@ -1,4 +1,4 @@
-![pylint](https://img.shields.io/badge/PyLint-9.04-yellow?logo=python&logoColor=white)
+![pylint](https://img.shields.io/badge/PyLint-9.02-yellow?logo=python&logoColor=white)
 
 # AI-OPS
 
