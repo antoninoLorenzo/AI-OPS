@@ -41,7 +41,7 @@
             "After completing the Reconnaissance phase, proceed with the Initial Access phase to exploit any identified vulnerabilities."
         ],
         "commands": [
-            "nmap http://ww.example.com",
+            "nmap http://www.example.com",
             "searchsploit -u http://www.example.com",
             "sqlmap -u http://www.example.com"
         ]
