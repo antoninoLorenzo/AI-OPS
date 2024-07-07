@@ -1,11 +1,15 @@
 import os
 import sys
 import json
+import time
 
+import google.api_core.exceptions
 import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
 from tqdm import tqdm
 from dotenv import load_dotenv
+
+from src.agent.tools import TOOLS
 
 load_dotenv()
 
@@ -22,7 +26,7 @@ The overall structure of a Penetration Testing is made by the following componen
 
 **Scenario Format**
 You will provide the Scenarios in the following format:
-{"user_background": "level", "objective": "objective description", "target": "empty if not provided or IP/URL if provided", "phase": "penetration testing phase"}
+{{"user_background": "level", "objective": "objective description", "target": "empty if not provided or IP/URL if provided", "phase": "penetration testing phase"}}
 
 **Example**
 User: 4
@@ -73,16 +77,16 @@ You will be provided with:
 2. The query should express the user objective, based on his experience level it can be more or less clear.
 
 **Output Format**
-{"query": "the user query generated from the scenario"}
+{{"query": "the user query generated from the scenario"}}
 
 **Examples**
-User: {"user_background": "Beginner", "objective": "Learn the basics of network scanning and identify open ports on a target system.", "target": "NaN", "phase": "Reconnaissance"}
+User: {{"user_background": "Beginner", "objective": "Learn the basics of network scanning and identify open ports on a target system.", "target": "NaN", "phase": "Reconnaissance"}}
 You:
-{"query": "Hi, I need to know what ports are opened on a target system, can you help me?"}
+{{"query": "Hi, I need to know what ports are opened on a target system, can you help me?"}}
 
-User: {"user_background": "Intermediate", "objective": "Attempt to exploit a known vulnerability in a web application to gain unauthorized access to sensitive data", "target": "https://example.com", "phase": "Initial Access"}
+User: {{"user_background": "Intermediate", "objective": "Attempt to exploit a known vulnerability in a web application to gain unauthorized access to sensitive data", "target": "https://example.com", "phase": "Initial Access"}}
 You:
-{"query": "I'm looking to exploit a known vulnerability in a web application to gain unauthorized access to sensitive data on https://example.com. Could you provide a detailed guide on identifying and exploiting vulnerabilities like SQL injection or Cross-Site Scripting (XSS)? Additionally, what are the best tools for this process, and how can these vulnerabilities be mitigated after exploitation?"}
+{{"query": "I'm looking to exploit a known vulnerability in a web application to gain unauthorized access to sensitive data on https://example.com. Could you provide a detailed guide on identifying and exploiting vulnerabilities like SQL injection or Cross-Site Scripting (XSS)? Additionally, what are the best tools for this process, and how can these vulnerabilities be mitigated after exploitation?"}}
 
 ----------------------------------------------------------------
 
@@ -98,7 +102,8 @@ if __name__ == "__main__":
     GEMINI_KEY = os.getenv('GEMINI_API_KEY')
     if not GEMINI_KEY:
         print('Missing Gemini Key')
-        sys.exit(1)
+        sys.exit(-1)
+    genai.configure(api_key=GEMINI_KEY)
 
     scenario_gen = genai.GenerativeModel(
         'gemini-1.5-flash',
@@ -114,30 +119,42 @@ if __name__ == "__main__":
 
     # --- Query Generation
     queries = []
-    for i in range(2):
-        # generate scenario
-        scenario_prompt = SCENARIO_PROMPT.format(num_scenarios=i*10)
-        scenario_response = scenario_gen.generate_content(scenario_prompt, safety_settings=safety_settings)
-        scenario = json.loads(scenario_response.text)
+    n_scenarios = 10
+    expected_queries = 20
+    total = round(expected_queries/n_scenarios)
+    for i in tqdm(range(1, total+1), total=total, desc='Generating queries...'):
+        try:
+            # generate scenario
+            scenario_prompt = SCENARIO_PROMPT.format(num_scenarios=i*10)
+            scenario_response = scenario_gen.generate_content(scenario_prompt, safety_settings=safety_settings)
+            scenarios = json.loads(scenario_response.text)
 
-        # generate query
-        background = scenario['user_background']
-        objective = scenario['objective']
-        target = scenario['target']
-        phase = scenario['phase']
+            # generate query
+            for scenario in scenarios:
+                background = scenario['user_background']
+                objective = scenario['objective']
+                target = scenario['target']
+                phase = scenario['phase']
 
-        query_prompt = QUERY_PROMPT.format(
-            user_background=background,
-            objective=objective,
-            target=target,
-            phase=phase
+                query_prompt = QUERY_PROMPT.format(
+                    user_background=background,
+                    objective=objective,
+                    target=target,
+                    phase=phase
+                )
+                user_query = query_gen.generate_content(query_prompt, safety_settings=safety_settings)
+                query = json.loads(user_query.text)
+                queries.append(query['query'])
+                time.sleep(1)
+        except google.api_core.exceptions.ResourceExhausted:
+            time.sleep(15)  # that way could potentially skip an iteration or part of it
+
+    # Export Planning Test Cases
+    tools = [tool.name for tool in TOOLS]
+    tools = ', '.join(tools)
+    with open('test_cases/planning.json', 'w+', encoding='utf-8') as fp:
+        json.dump(
+            [{'query': q, 'tools': tools} for q in queries],
+            fp
         )
-        user_query = query_gen.generate_content(query_prompt, safety_settings=safety_settings)
-        queries.append(user_query.text)
 
-    for q in queries:
-        print(f'Query: {q}\n')
-
-    # --- Response Generation
-
-    # --- Output
