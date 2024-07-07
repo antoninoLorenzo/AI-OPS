@@ -23,10 +23,12 @@ class TestPrompts(unittest.TestCase):
     - gemma7b : ok
     - phi3    : failing
     - qwen4b  : failing (a lot)
+    - mistral :
 
     Planning:
     - llama3  : ok
     - gemma7b : ok
+    - mistral :
     """
     MODELS = ['llama3', 'gemma:7b']
     GEMINI_KEY = os.getenv('GEMINI_API_KEY')
@@ -185,7 +187,7 @@ Tools:
 
                 inference_times[model]['times'].append(t)
 
-        with open('results/inference_times_RTX-3080.json', 'w+', encoding='utf-8') as fp:
+        with open('results/inference_times_GTX-1660-Ti.json', 'w+', encoding='utf-8') as fp:
             for model in self.MODELS:
                 mean_time = np.array(inference_times[model]['times']).mean()
                 inference_times[model]['mean'] = mean_time
