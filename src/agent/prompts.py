@@ -203,7 +203,8 @@ convert them into the provided JSON format.
 Command Extraction Guidelines:
 1. Only provide the JSON string
 2. 'terminal' is a keyword, you should not include it in any command
-3. Your response should contain only commands contained in the natural language plan"""),
+3. Your response should contain only commands contained in the natural language plan
+4. Exclude whatever comment that is not a command"""),
         },
     },
 }
