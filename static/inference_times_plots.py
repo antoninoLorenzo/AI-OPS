@@ -8,8 +8,8 @@ import seaborn as sns
 
 if __name__ == "__main__":
     CASES = ['conversion', 'inference']  # inference == planning
-    GPUS = ['GTX-1660-Ti', 'RTX-3080']
-    # GPUS = ['RTX-3080']
+    # GPUS = ['GTX-1660-Ti', 'RTX-3080']
+    GPUS = ['RTX-3080']
 
     fig, axes = plt.subplots(nrows=len(CASES), ncols=len(GPUS), figsize=(16, 16))
     fig.suptitle('Inference Times')
@@ -19,7 +19,7 @@ if __name__ == "__main__":
     max_time = 0
     for case in CASES:
         for gpu in GPUS:
-            path = f'../test/tests/results/{case}_times_{gpu}.json'
+            path = f'../test/test_acceptance/results/{case}_times_{gpu}.json'
             with open(path, 'r', encoding='utf-8') as fp:
                 # load data
                 try:
