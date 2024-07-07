@@ -13,17 +13,19 @@ AVAILABLE_MODELS = {
     'llama3': {
         'options': {
             'temperature': 0.5,
-            'num_ctx': 8000
+            'num_ctx': 8192
         }
     },
     'gemma:7b': {
         'options': {
             'temperature': 0.5,
+            'num_ctx': 8192
         }
     },
-    'phi3': {
+    'mistral': {
         'options': {
             'temperature': 0.5,
+            'num_ctx': 8192
         }
     },
 }
