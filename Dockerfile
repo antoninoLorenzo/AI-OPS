@@ -1,5 +1,7 @@
 # ----------- Agent API Docker File
-# --build-arg arg1=v1 arg2=v2
+# TODO : copy api files from GitHub 
+# TODO : add healthcheck 
+
 # Kali Setup
 FROM kalilinux/kali-rolling
 
