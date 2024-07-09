@@ -39,9 +39,10 @@ load_dotenv()
 
 class AgentSettings(BaseSettings):
     """Setup for AI Agent"""
-    # PROVIDER = 'ollama'
-    MODEL: str = os.environ.get('MODEL', 'llama3')
+    MODEL: str = os.environ.get('MODEL', 'gemma:7b')
     ENDPOINT: str = os.environ.get('ENDPOINT', 'http://localhost:11434')
+    PROVIDER: str = os.environ.get('PROVIDER', 'ollama')
+    PROVIDER_KEY: str = os.environ.get('PROVIDER_KEY', '')
 
 
 class APISettings(BaseSettings):
@@ -58,7 +59,9 @@ api_settings = APISettings()
 agent = Agent(
     model=agent_settings.MODEL,
     llm_endpoint=agent_settings.ENDPOINT,
-    tools_docs='\n'.join([tool.get_documentation() for tool in TOOLS])
+    tools_docs='\n'.join([tool.get_documentation() for tool in TOOLS]),
+    provider=agent_settings.PROVIDER,
+    provider_key=agent_settings.PROVIDER_KEY
 )
 
 app = FastAPI()

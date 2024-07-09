@@ -4,7 +4,7 @@ import json
 from json import JSONDecodeError
 
 from src.agent.knowledge import Store
-from src.agent.llm import LLM
+from src.agent.llm import LLM, AVAILABLE_PROVIDERS
 from src.agent.memory import Memory, Message, Role
 from src.agent.plan import Plan, Task
 from src.agent.prompts import PROMPTS
@@ -17,9 +17,25 @@ class Agent:
     def __init__(self, model: str,
                  tools_docs: str = '',
                  knowledge_base: Store = None,
-                 llm_endpoint: str = 'http://localhost:11434'):
+                 llm_endpoint: str = 'http://localhost:11434',
+                 provider: str = 'ollama',
+                 provider_key: str = ''):
+        # Pre-conditions
+        if provider not in AVAILABLE_PROVIDERS.keys():
+            raise RuntimeError(f'{provider} not supported.')
+
+        provider_class = AVAILABLE_PROVIDERS[provider]['class']
+        key_required = AVAILABLE_PROVIDERS[provider]['key_required']
+        if key_required and len(provider_key) == 0:
+            raise RuntimeError(f'{provider} requires an api key, set PROVIDER_KEY environment variable.')
+
         # Agent Components
-        self.llm = LLM(model=model, client_url=llm_endpoint)
+        self.llm = LLM(
+            model=model,
+            client_url=llm_endpoint,
+            provider_class=provider_class,
+            api_key=provider_key
+        )
         self.mem = Memory()
         self.vdb: Store | None = knowledge_base
 

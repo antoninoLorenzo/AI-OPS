@@ -6,7 +6,7 @@ LLM providers are:
 - [x] Ollama
 """
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from ollama import Client
 
@@ -29,6 +29,12 @@ AVAILABLE_MODELS = {
             'num_ctx': 8192
         }
     },
+    'phi3': {
+        'options': {
+            'temperature': 0.5,
+            'num_ctx': 8192
+        }
+    },
 }
 
 
@@ -44,8 +50,11 @@ class Provider(ABC):
         """Implement to makes query to the LLM provider"""
 
 
+@dataclass
 class Ollama(Provider):
     """Ollama Interface"""
+    client: Client | None = field(init=False, default=None)
+
     def __post_init__(self):
         if self.model not in AVAILABLE_MODELS.keys():
             raise ValueError(f'Model {self.model} is not available')
@@ -63,11 +72,21 @@ class Ollama(Provider):
 
 @dataclass
 class LLM:
-    """Ollama model interface"""
+    """LLM interface"""
     model: str
     client_url: str = 'http://localhost:11434'
-    provider: Provider = Ollama
+    provider: Provider = None
+    provider_class: Provider = Ollama
+    api_key: str | None = None
+
+    def __post_init__(self):
+        self.provider = self.provider_class(
+            model=self.model,
+            client_url=self.client_url,
+            api_key=self.api_key
+        )
 
     def query(self, messages: list, stream=True):
         """Generator that returns response chunks."""
-        return self.provider.query(messages, stream=stream)
+        for chunk in self.provider.query(messages, stream=stream):
+            yield chunk
