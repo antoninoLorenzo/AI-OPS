@@ -1,5 +1,7 @@
 # ----------- Agent API Docker File
-# --build-arg arg1=v1 arg2=v2
+# TODO : copy api files from GitHub 
+# TODO : add healthcheck 
+
 # Kali Setup
 FROM kalilinux/kali-rolling
 
@@ -15,7 +17,6 @@ RUN apt-get update && apt-get install -y \
     sqlmap
 
 # Setup API
-RUN mkdir "api"
 WORKDIR /api
 COPY requirements.txt .
 COPY src ./src
