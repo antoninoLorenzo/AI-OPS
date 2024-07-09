@@ -15,7 +15,6 @@ RUN apt-get update && apt-get install -y \
     sqlmap
 
 # Setup API
-RUN mkdir "api"
 WORKDIR /api
 COPY requirements.txt .
 COPY src ./src
