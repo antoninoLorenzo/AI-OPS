@@ -73,17 +73,17 @@ class Agent:
 
         # generate response
         response = ''
-        prompt_tokens = 0
+        # prompt_tokens = 0
         response_tokens = 0
         for chunk in self.llm.query(messages):
-            if chunk['done']:
-                prompt_tokens = chunk['prompt_eval_count'] if 'prompt_eval_count' in chunk else None
-                response_tokens = chunk['eval_count']
-            yield chunk['message']['content']
+            # if chunk['done']:
+            #     prompt_tokens = chunk['prompt_eval_count'] if 'prompt_eval_count' in chunk else None
+            #     response_tokens = chunk['eval_count']
+            yield chunk  # ['message']['content']
 
-            response += chunk['message']['content']
+            response += chunk  # ['message']['content']
 
-        self.mem.get_session(sid).messages[-1].tokens = prompt_tokens
+        # self.mem.get_session(sid).messages[-1].tokens = prompt_tokens
         self.mem.store_message(
             sid,
             Message(Role.ASSISTANT, response, tokens=response_tokens)

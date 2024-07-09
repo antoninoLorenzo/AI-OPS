@@ -1,13 +1,12 @@
 """
 Interfaces the AI Agent to the LLM Provider, model availability depends on
 implemented prompts, to use a new model the relative prompts should be written.
-
-LLM providers are:
-- [x] Ollama
 """
+import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
+from requests import Session
 from ollama import Client
 
 AVAILABLE_MODELS = {
@@ -62,12 +61,44 @@ class Ollama(Provider):
 
     def query(self, messages: list, stream=True):
         """Generator that returns response chunks."""
-        return self.client.chat(
+        stream = self.client.chat(
             model=self.model,
             messages=messages,
             stream=stream,
             options=AVAILABLE_MODELS[self.model]['options']
         )
+        for chunk in stream:
+            yield chunk['message']['content']
+
+
+@dataclass
+class OpenRouter(Provider):
+    """OpenRouter Interface"""
+    session: Session | None = None
+
+    def __post_init__(self):
+        self.session = Session()
+        self.models = {
+            'gemma:7b': 'google/gemma-2-9b-it:free',
+            'mistral': 'mistralai/mistral-7b-instruct:free'
+        }
+
+    def query(self, messages: list, stream=True):
+        """Generator that returns response chunks."""
+        response = self.session.post(
+                url=self.client_url,
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "HTTP-Referer": 'https://github.com/antoninoLorenzo/AI-OPS',
+                    "X-Title": 'AI-OPS',
+                },
+                data=json.dumps({
+                    "model": self.models[self.model],
+                    "messages": messages,
+                    # 'stream': True how the fuck works
+                })
+        )
+        return json.loads(response.text)['choices'][0]['message']['content']
 
 
 @dataclass
