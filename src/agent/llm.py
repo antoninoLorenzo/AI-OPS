@@ -5,6 +5,7 @@ implemented prompts, to use a new model the relative prompts should be written.
 LLM providers are:
 - [x] Ollama
 """
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 from ollama import Client
@@ -32,12 +33,19 @@ AVAILABLE_MODELS = {
 
 
 @dataclass
-class LLM:
-    """Ollama model interface"""
+class Provider(ABC):
+    """Represents a LLM Provider"""
     model: str
     client_url: str = 'http://localhost:11434'
-    client: Client | None = None
+    api_key: str | None = None
 
+    @abstractmethod
+    def query(self, messages: list, stream=True):
+        """Implement to makes query to the LLM provider"""
+
+
+class Ollama(Provider):
+    """Ollama Interface"""
     def __post_init__(self):
         if self.model not in AVAILABLE_MODELS.keys():
             raise ValueError(f'Model {self.model} is not available')
@@ -51,3 +59,15 @@ class LLM:
             stream=stream,
             options=AVAILABLE_MODELS[self.model]['options']
         )
+
+
+@dataclass
+class LLM:
+    """Ollama model interface"""
+    model: str
+    client_url: str = 'http://localhost:11434'
+    provider: Provider = Ollama
+
+    def query(self, messages: list, stream=True):
+        """Generator that returns response chunks."""
+        return self.provider.query(messages, stream=stream)
