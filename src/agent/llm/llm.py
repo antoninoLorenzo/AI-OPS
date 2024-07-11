@@ -28,6 +28,12 @@ AVAILABLE_MODELS = {
             'num_ctx': 8192
         }
     },
+    'internlm2': {
+        'options': {
+            'temperature': 0.5,
+            'num_ctx': 8192
+        }
+    },
     'phi3': {
         'options': {
             'temperature': 0.5,

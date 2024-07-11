@@ -120,18 +120,21 @@ class Agent:
             {'role': 'system', 'content': self.system_plan_con},
             {'role': 'user', 'content': prompt}
         ]
-        response = self.llm.query(messages=messages, stream=False)
+        stream = self.llm.query(messages=messages)
+        response = ''
+        for chunk in stream:
+            response += chunk
 
         try:
-            plan_data = json.loads(response['message']['content'])
+            plan_data = json.loads(response)
         except JSONDecodeError:
             # try extracting json from response
             json_regex = re.compile(r'\[.*?\]', re.DOTALL)
-            json_match = json_regex.search(response['message']['content'])
+            json_match = json_regex.search(response)
             if json_match:
                 plan_data = json.loads(json_match.group())
             else:
-                print(f'PlanError:\n{response["message"]["content"]}')
+                print(f'PlanError:\n{response}')
                 return None
 
         tasks = []
