@@ -139,7 +139,7 @@ class Agent:
 
         tasks = []
         for task in plan_data:
-            if len(task['command']) == 0:
+            if 'command' not in task.keys() or len(task['command']) == 0:
                 continue
             tasks.append(Task(
                 command=task['command'],
