@@ -11,7 +11,6 @@ from dotenv import load_dotenv
 from src.agent import Agent
 from src.agent.tools import TOOLS
 
-
 load_dotenv()
 
 
@@ -135,7 +134,7 @@ class TestPlanning(unittest.TestCase):
                 inference_times[model]['times'].append(t)
 
         # Export Inference Times
-        with open('results/inference_times_RTX-3080.json', 'w+', encoding='utf-8') as fp:
+        with open('results/inference_times_T4.json', 'w+', encoding='utf-8') as fp:
             for model in self.MODELS:
                 mean_time = np.array(inference_times[model]['times']).mean()
                 inference_times[model]['mean'] = mean_time
