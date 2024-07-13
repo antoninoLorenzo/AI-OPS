@@ -135,10 +135,12 @@ whatever hardware setup</ins> you have available (see [Components](#components) 
 
 
 ### Supported Ollama Models
-| Name        | Implemented (prompts) |
-|-------------|-----------------------|
-| .           | &check;               |
-| **LLama 3** | &cross;               |
+| Name         | Implemented (prompts) |
+|--------------|-----------------------|
+| **Gemma:7b** | &check;               |
+| **Mistral**  | &check;               |
+
+<!--| **LLama 3**  | &cross;               | -->
 
 
 
