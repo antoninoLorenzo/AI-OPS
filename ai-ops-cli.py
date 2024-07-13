@@ -7,7 +7,7 @@ import sys
 import argparse
 
 import requests
-from requests.exceptions import Timeout, ConnectionError
+from requests.exceptions import ConnectionError
 from rich.console import Console
 from rich.tree import Tree
 from rich.prompt import Prompt, InvalidResponse
