@@ -6,7 +6,7 @@
 FROM kalilinux/kali-rolling
 
 ARG ollama_endpoint=http://localhost:11434
-ARG ollama_model=llama3
+ARG ollama_model=mistral
 
 RUN apt-get update && apt-get install -y \
     python3-pip ca-certificates python3 python3-wheel \
