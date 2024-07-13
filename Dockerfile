@@ -17,10 +17,11 @@ RUN apt-get update && apt-get install -y \
     sqlmap
 
 # Setup API
-WORKDIR /api
-COPY requirements.txt .
-COPY src ./src
-COPY tools_settings ./tools_settings
+RUN git clone --filter=blob:none --no-checkout https://github.com/antoninoLorenzo/AI-OPS.git \
+    cd AI-OPS/ \
+    git sparse-checkout init \
+    git sparse-checkout set requirements.txt src/ tools_settings/ \
+    git checkout
 
 RUN pip3 install -r requirements.txt
 RUN python3 -m spacy download en_core_web_lg   && \
