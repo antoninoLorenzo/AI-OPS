@@ -6,8 +6,10 @@ import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
+import requests.exceptions
 from requests import Session
 from ollama import Client
+from ollama._types import ResponseError
 
 AVAILABLE_MODELS = {
     'llama3': {
@@ -61,14 +63,17 @@ class Ollama(Provider):
 
     def query(self, messages: list, stream=True):
         """Generator that returns response chunks."""
-        stream = self.client.chat(
-            model=self.model,
-            messages=messages,
-            stream=stream,
-            options=AVAILABLE_MODELS[self.model]['options']
-        )
-        for chunk in stream:
-            yield chunk['message']['content']
+        try:
+            stream = self.client.chat(
+                model=self.model,
+                messages=messages,
+                stream=stream,
+                options=AVAILABLE_MODELS[self.model]['options']
+            )
+            for chunk in stream:
+                yield chunk['message']['content']
+        except ResponseError as err:
+            raise RuntimeError(err)
 
 
 @dataclass
@@ -98,7 +103,16 @@ class OpenRouter(Provider):
                     # 'stream': True how the fuck works
                 })
         )
-        return json.loads(response.text)['choices'][0]['message']['content']
+
+        try:
+            response.raise_for_status()
+            output = json.loads(response.text)['choices'][0]['message']['content']
+        except requests.exceptions.HTTPError as req_err:
+            raise RuntimeError(req_err)
+        except json.JSONDecodeError as js_err:
+            raise RuntimeError(f'Internal Error: {js_err}')
+
+        return output
 
 
 @dataclass
