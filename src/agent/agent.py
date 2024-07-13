@@ -158,7 +158,10 @@ class Agent:
 
         msg = messages[-1] if messages[-1].role == Role.ASSISTANT else messages[-2]
 
-        plan = self.extract_plan(msg.content)
+        try:
+            plan = self.extract_plan(msg.content)
+        except JSONDecodeError:
+            return None
         yield from plan.execute()
 
         self.mem.store_plan(sid, plan)
