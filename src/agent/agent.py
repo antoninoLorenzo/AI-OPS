@@ -141,6 +141,9 @@ class Agent:
         for task in plan_data:
             if 'command' not in task.keys() or len(task['command']) == 0:
                 continue
+            if task['command'] == 'N/A':
+                continue
+
             tasks.append(Task(
                 command=task['command'],
                 thought=task['thought'] if 'thought' in task else None,
@@ -160,8 +163,9 @@ class Agent:
 
         try:
             plan = self.extract_plan(msg.content)
-        except JSONDecodeError:
-            return None
+        except Exception as err:
+            raise RuntimeError(err)
+
         yield from plan.execute()
 
         self.mem.store_plan(sid, plan)
