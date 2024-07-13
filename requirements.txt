@@ -16,3 +16,4 @@ rich~=13.7.1
 numpy~=1.26.4
 google-generativeai
 pydantic_settings
+httpx
