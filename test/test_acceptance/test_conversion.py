@@ -15,8 +15,10 @@ load_dotenv()
 class TestConversion(unittest.TestCase):
     """
     Conversion:
-    - gemma7b :
-    - mistral :
+    - gemma7b : ok
+    - mistral : ok
+
+    TODO: gemma2:9b, phi3:medium
     """
     MODELS = ['mistral', 'gemma:7b']
 
@@ -54,7 +56,7 @@ class TestConversion(unittest.TestCase):
                     self.assertIn(
                         command,
                         expected_commands,
-                        f"[{model}] Commands:\n{commands}\nExpected:\n{expected_commands}"
+                        f"\n[{model}] Commands:\n{commands}\nExpected:\n{expected_commands}"
                     )
 
                 inference_times[model]['times'].append(t)
