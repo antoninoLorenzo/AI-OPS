@@ -9,7 +9,7 @@ import seaborn as sns
 if __name__ == "__main__":
     CASES = ['conversion', 'inference']  # inference == planning
     # GPUS = ['GTX-1660-Ti', 'RTX-3080']
-    GPUS = ['RTX-3080']
+    GPUS = ['T4']
 
     fig, axes = plt.subplots(nrows=len(CASES), ncols=len(GPUS), figsize=(16, 16))
     fig.suptitle('Inference Times')
