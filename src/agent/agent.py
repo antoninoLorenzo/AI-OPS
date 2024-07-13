@@ -143,9 +143,13 @@ class Agent:
                 continue
             if task['command'] == 'N/A':
                 continue
+            if task['command'].startswith('`'):
+                cmd = task['command'][1:-1]
+            else:
+                cmd = task['command']
 
             tasks.append(Task(
-                command=task['command'],
+                command=cmd,
                 thought=task['thought'] if 'thought' in task else None,
                 tool=Terminal
             ))
