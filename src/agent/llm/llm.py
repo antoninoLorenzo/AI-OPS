@@ -10,6 +10,7 @@ import requests.exceptions
 from requests import Session
 from ollama import Client
 from ollama._types import ResponseError
+from httpx import ConnectError
 
 AVAILABLE_MODELS = {
     'llama3': {
@@ -107,7 +108,7 @@ class OpenRouter(Provider):
         try:
             response.raise_for_status()
             output = json.loads(response.text)['choices'][0]['message']['content']
-        except requests.exceptions.HTTPError as req_err:
+        except requests.exceptions.HTTPError or ConnectError as req_err:
             raise RuntimeError(req_err)
         except json.JSONDecodeError as js_err:
             raise RuntimeError(f'Internal Error: {js_err}')
