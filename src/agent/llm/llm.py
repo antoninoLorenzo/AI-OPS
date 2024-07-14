@@ -25,13 +25,13 @@ AVAILABLE_MODELS = {
             'num_ctx': 8192
         }
     },
-    'mistral': {
+    'gemma2:9b': {
         'options': {
             'temperature': 0.5,
             'num_ctx': 8192
         }
     },
-    'phi3': {
+    'mistral': {
         'options': {
             'temperature': 0.5,
             'num_ctx': 8192
