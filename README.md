@@ -3,19 +3,21 @@
 # AI-OPS
 
 ### Table of Contents
-1. [Overview](#💡-overview)
+1. [Overview](#-overview)
 2. [Key Features](#key-features)
-3. [Installation](#💻-installation)
+3. [Installation](#-install)
    - [End-User](#end-user)
    - [Development](#development)
-4. [System Structure](#📝-system-structure)
+4. [System Structure](#usage)
    - [Components](#components)
-5. [Tools](#🛠️-tools)
+   - [Supported Models](#supported-ollama-models)
+5. [Tools](#tools)
    - [Available Tools](#available-tools)
    - [Add a Tool](#add-a-tool)
-6. [Knowledge](#📚-knowledge)
+6. [Knowledge](#-knowledge-)
    - [Available Collections](#available-collections)
    - [Add a Collection](#add-a-collection)
+7. [Ethical and Legal Considerations](#-ethical-and-legal-considerations)
 
 ## 💡 Overview
 
@@ -97,7 +99,7 @@
   python ai-ops-cli.py --api AGENT_API_ADDRESS
   ```
 
-## 📝System Structure
+## 📝Usage
 
 ### Components
 ![Deployment Diagram](static/images/deployment_diagram.svg)
@@ -112,10 +114,10 @@
 
 ### Supported Ollama Models
 | Name         | Implemented (prompts) |
-|--------------|-----------------------|
-| **Gemma 7B** | &check;               |
-| **Gemma2 9B**| &check;               |  
-| **Mistral**  | &check;               |
+|--------------|----------------------|
+| **Gemma 7B** | &check;              |
+| **Gemma2 9B**| &check;              |  
+| **Mistral**  | &check;              |
 
 <!--| **LLama 3**  | &cross;               | -->
 
@@ -176,3 +178,20 @@ that use JSON Instructions are available in `tools_settings`.
 ### Add a Collection
 
 **TODO**
+
+## ⚖️ Ethical and Legal Considerations
+
+**AI-OPS** is designed as a penetration testing tool intended for academic and educational purposes only. Its primary goal is to assist cybersecurity professionals and enthusiasts in enhancing their understanding and skills in penetration testing through the use of AI-driven automation and tools.
+
+### Responsible Use
+
+- **Legal Compliance**: Ensure that you comply with all relevant laws and regulations when using this tool. Unauthorized access to computer systems is illegal and unethical.
+- **Permission**: Always obtain explicit permission from the system owner before performing any penetration testing. Unauthorized testing is illegal and can cause significant harm.
+- **Academic Integrity**: Use this tool to support your learning and research in ethical hacking and cybersecurity. Do not use it for malicious purposes.
+
+### Disclaimer
+
+The creators and contributors of **AI-OPS** are not responsible for any misuse of this tool. By using **AI-OPS**, you agree to take full responsibility for your actions and to use the tool in a manner that is ethical, legal, and in accordance with the intended purpose.
+
+> **Note**: This project is provided "as-is" without any warranties, express or implied. The creators are not liable for any damages or legal repercussions resulting from the use of this tool.
+
