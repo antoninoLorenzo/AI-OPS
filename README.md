@@ -3,73 +3,49 @@
 # AI-OPS
 
 ### Table of Contents
-1. [Overview](#-overview)
-   
-   2. [Key Features](#key-features)
-3. [Install](#-install)
-   
-   3. [End-User](#end-user)
-   4. [Development](#development)
-5. [System Structure](#system-structure)
-
-   6. [Components](#components)
-5. [Tools](#-tools)
-   
-   4. [Available Tools](#available-tools)
-   5. [Add a Tool](#add-a-tool)
-7. [Knowledge](#-knowledge)
-   
-   5. [Available Collections](#available-collections)
-   6. [Add a Collection](#add-a-collection)
+1. [Overview](#💡-overview)
+2. [Key Features](#key-features)
+3. [Installation](#💻-installation)
+   - [End-User](#end-user)
+   - [Development](#development)
+4. [System Structure](#📝-system-structure)
+   - [Components](#components)
+5. [Tools](#🛠️-tools)
+   - [Available Tools](#available-tools)
+   - [Add a Tool](#add-a-tool)
+6. [Knowledge](#📚-knowledge)
+   - [Available Collections](#available-collections)
+   - [Add a Collection](#add-a-collection)
 
 ## 💡 Overview
 
-- **AI** powered: uses a LLM AI-Agent to assist and automate
-- **O**pen-source: full open-source solution (even the LLM)
-- **P**entesting **S**uite: includes several tools for various use cases
+**AI-OPS** is an AI-powered, Open-source Penetration testing Suite that leverages Large Language Models (LLMs) AI-Agent to assist and automate tasks such as reconnaissance, exploitation, and report generation. 
 
+> **Note:** AI-OPS is designed to enhance, not replace, human penetration testers, similar to how AI enhances great programmers by making them more productive.
 
-The objective of **AI-OPS** is to enhance Penetration Testing operations with an *AI Agent*
-capable of planning and executing tasks, whether that's about automating the **Reconnaissance**,
-the **Exploitation**, generating a **Report** or just getting another point of view on a target system.
+## Key Features
 
-<ins>AI-OPS objective is not replacing human Pentesters</ins>, it is an AI Agent with *human-in-the-loop*
-by design, think it as follows: AI will not replace programmers, it makes bad programmers job worse, but 
-it enhances great programmers and make them more productive; that's the same objective of AI-OPS.
-
-
-### Key Features
-
-- 🎁 **Full Open-Source** : this project do not require any subscription to third party LLM providers, we use 
-[Ollama](https://github.com/ollama/ollama) as main LLM provider, meaning that you can use <ins>whatever model you 
-want</ins>.
-- 🔧 **Tool Integration** : the agent can execute Penetration Testing tools, not only the most common tools are 
-available (see [Available Tools](#available-tools)), but you can integrate <ins>whatever tool you want</ins> without 
-knowing how to code in Python (see [Add a Tool](#add-a-tool)).
-- 📚 **Up-to-date Knowledge** : the agent won't leverage only training information, there is a `RAG` system available 
-that enables the agent to get up-to-date knowledge, and you can add <ins>whatever document you want</ins> (see 
-[Add a Collection](#add-a-collection)).
-- ⚙️ **Scalability** : every component of the agent is independently deployable, meaning that you can leverage <ins>
-whatever hardware setup</ins> you have available (see [Components](#components) and [End-User](#end-user) installation).
-
+- 🎁 **Full Open-Source**: No need for third-party LLM providers; use any model you prefer with [Ollama](https://github.com/ollama/ollama).
+- 🔧 **Tool Integration**: Execute common penetration testing tools or integrate new ones without needing to code in Python.
+- 📚 **Up-to-date Knowledge**: Use the `RAG` system to keep the agent informed with the latest documents and data.
+- ⚙️ **Scalability**: Independently deployable components allow you to utilize any hardware setup.
 
 ## 💻 Install
 **Requirements**
 - Ollama (see [Ollama](https://github.com/ollama/ollama))
 - Docker (see [Docker Desktop](https://docs.docker.com/desktop/)) (*in development*)
-- Minimum hardware requirements to-be-defined
-
 
 ### End-User
 1. **Setup**
 -  Clone Repository `git clone https://github.com/antoninoLorenzo/AI-OPS.git`
 
 2. **Ollama**
-- Launch Ollama
+- Launch Ollama **Locally**
   ```
   ./scripts/ollama_serve.* -i OLLAMA_HOST -o OLLAMA_ORIGINS
   ```
   *Note: there is ollama_serve.sh for Linux and ollama_serve.bat for Windows*
+- As an alternative see my solution: [Ollama on Colab](https://github.com/antoninoLorenzo/Ollama-on-Colab-with-ngrok)
 
 3. **Agent API**
 - Build Docker Image
@@ -163,9 +139,8 @@ whatever hardware setup</ins> you have available (see [Components](#components) 
 
 ### Add a Tool
 
-Most Penetration Testing tools are 'simple' CLI programs, so the Agent only needs a Terminal and 
-instructions to use the tool, however there are more advanced tools (such as `Metasploit`) that 
-need a specific class to be integrated; for this reason there are two ways of adding a tool:
+Penetration Testing tools can be integrated using either JSON instructions or custom classes.
+
 1. **JSON Instructions**: create a file with instructions for the Agent and add it to 
 `/home/YOUR_USERNAME/.aiops/tools` (or `../Users/YOUR_USERNAME/.aiops/tools`); all available tools 
 that use JSON Instructions are available in `tools_settings`.
