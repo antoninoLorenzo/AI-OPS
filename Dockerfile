@@ -42,7 +42,7 @@ RUN echo "MODEL=$MODEL"       && \
     echo "ENDPOINT=$ENDPOINT"
 
 EXPOSE 8000
-CMD ["fastapi", "dev", "--host", "0.0.0.0", "./src/api.py"]
+CMD ["fastapi", "dev", "--host", "0.0.0.0", "./AI-OPS/src/api.py"]
 
 # docker build -t ai-ops:api-dev --build-arg ollama_endpoint=ENDPOINT .
 # docker run -p 8000:8000 ai-ops:api-dev
