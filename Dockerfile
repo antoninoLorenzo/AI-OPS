@@ -1,12 +1,12 @@
 # ----------- Agent API Docker File
-# TODO : copy api files from GitHub 
-# TODO : add healthcheck 
+# TODO : Setup volume for persistent sessions
+# TODO : add healthcheck
 
 # Kali Setup
 FROM kalilinux/kali-rolling
 
 ARG ollama_endpoint=http://localhost:11434
-ARG ollama_model=mistral
+ARG ollama_model=gemma2:9b
 
 RUN apt-get update && apt-get install -y \
     python3-pip ca-certificates python3 python3-wheel \
@@ -14,19 +14,26 @@ RUN apt-get update && apt-get install -y \
     gobuster \
     hashcat \
     exploitdb \
-    sqlmap
+    sqlmap \
+    git
 
 # Setup API
-RUN git clone --filter=blob:none --no-checkout https://github.com/antoninoLorenzo/AI-OPS.git \
-    cd AI-OPS/ \
-    git sparse-checkout init \
-    git sparse-checkout set requirements.txt src/ tools_settings/ \
+RUN git clone --filter=blob:none --no-checkout https://github.com/antoninoLorenzo/AI-OPS.git && \
+    cd AI-OPS/ && \
+    git sparse-checkout init && \
+    git sparse-checkout set requirements.txt src/ tools_settings/ && \
     git checkout
 
-RUN pip3 install -r requirements.txt
-RUN python3 -m spacy download en_core_web_lg   && \
-    mkdir -p $HOME/.aiops/tools                && \
+RUN cd AI-OPS/  && \
+    pip3 install --no-cache-dir -r requirements.txt && \
+    python3 -m spacy download en_core_web_lg  && \
+    mkdir -p $HOME/.aiops/tools && \
     mv tools_settings/* ~/.aiops/tools/
+
+VOLUME ["/root/.aiops"]
+
+# Run healtcheck
+# ...
 
 # Run API
 ENV MODEL=${ollama_model}
