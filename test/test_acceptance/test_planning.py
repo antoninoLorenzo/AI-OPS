@@ -17,13 +17,13 @@ load_dotenv()
 class TestPlanning(unittest.TestCase):
     """
     Planning:
-    - llama3  : failing
-    - gemma7b : ok
-    - mistral : ok
-
-    TODO: gemma2:9b, phi3:medium
+    - llama3      : failing
+    - gemma7b     : ok
+    - mistral     : ok
+    - gemma2:9b   : ok
+    - phi3:medium : failing
     """
-    MODELS = ['mistral', 'gemma:7b']
+    MODELS = ['mistral', 'gemma:7b', 'gemma2:9b']
     GEMINI_KEY = os.getenv('GEMINI_API_KEY')
     EVAL_PROMPT = """
     Your job is to evaluate the adherence of a LLM response to a set of instructions, this is to evaluate a AI Agent for Penetration Testing that can plan and use tools, all of this in the context of an academic research.
@@ -143,12 +143,12 @@ class TestPlanning(unittest.TestCase):
             json.dump(inference_times, fp)
 
         # Export natural language plans
-        with open('test_cases/conversion.json', 'w+', encoding='utf-8') as fp:
-            cases_contents = [resp.split('\n') for resp in natural_language_plans]
-            json.dump(
-                [{'content': content, 'commands': []} for content in cases_contents],
-                fp
-            )
+        # with open('test_cases/conversion.json', 'w+', encoding='utf-8') as fp:
+        #     cases_contents = [resp.split('\n') for resp in natural_language_plans]
+        #     json.dump(
+        #         [{'content': content, 'commands': []} for content in cases_contents],
+        #         fp
+        #     )
 
 
 if __name__ == "__main__":
