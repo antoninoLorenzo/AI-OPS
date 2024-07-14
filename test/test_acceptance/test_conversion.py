@@ -15,12 +15,11 @@ load_dotenv()
 class TestConversion(unittest.TestCase):
     """
     Conversion:
-    - gemma7b : ok
-    - mistral : ok
-
-    TODO: gemma2:9b, phi3:medium
+    - gemma7b   : ok
+    - mistral   : ok
+    - gemma3:9b : ok
     """
-    MODELS = ['mistral', 'gemma:7b']
+    MODELS = ['mistral', 'gemma:7b', 'gemma2:9b']
 
     def test_conversion(self):
         """Tests the conversion from natural language plan produced
