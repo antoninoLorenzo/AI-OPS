@@ -137,7 +137,8 @@ whatever hardware setup</ins> you have available (see [Components](#components) 
 ### Supported Ollama Models
 | Name         | Implemented (prompts) |
 |--------------|-----------------------|
-| **Gemma:7b** | &check;               |
+| **Gemma 7B** | &check;               |
+| **Gemma2 9B**| &check;               |  
 | **Mistral**  | &check;               |
 
 <!--| **LLama 3**  | &cross;               | -->
@@ -151,9 +152,14 @@ whatever hardware setup</ins> you have available (see [Components](#components) 
 | Name        | Use Case                         | Implemented         |
 |-------------|----------------------------------|---------------------|
 | nmap        | Scanning/Network Exploitation    | &check;             |
-| hashcat     | Password Cracking                | &cross;             |
-| SQLmap      | SQL Injection                    | &cross;             | 
+| hashcat     | Password Cracking                | &check;             |
+| SQLmap      | SQL Injection                    | &check;             | 
+| gobuster    | Enumeration                      | &check;             |
+| searchsploit| Research Vulnerabilities         | &check;             |
 | Metasploit  | Exploitation                     | &cross;             |
+
+*Note: virtually any tools that do not require additional code (such as Metasploit) can be executed*
+
 
 ### Add a Tool
 
