@@ -137,6 +137,10 @@ class Agent:
                 print(f'PlanError:\n{response}')
                 return None
 
+        if not plan_data:
+            raise RuntimeError(f'Error extracting plan: data not found.'
+                               f'\nResponse: {response}')
+
         tasks = []
         for task in plan_data:
             if 'command' not in task.keys() or len(task['command']) == 0:
