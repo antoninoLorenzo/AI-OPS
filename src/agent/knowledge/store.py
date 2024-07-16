@@ -17,6 +17,7 @@ class Store:
 
     def __init__(self,
                  url: str = 'http://localhost:6333',
+                 embedding_url: str = 'http://localhost:11434',
                  in_memory: bool = False,
                  router: Router = None
                  ):
@@ -38,7 +39,7 @@ class Store:
                 coll = {}
             self._collections: Dict[str: Collection] = coll
 
-        self._encoder = ollama.embeddings
+        self._encoder = ollama.Client(host=embedding_url).embeddings
         self._embedding_model: str = 'nomic-embed-text'
         self._embedding_size: int = len(
             self._encoder(

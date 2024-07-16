@@ -61,7 +61,7 @@ class LLMRouter(Router):
     Using a local model is not the best choice for performance, HuggingFace
     Inference API could be used in future"""
 
-    def __init__(self, model: str = 'gemma:2b'):
+    def __init__(self, model: str = 'gemma2:9b'):
         self.llm = LLM(model)
         self.system_prompt = PROMPTS[model]['routing']['system']
         self.user_prompt = PROMPTS[model]['routing']['user']
