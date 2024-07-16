@@ -11,9 +11,11 @@ import numpy as np
 
 from src.agent.llm import LLM, Ollama
 
-
+# TODO:
+#   rating could be done categorically instead of numerically
+#   ex. great = 1; good = 0.7; inaccurate = 0.3; bad = 0
 EVAL_PROMPTS = {
-    'mistral:7b': {
+    'gemma2:9b': {
         'context_recall': {
             'sys': textwrap.dedent("""
                 Given a context, and an answer, analyze each sentence in the answer and classify if the sentence can be attributed to the given context or not. Use only "Yes" (1) or "No" (0) as a binary classification. 
@@ -89,20 +91,16 @@ class Metric(ABC):
 
     @staticmethod
     def extract_response(response):
-        """Extracts the json results from a HuggingFace Inference Endpoint response"""
-        print(response)
-        eval_json = response['message']['content']
-        # TODO: check
-        # [0]['generated_text'].split('\n')[-1]
-
+        """Extracts the json results from response"""
         try:
-            return np.mean(json.loads(eval_json)['result'])
+            # TODO: validate response response type
+            return np.mean(json.loads(response)['result'])
         except JSONDecodeError:
-            match = re.search(JSON_PATTERN, eval_json)
+            match = re.search(JSON_PATTERN, response)
             if match:
                 return np.mean(json.loads(match.group())['result'])
             else:
-                return eval_json
+                return response
 
 
 class ContextRecall(Metric):
@@ -115,7 +113,10 @@ class ContextRecall(Metric):
             {'role': 'user', 'content': self.user_prompt.format(answer=answer, context=context)}
         ]
 
-        result = self.llm.query(messages)
+        response = self.llm.query(messages)
+        result = ''
+        for chunk in response:
+            result += chunk
         return self.extract_response(result)
 
 
@@ -129,6 +130,9 @@ class ContextPrecision(Metric):
             {'role': 'user', 'content': self.user_prompt.format(question=question, answer=answer, context=context)}
         ]
 
-        result = self.llm.query(messages)
+        response = self.llm.query(messages)
+        result = ''
+        for chunk in response:
+            result += chunk
         return self.extract_response(result)
 

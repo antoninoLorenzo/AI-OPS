@@ -34,12 +34,13 @@ GEN_PROMPT = {
 }
 
 
-def init_knowledge_base(data: dict[str: list[Topic]]) -> Store:
+def init_knowledge_base(data: dict[str: list[Topic]], embedding_url: str) -> Store:
     """Creates a connection to the Vector Database and
     uploads the data used to generate the synthetic dataset.
     :param data: {path to a JSON file : topic list}
+    :param embedding_url: llm endpoint
     """
-    store = Store()
+    store = Store(in_memory=True, embedding_url=embedding_url)
     i = 0
     for p, topics in data.items():
         path = Path(p)
@@ -71,7 +72,8 @@ def init_knowledge_base(data: dict[str: list[Topic]]) -> Store:
     return store
 
 
-def generate_evaluation_dataset(vdb: Store, qa_paths: list, model: str = 'gemma2:9b'):
+def generate_evaluation_dataset(vdb: Store, qa_paths: list, client_url: str,
+                                model: str = 'gemma2:9b'):
     """Uses the RAG pipeline to generate an evaluation dataset composed of
     questions and ground truths from Q&A dataset and context + answers from
     the RAG pipeline."""
@@ -81,20 +83,22 @@ def generate_evaluation_dataset(vdb: Store, qa_paths: list, model: str = 'gemma2
     )
 
     def gen_context_answer(question: str, llm: LLM):
-        points = vdb.retrieve(question, 'owasp')
+        points = vdb.retrieve_from(question, 'owasp')
         context_list = [f'{p.payload["title"]}: {p.payload["text"]}' for p in points]
         context = '\n'.join(context_list)
-        answer = llm.query(
+        response = llm.query(
             messages=[
                 {'role': 'system', 'content': GEN_PROMPT[model]['sys']},
                 {'role': 'user', 'content': GEN_PROMPT[model]['usr'].format(query=question, context=context)}
             ],
-            stream=False
-        )['message']['content']
+        )
+        answer = ''
+        for chunk in response:
+            answer += chunk
 
         return context_list, answer
 
-    generator = LLM(model=model)
+    generator = LLM(model=model, client_url=client_url)
     eval_data = []
     for i, items in tqdm(qa.iterrows(), total=len(qa), desc='Retrieving context and generating answers.'):
         ctx, ans = gen_context_answer(items.question, generator)
@@ -120,13 +124,15 @@ def evaluate(vdb: Store, qa_paths: list, endpoint: str,
 
     - Evaluating the full contexts-question-answer-ground_truths dataset.
     """
-    eval_dataset = generate_evaluation_dataset(vdb, qa_paths, generation_model)
+    eval_dataset = generate_evaluation_dataset(
+        vdb=vdb,
+        qa_paths=qa_paths,
+        model=generation_model,
+        client_url=endpoint
+    )
 
     # Setup evaluation metrics
-    llm = LLM(
-        model='gemma2:9b',
-        client_url=endpoint,
-    )
+    llm = LLM(model='gemma2:9b', client_url=endpoint)
     ctx_recall = ContextRecall(
         EVAL_PROMPTS[evaluation_model]['context_recall']['sys'],
         EVAL_PROMPTS[evaluation_model]['context_recall']['usr'],
@@ -210,12 +216,11 @@ if __name__ == '__main__':
         raise RuntimeError('Missing environment variable "ENDPOINT"')
 
     knowledge_base: Store = init_knowledge_base({
-        '../../../data/json/owasp.json': [Topic.WebPenetrationTesting]
-    })
+        '../../../data/json/owasp.json': ['Web Pentesting'],
+    }, embedding_url=OLLAMA_ENDPOINT)
 
     synthetic_qa_paths = [
-        '../../../data/rag_eval/owasp_100.json',
-        # '../../../data/rag_eval/owasp_100-200.json'
+        '../../../data/rag_eval/owasp_50.json',
     ]
 
     eval_results_df = evaluate(
@@ -223,4 +228,9 @@ if __name__ == '__main__':
         qa_paths=synthetic_qa_paths,
         endpoint=OLLAMA_ENDPOINT
     )
+    print(eval_results_df.head())
+    eval_results_df.to_json('./tmp.json')
+
+    # eval_results_df = pd.read_json('./tmp.json')
+
     update_evaluation_plots(eval_results_df)
