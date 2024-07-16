@@ -16,7 +16,7 @@
 ## Introduction
 
 Our objective is to monitor and improve the RAG pipeline for **AI-OPS**, that requires context-specific data from 
-*Cybersecurity* and *Penetration Testing* fields; also we want the evaluation process to be as automated as possible.
+*Cybersecurity* and *Penetration Testing* fields.
 
 The evaluation workflow is split in two steps:
 
