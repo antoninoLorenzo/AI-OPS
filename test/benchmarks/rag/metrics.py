@@ -146,16 +146,16 @@ class Metric(ABC):
         """Extracts the json results from response"""
         try:
             result = json.loads(response)['result']
-            if result is list:
+            if type(result) is list:
                 # list of labels (ex. context relevancy)
                 values = []
                 for label in result:
                     values.append(METRICS_VALUES[label] if label in METRICS_VALUES else 0)
                 return np.mean(values)
-
-            # single label (ex. context precision)
-            label = json.loads(response)['result']
-            return METRICS_VALUES[label] if label in METRICS_VALUES else 0
+            else:
+                # single label (ex. context precision)
+                label = json.loads(response)['result']
+                return METRICS_VALUES[label] if label in METRICS_VALUES else 0
         except JSONDecodeError:
             match = re.search(JSON_PATTERN, response)
             if match:

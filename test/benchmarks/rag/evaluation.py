@@ -24,7 +24,6 @@ from test.benchmarks.rag.metrics import (
     EVAL_PROMPTS
 )
 
-
 GEN_PROMPT = {
     'gemma2:9b': {
         'sys': """
@@ -122,7 +121,8 @@ def generate_evaluation_dataset(vdb: Store, qa_paths: list, client_url: str,
 
 def evaluate(vdb: Store, qa_paths: list, endpoint: str, metrics: list,
              generation_model: str = 'gemma2:9b',
-             evaluation_model: str = 'gemma2:9b'):
+             evaluation_model: str = 'gemma2:9b',
+             eval_dataset_cache: bool = True):
     """Given the Vector Database and the synthetic Q&A dataset
     generated in `dataset_generation.ipynb` runs the evaluation
     process for the RAG pipeline.
@@ -151,12 +151,18 @@ def evaluate(vdb: Store, qa_paths: list, endpoint: str, metrics: list,
         eval_metrics[metric] = m
 
     # Evaluation Dataset
-    eval_dataset = generate_evaluation_dataset(
-        vdb=vdb,
-        qa_paths=qa_paths,
-        model=generation_model,
-        client_url=endpoint
-    )
+    eval_dataset_path = f'../../../data/rag_eval/cache/eval_dataset.json'
+    if eval_dataset_cache and os.path.exists(eval_dataset_path):
+        print(f'Loaded evaluation dataset from cache.')
+        eval_dataset = pd.read_json(eval_dataset_path)
+    else:
+        eval_dataset = generate_evaluation_dataset(
+            vdb=vdb,
+            qa_paths=qa_paths,
+            model=generation_model,
+            client_url=endpoint
+        )
+        eval_dataset.to_json(eval_dataset_path)
 
     # Run Evaluation
     results = {}
@@ -179,15 +185,36 @@ def evaluate(vdb: Store, qa_paths: list, endpoint: str, metrics: list,
     return metrics, eval_dataset
 
 
-def update_evaluation_plots(results_df: pd.DataFrame):
-    # Load the evaluation history
-    with open('../../../data/rag_eval/results/results.json', 'r+', encoding='utf-8') as fp:
-        content: list = json.load(fp)
-        res = results_df.mean()
-        content.append({'context_precision': res.context_precision, 'context_recall': res.context_recall})
-        fp.seek(0)
-        json.dump(content, fp, indent=4)
-    history = pd.DataFrame(content)
+def update_evaluation_plots(results_df: pd.DataFrame, metrics: list, modified=True):
+    if len(metrics) == 0:
+        raise ValueError('No metrics specified.')
+
+    for metric in metrics:
+        if metric not in METRICS.keys():
+            raise ValueError(f'Invalid metric: {metric}.')
+
+    # Load the evaluation history and add new results
+    if modified:
+        with open('../../../data/rag_eval/results/results.json', 'r+', encoding='utf-8') as fp:
+            content: list[dict] = json.load(fp)
+
+            # Initialize metric if never computed
+            for metric in metrics:
+                if metric not in content[0].keys():
+                    for prev_results in content:
+                        prev_results[metric] = 0
+
+            # Add new results
+            res: pd.Series = results_df.mean()
+            new_results = {metric_name: res[metric_name] if metric_name in res else content[len(content) - 1][metric_name]
+                           for metric_name in content[0].keys()}
+            content.append(new_results)
+
+            fp.seek(0)
+            json.dump(content, fp, indent=4)
+        history = pd.DataFrame(content)
+    else:
+        history = results_df
 
     def plot_eval(plot_df: pd.DataFrame, name: str):
         """Create a plot for an evaluation metric, the columns should be named 'x' and 'y'"""
@@ -213,41 +240,43 @@ def update_evaluation_plots(results_df: pd.DataFrame):
     for col in history.columns:
         values = history[col].to_list()
         plots[col] = [{'x': i, 'y': val} for i, val in enumerate(values)]
+        metric_plot_df = pd.DataFrame(plots[col])
+        plot = plot_eval(metric_plot_df, col)
+        plot.savefig(f'../../../data/rag_eval/results/plots/{col}.png')
 
-    ctx_precision_df = pd.DataFrame(plots['context_precision'])
-    ctx_recall_df = pd.DataFrame(plots['context_recall'])
 
-    plt_ctx_precision = plot_eval(ctx_precision_df, 'Context Precision')
-    plt_ctx_precision.savefig('../../../data/rag_eval/results/plots/context_precision.png')
+def main(plot_only=False):
+    if plot_only and os.path.exists('../../../data/rag_eval/results/results.json'):
+        current = pd.read_json('../../../data/rag_eval/results/results.json')
+        update_evaluation_plots(
+            current,
+            list(current.columns),
+            modified=False
+        )
+    else:
+        load_dotenv()
+        OLLAMA_ENDPOINT = os.environ.get('ENDPOINT')
+        if not OLLAMA_ENDPOINT:
+            raise RuntimeError('Missing environment variable "ENDPOINT"')
 
-    plt_ctx_recall = plot_eval(ctx_recall_df, 'Context Recall')
-    plt_ctx_recall.savefig('../../../data/rag_eval/results/plots/context_recall.png')
+        knowledge_base: Store = init_knowledge_base({
+            '../../../data/json/owasp.json': ['Web Pentesting'],
+        }, embedding_url=OLLAMA_ENDPOINT)
+
+        synthetic_qa_paths = [
+            '../../../data/rag_eval/owasp_50.json',
+        ]
+
+        # computed_metrics = ['context_precision', 'context_recall']
+        computed_metrics = ['context_relevancy']
+        metrics_df, eval_output_dataset = evaluate(
+            metrics=computed_metrics,
+            vdb=knowledge_base,
+            qa_paths=synthetic_qa_paths,
+            endpoint=OLLAMA_ENDPOINT
+        )
+        update_evaluation_plots(metrics_df, computed_metrics)
 
 
 if __name__ == '__main__':
-    load_dotenv()
-    OLLAMA_ENDPOINT = os.environ.get('ENDPOINT')
-    if not OLLAMA_ENDPOINT:
-        raise RuntimeError('Missing environment variable "ENDPOINT"')
-
-    knowledge_base: Store = init_knowledge_base({
-        '../../../data/json/owasp.json': ['Web Pentesting'],
-    }, embedding_url=OLLAMA_ENDPOINT)
-
-    synthetic_qa_paths = [
-        '../../../data/rag_eval/owasp_50.json',
-    ]
-
-    metrics_df, eval_output_dataset = evaluate(
-        metrics=['context_precision', 'context_recall'],
-        vdb=knowledge_base,
-        qa_paths=synthetic_qa_paths,
-        endpoint=OLLAMA_ENDPOINT
-    )
-    print(metrics_df.head())
-    metrics_df.to_json('./tmp_metrics.json')
-    eval_output_dataset.to_json('./tmp_eval_ds.json')
-
-    # eval_results_df = pd.read_json('./tmp.json')
-
-    update_evaluation_plots(metrics_df)
+    main(plot_only=False)
