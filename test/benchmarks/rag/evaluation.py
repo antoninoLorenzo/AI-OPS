@@ -133,14 +133,15 @@ def evaluate(vdb: Store, qa_paths: list, endpoint: str,
 
     # Setup evaluation metrics
     llm = LLM(model='gemma2:9b', client_url=endpoint)
-    ctx_recall = ContextRecall(
-        EVAL_PROMPTS[evaluation_model]['context_recall']['sys'],
-        EVAL_PROMPTS[evaluation_model]['context_recall']['usr'],
-        llm
-    )
     ctx_precision = ContextPrecision(
         EVAL_PROMPTS[evaluation_model]['context_precision']['sys'],
         EVAL_PROMPTS[evaluation_model]['context_precision']['usr'],
+        llm
+    )
+
+    ctx_recall = ContextRecall(
+        EVAL_PROMPTS[evaluation_model]['context_recall']['sys'],
+        EVAL_PROMPTS[evaluation_model]['context_recall']['usr'],
         llm
     )
 
@@ -158,10 +159,11 @@ def evaluate(vdb: Store, qa_paths: list, endpoint: str,
         ans = item.answer
         precision.append(ctx_precision.compute(qst, ans, ctx))
 
-    return pd.DataFrame({
+    metrics = pd.DataFrame({
         'context_recall': recall,
         'context_precision': precision
     })
+    return metrics, eval_dataset
 
 
 def update_evaluation_plots(results_df: pd.DataFrame):
@@ -223,14 +225,15 @@ if __name__ == '__main__':
         '../../../data/rag_eval/owasp_50.json',
     ]
 
-    eval_results_df = evaluate(
+    metrics_df, eval_output_dataset = evaluate(
         vdb=knowledge_base,
         qa_paths=synthetic_qa_paths,
         endpoint=OLLAMA_ENDPOINT
     )
-    print(eval_results_df.head())
-    eval_results_df.to_json('./tmp.json')
+    print(metrics_df.head())
+    metrics_df.to_json('./tmp_metrics.json')
+    eval_output_dataset.to_json('./tmp_eval_ds.json')
 
     # eval_results_df = pd.read_json('./tmp.json')
 
-    update_evaluation_plots(eval_results_df)
+    update_evaluation_plots(metrics_df)
