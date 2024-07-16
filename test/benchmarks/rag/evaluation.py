@@ -16,11 +16,11 @@ from dotenv import load_dotenv
 
 from src.agent.llm import LLM
 from src.agent.knowledge import Store, Collection, Document, Topic
-from test.benchmarks.rag.metrics import HuggingFaceLLM, ContextRecall, ContextPrecision, EVAL_PROMPTS
+from test.benchmarks.rag.metrics import ContextRecall, ContextPrecision, EVAL_PROMPTS
 
 
 GEN_PROMPT = {
-    'gemma:2b': {
+    'gemma2:9b': {
         'sys': textwrap.dedent("""
             You are a Cybersecurity professional assistant, your job is to provide an answer to context specific questions.
             You will be provided with additional Context information to provide an answer.
@@ -71,7 +71,7 @@ def init_knowledge_base(data: dict[str: list[Topic]]) -> Store:
     return store
 
 
-def generate_evaluation_dataset(vdb: Store, qa_paths: list, model: str = 'gemma:2b'):
+def generate_evaluation_dataset(vdb: Store, qa_paths: list, model: str = 'gemma2:9b'):
     """Uses the RAG pipeline to generate an evaluation dataset composed of
     questions and ground truths from Q&A dataset and context + answers from
     the RAG pipeline."""
@@ -107,11 +107,9 @@ def generate_evaluation_dataset(vdb: Store, qa_paths: list, model: str = 'gemma:
     return pd.DataFrame(eval_data)
 
 
-def evaluate(vdb: Store, qa_paths: list,
-             evaluation_api_key: str,
-             generation_model: str = 'gemma:2b',
-             evaluation_model: str = 'mistral:7b',
-             eval_hf_url: str = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3"):
+def evaluate(vdb: Store, qa_paths: list, endpoint: str,
+             generation_model: str = 'gemma2:9b',
+             evaluation_model: str = 'gemma2:9b'):
     """Given the Vector Database and the synthetic Q&A dataset
     generated in `dataset_generation.ipynb` runs the evaluation
     process for the RAG pipeline.
@@ -125,16 +123,19 @@ def evaluate(vdb: Store, qa_paths: list,
     eval_dataset = generate_evaluation_dataset(vdb, qa_paths, generation_model)
 
     # Setup evaluation metrics
-    hf_llm = HuggingFaceLLM(eval_hf_url, evaluation_api_key)
+    llm = LLM(
+        model='gemma2:9b',
+        client_url=endpoint,
+    )
     ctx_recall = ContextRecall(
         EVAL_PROMPTS[evaluation_model]['context_recall']['sys'],
         EVAL_PROMPTS[evaluation_model]['context_recall']['usr'],
-        hf_llm
+        llm
     )
     ctx_precision = ContextPrecision(
         EVAL_PROMPTS[evaluation_model]['context_precision']['sys'],
         EVAL_PROMPTS[evaluation_model]['context_precision']['usr'],
-        hf_llm
+        llm
     )
 
     # Run
@@ -204,9 +205,9 @@ def update_evaluation_plots(results_df: pd.DataFrame):
 
 if __name__ == '__main__':
     load_dotenv()
-    hf_api_key = os.environ.get('HF_API_KEY')
-    if not hf_api_key:
-        raise RuntimeError('Missing HuggingFace API Key in .env')
+    OLLAMA_ENDPOINT = os.environ.get('ENDPOINT')
+    if not OLLAMA_ENDPOINT:
+        raise RuntimeError('Missing environment variable "ENDPOINT"')
 
     knowledge_base: Store = init_knowledge_base({
         '../../../data/json/owasp.json': [Topic.WebPenetrationTesting]
@@ -217,5 +218,9 @@ if __name__ == '__main__':
         # '../../../data/rag_eval/owasp_100-200.json'
     ]
 
-    eval_results_df = evaluate(knowledge_base, synthetic_qa_paths, hf_api_key)
+    eval_results_df = evaluate(
+        vdb=knowledge_base,
+        qa_paths=synthetic_qa_paths,
+        endpoint=OLLAMA_ENDPOINT
+    )
     update_evaluation_plots(eval_results_df)
