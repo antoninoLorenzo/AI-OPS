@@ -8,7 +8,7 @@
 3. [Installation](#-install)
    - [End-User](#end-user)
    - [Development](#development)
-4. [System Structure](#usage)
+4. [Usage](#usage)
    - [Components](#components)
    - [Supported Models](#supported-ollama-models)
 5. [Tools](#tools)
