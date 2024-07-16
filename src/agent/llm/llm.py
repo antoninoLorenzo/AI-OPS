@@ -48,7 +48,7 @@ class Provider(ABC):
     api_key: str | None = None
 
     @abstractmethod
-    def query(self, messages: list, stream=True):
+    def query(self, messages: list):
         """Implement to makes query to the LLM provider"""
 
 
@@ -62,13 +62,13 @@ class Ollama(Provider):
             raise ValueError(f'Model {self.model} is not available')
         self.client = Client(self.client_url)
 
-    def query(self, messages: list, stream=True):
+    def query(self, messages: list):
         """Generator that returns response chunks."""
         try:
             stream = self.client.chat(
                 model=self.model,
                 messages=messages,
-                stream=stream,
+                stream=True,
                 options=AVAILABLE_MODELS[self.model]['options']
             )
             for chunk in stream:
@@ -89,7 +89,7 @@ class OpenRouter(Provider):
             'mistral': 'mistralai/mistral-7b-instruct:free'
         }
 
-    def query(self, messages: list, stream=True):
+    def query(self, messages: list):
         """Generator that returns response chunks."""
         response = self.session.post(
                 url=self.client_url,
