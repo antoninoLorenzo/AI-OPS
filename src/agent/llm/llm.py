@@ -132,7 +132,7 @@ class LLM:
             api_key=self.api_key
         )
 
-    def query(self, messages: list, stream=True):
+    def query(self, messages: list):
         """Generator that returns response chunks."""
-        for chunk in self.provider.query(messages, stream=stream):
+        for chunk in self.provider.query(messages):
             yield chunk
