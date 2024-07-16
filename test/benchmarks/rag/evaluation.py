@@ -16,21 +16,30 @@ from dotenv import load_dotenv
 
 from src.agent.llm import LLM
 from src.agent.knowledge import Store, Collection, Document, Topic
-from test.benchmarks.rag.metrics import ContextRecall, ContextPrecision, EVAL_PROMPTS
+from test.benchmarks.rag.metrics import (
+    ContextRecall,
+    ContextPrecision,
+    ContextRelevancy,
+    Metric,
+    EVAL_PROMPTS
+)
 
 
 GEN_PROMPT = {
     'gemma2:9b': {
-        'sys': textwrap.dedent("""
-            You are a Cybersecurity professional assistant, your job is to provide an answer to context specific questions.
-            You will be provided with additional Context information to provide an answer.
-        """),
-        'usr': textwrap.dedent("""
-            Question: {query}
-            Context:
-            {context}
-        """)
+        'sys': """
+You are a Cybersecurity professional assistant, your job is to provide an answer to context specific questions.
+You will be provided with additional Context information to provide an answer.""",
+        'usr': """Question: {query}
+Context:
+{context}"""
     }
+}
+
+METRICS = {
+    'context_precision': ContextPrecision,
+    'context_recall': ContextRecall,
+    'context_relevancy': ContextRelevancy
 }
 
 
@@ -111,7 +120,7 @@ def generate_evaluation_dataset(vdb: Store, qa_paths: list, client_url: str,
     return pd.DataFrame(eval_data)
 
 
-def evaluate(vdb: Store, qa_paths: list, endpoint: str,
+def evaluate(vdb: Store, qa_paths: list, endpoint: str, metrics: list,
              generation_model: str = 'gemma2:9b',
              evaluation_model: str = 'gemma2:9b'):
     """Given the Vector Database and the synthetic Q&A dataset
@@ -124,6 +133,24 @@ def evaluate(vdb: Store, qa_paths: list, endpoint: str,
 
     - Evaluating the full contexts-question-answer-ground_truths dataset.
     """
+    if len(metrics) == 0:
+        raise ValueError('No metrics specified.')
+
+    # Setup evaluation metrics
+    llm = LLM(model='gemma2:9b', client_url=endpoint)
+    eval_metrics: dict[Metric] = {}
+    for metric in metrics:
+        if metric not in METRICS.keys():
+            raise ValueError(f'Invalid metric: {metric}.')
+
+        m = METRICS[metric](
+            EVAL_PROMPTS[evaluation_model][metric]['sys'],
+            EVAL_PROMPTS[evaluation_model][metric]['usr'],
+            llm
+        )
+        eval_metrics[metric] = m
+
+    # Evaluation Dataset
     eval_dataset = generate_evaluation_dataset(
         vdb=vdb,
         qa_paths=qa_paths,
@@ -131,38 +158,24 @@ def evaluate(vdb: Store, qa_paths: list, endpoint: str,
         client_url=endpoint
     )
 
-    # Setup evaluation metrics
-    llm = LLM(model='gemma2:9b', client_url=endpoint)
-    ctx_precision = ContextPrecision(
-        EVAL_PROMPTS[evaluation_model]['context_precision']['sys'],
-        EVAL_PROMPTS[evaluation_model]['context_precision']['usr'],
-        llm
-    )
+    # Run Evaluation
+    results = {}
+    for metric_name, m in eval_metrics.items():
+        results[metric_name] = []
+        for i, item in tqdm(eval_dataset.iterrows(), total=len(eval_dataset), desc=f'evaluating {metric_name}'):
+            ctx = ''
+            for idx, chunk in enumerate(item.contexts):
+                ctx += f"[{idx}]: {chunk}\n\n"
 
-    ctx_recall = ContextRecall(
-        EVAL_PROMPTS[evaluation_model]['context_recall']['sys'],
-        EVAL_PROMPTS[evaluation_model]['context_recall']['usr'],
-        llm
-    )
+            data = {
+                'context': ctx,
+                'question': item.question,
+                'answer': item.answer,
+                'ground_truth': item.ground_truth
+            }
+            results[metric_name].append(m.compute(data))
 
-    # Run
-    recall = []
-    for i, item in tqdm(eval_dataset.iterrows(), total=len(eval_dataset), desc='Measuring Context Recall'):
-        ctx = '\n\n'.join(item.contexts)
-        ans = item.answer
-        recall.append(ctx_recall.compute(ans, ctx))
-
-    precision = []
-    for i, item in tqdm(eval_dataset.iterrows(), total=len(eval_dataset), desc='Measuring Context Recall'):
-        qst = item.question
-        ctx = '\n\n'.join(item.contexts)
-        ans = item.answer
-        precision.append(ctx_precision.compute(qst, ans, ctx))
-
-    metrics = pd.DataFrame({
-        'context_recall': recall,
-        'context_precision': precision
-    })
+    metrics = pd.DataFrame(results)
     return metrics, eval_dataset
 
 
@@ -226,6 +239,7 @@ if __name__ == '__main__':
     ]
 
     metrics_df, eval_output_dataset = evaluate(
+        metrics=['context_precision', 'context_recall'],
         vdb=knowledge_base,
         qa_paths=synthetic_qa_paths,
         endpoint=OLLAMA_ENDPOINT
