@@ -2,9 +2,5 @@
     {
         "context_precision": 0,
         "context_recall": 0
-    },
-    {
-        "context_precision": 0.6612281636663989,
-        "context_recall": 0.4872869777281542
     }
 ]
