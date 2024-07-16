@@ -208,6 +208,10 @@ Command Extraction Guidelines:
 4. Some steps of the plan may provide general guidelines without actually providing a command, those steps are excluded from the final plan
 5. **NEVER** provide natural language strings inside "command", textual information such as comments should go in "thought" field"""),
         },
+        'routing': {
+            'system': """""",
+            'user': """"""
+        }
     },
     'mistral': {
         'plan': {
