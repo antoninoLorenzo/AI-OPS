@@ -1,11 +1,9 @@
 **Table of Contents**
 1. [Agent Evaluation](#agent-evaluation)
 2. [RAG Evaluation](#rag-evaluation)
-   1. [Introduction](#introduction)
-   2. [Results](#results)
-      
-      3. [Context Precision](#context-precision)
-      4. [Context Recall](#context-recall)
+   - [Introduction](#introduction)
+   - [Results](#results)
+
 
 # 📈Agent Evaluation
 
@@ -16,7 +14,7 @@
 ## Introduction
 
 Our objective is to monitor and improve the RAG pipeline for **AI-OPS**, that requires context-specific data from 
-*Cybersecurity* and *Penetration Testing* fields; also we want the evaluation process to be as automated as possible.
+*Cybersecurity* and *Penetration Testing* fields.
 
 The evaluation workflow is split in two steps:
 
