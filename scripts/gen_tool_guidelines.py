@@ -21,12 +21,11 @@ import os
 import json
 import argparse
 import textwrap
-from textwrap import dedent
+from pprint import pprint
 
 from tqdm import tqdm
 import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
-from dotenv import load_dotenv
 
 
 PROMPTS = {
@@ -104,6 +103,7 @@ def parse_arguments(argv: list):
 
     parser.add_argument(
         "--output-path",
+        default='./tool_guidelines.json',
         help="Specifies the path for tool guidelines"
     )
 
@@ -113,7 +113,8 @@ def parse_arguments(argv: list):
     return {
         'tool_name': arguments.tool_name,
         'docs_path': arguments.docs_path,
-        'api_key': arguments.api_key
+        'api_key': arguments.api_key,
+        'output_path': arguments.output_path
     }
 
 
@@ -127,7 +128,6 @@ def load_tool_docs(path: str, tool_name: str) -> str:
     """
     if not os.path.exists(path):
         raise RuntimeError(f"Path don't exists: {path}")
-    print('Loading tool documentation')
 
     out = f'# {tool_name}\n\n'
     with open(path, 'r', encoding='utf-8') as fp:
@@ -147,7 +147,6 @@ def load_tool_docs(path: str, tool_name: str) -> str:
 
 def generate_summary(full_docs: str) -> str:
     """Generates the summary of the tool documentation"""
-    print('Generating summary')
     llm = genai.GenerativeModel('gemini-1.5-flash')
     prompt = PROMPTS['summarization'].format(tool_documentation=full_docs)
     response = llm.generate_content(prompt, safety_settings=SAFETY_SETTINGS)
@@ -157,7 +156,6 @@ def generate_summary(full_docs: str) -> str:
 def generate_scenarios(docs_summary: str,
                        num_scenarios: int = 3) -> list[str]:
     """Generates usage scenarios based on the summarized tool documentation"""
-    print('Generating Scenarios')
     llm = genai.GenerativeModel('gemini-1.5-flash')
     prompt = PROMPTS['scenario'].format(tool_documentation=docs_summary)
 
@@ -172,21 +170,28 @@ def generate_tool_documentation(path: str, tool_name) -> dict:
     """Generates the tool documentation dictionary"""
     tool_docs = load_tool_docs(path, tool_name)
 
-    tool_docs_summary = generate_summary(tool_docs)
-    scenarios = generate_scenarios(tool_docs_summary)
+    with tqdm(total=3, desc="Overall Progress") as pbar:
+        pbar.set_description("Generating summary")
+        tool_docs_summary = generate_summary(tool_docs)
+        pbar.update(1)
 
-    llm = genai.GenerativeModel(
-        'gemini-1.5-flash',
-        generation_config={"response_mime_type": "application/json"}
-    )
-    prompt = PROMPTS['output'].format(
-        tool_documentation=tool_docs_summary,
-        tool_scenarios='\n'.join(scenarios)
-    )
+        pbar.set_description("Generating scenarios")
+        scenarios = generate_scenarios(tool_docs_summary)
+        pbar.update(1)
 
-    print('Generating tool documentation')
-    response = llm.generate_content(prompt, safety_settings=SAFETY_SETTINGS)
-    tool_guidelines = json.loads(response.text)
+        pbar.set_description("Generating tool documentation")
+        llm = genai.GenerativeModel(
+            'gemini-1.5-flash',
+            generation_config={"response_mime_type": "application/json"}
+        )
+        prompt = PROMPTS['output'].format(
+            tool_documentation=tool_docs_summary,
+            tool_scenarios='\n'.join(scenarios)
+        )
+
+        response = llm.generate_content(prompt, safety_settings=SAFETY_SETTINGS)
+        tool_guidelines = json.loads(response.text)
+        pbar.update(1)
 
     return tool_guidelines
 
@@ -196,6 +201,8 @@ if __name__ == "__main__":
 
     genai.configure(api_key=args['api_key'])
     output = generate_tool_documentation(args['docs_path'], args['tool_name'])
-    print(output)
+    print('Result: \n')
+    pprint(output)
 
-
+    with open(args['output_path'], 'w', encoding='utf-8') as fp_out:
+        json.dump(output, fp_out,indent=4)
