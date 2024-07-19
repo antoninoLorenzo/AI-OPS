@@ -173,26 +173,40 @@ Once the CLI is running, you can interact with the agent using the following com
 
 ### Add a Tool
 
-Penetration Testing tools can be integrated using either JSON instructions or custom classes.
+Penetration Testing tools can be integrated using either JSON documentation or custom classes.
 
-1. **JSON Instructions**: create a file with instructions for the Agent and add it to 
-`/home/YOUR_USERNAME/.aiops/tools` (or `../Users/YOUR_USERNAME/.aiops/tools`); all available tools 
-that use JSON Instructions are available in `tools_settings`.
-```json
-{
-    "name": "...",
-    "tool_description": "...",
-    "args_description": [
-        "Multiline JSON\n",
-        "instructions\n",
-        "..."
-    ],
-    "examples": [
-        "<THOUGHT>reason to execute (thought process) </THOUGHT>\n",
-        "<TOOL>command (ex. nmap -sV 127.0.0.1)</TOOL>\n"
-    ]
-}
-```
+1. **JSON Documentation**: the content of the JSON documentation is provided in the `system prompt` of the 
+Agent; to ensure correct tool usage the documentation quality should be as high as possible, while keeping
+it as short as possible to maintain the context of a reasonable length.
+
+    For this reason it is provided a python script at `scripts/gen_tool_guidelines.py` that generates the 
+    JSON documentation file given its documentation; it requires the original tool documentation and a 
+    **GEMINI API KEY**, its usage is as follows:
+    ```
+    usage: gen_tool_guidelines.py [-h] --tool-name TOOL_NAME --docs-path DOCS_PATH --api-key API_KEY [--output-path OUTPUT_PATH]
+                                                                                                                                
+    options:                                                                                                                    
+      -h, --help                 show this help message and exit      
+                                                                  
+      --tool-name TOOL_NAME      The name of the tool                                                                                                      
+      --docs-path DOCS_PATH      The path to the JSON documentation file                                                                                                     
+      --api-key API_KEY          API key for Gemini                                                                                  
+      --output-path OUTPUT_PATH  Specifies the path for tool guidelines (*Optional*)                                                                                               
+                              
+    ```
+    Once the file is created add it to `/home/YOUR_USERNAME/.aiops/tools` (or `../Users/YOUR_USERNAME/.aiops/tools`); 
+   all available tools that use JSON Documentation are already available in `tools_settings` with the following structure:
+    ```json
+    {
+        "name": "...",
+        "tool_description": "...",
+        "args_description": [
+            "Multiline JSON\n",
+            "instructions\n",
+            "..."
+        ]
+    }
+    ```
 
 2. **Custom Class**: tools that require more advanced usage can be implemented extending the class
 `Tool` at `src.agent.tools.base`; you're welcome to **open an issue** for a tool request/proposal.
