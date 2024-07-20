@@ -68,37 +68,7 @@
   
 ### Development
 
-1. **Setup**
-- Clone Repository `git clone https://github.com/antoninoLorenzo/AI-OPS.git`
-- Install Python requirements `pip install -r requirements.txt`
-- Install spacy model `python -m spacy download en_core_web_lg`
-
-
-2. **Ollama**
-- Set remote origins environment variable:  `OLLAMA_ORIGINS=1.2.3.4,...` *(Optional)*
-- Set host environment variable: `OLLAMA_HOST=0.0.0.0:11434` *(Optional)*
-- Run ollama: `ollama serve`
-
-
-3. **Agent API**
-- Launch Agent API (*in development*): `fastapi.exe dev ./src/api.py`
-  
-  -  Access from other machines: `fastapi.exe dev --host 0.0.0.0 ./src/api.py`
-  -  Additional Settings in `.env` file:
-  ```
-  MODEL=model_name
-  ENDPOINT=ollama_url
-  ```
-  *Note: the tools that require root would require also the API to be runned as root*
-
-4. **Setup Tools** (*first time only*)
-- move the content of `tools_settings` to `<user home>/.aiops/tools`.
-
-5. **CLI Client**
-- Run Client
-  ```
-  python ai-ops-cli.py --api AGENT_API_ADDRESS
-  ```
+See [CONTRIBUTE.md](./CONTRIBUTE.md)
 
 ## 📝 Usage
 
