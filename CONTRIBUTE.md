@@ -1,7 +1,21 @@
+### Table of Contents
+
+1. [Introduction](#introduction)
+2. [Design Goals](#design-goals)
+3. [How to Contribute](#how-to-contribute)
+   - [Submitting Changes](#submitting-changes)
+     - [General Contribution Process](#general-contribution-process)
+     - [For New Features](#for-new-features)
+4. [Testing](#testing)
+   - [LLM Integration](#llm-integration)
+   - [RAG (Retrieval-Augmented Generation)](#rag-retrieval-augmented-generation)
+5. [Code Style and Standards](#code-style-and-standards)
 
 # Introduction
 
-AI-OPS aims to empower penetration testing enthusiasts and professionals with an LLM-based solution. While this technology has demonstrated great capabilities, it’s important to recognize its limitations and maintain realistic expectations.
+AI-OPS aims to empower penetration testing enthusiasts and professionals with an LLM-based solution. 
+While this technology has demonstrated great capabilities, it’s important to recognize its limitations 
+and maintain realistic expectations.
 
 ## Design Goals
 
