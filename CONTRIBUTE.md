@@ -102,11 +102,13 @@ You can contribute in various ways:
 
 ### LLM Integration
 
-- When integrating new LLM models, ensure they meet the existing acceptance tests and benchmarks. Validate that the new model performs as expected within the AI-OPS framework.
+- When integrating new LLM models, ensure they meet the existing acceptance tests ([planning](./test/test_acceptance/test_planning.py) and [conversion](./test/test_acceptance/test_conversion.py)). Validate that the new model performs as expected within the AI-OPS framework.
+<!-- TODO: test_acceptance.md -->
 
 ### RAG (Retrieval-Augmented Generation)
 
-- For RAG system updates or modifications, ensure that the system continues to provide accurate and up-to-date information. Verify that new data integrations do not negatively impact performance.
+- For RAG system updates or modifications, ensure that the system continues to provide good results, to know more go to [benchmark](./test/benchmarks/rag)). Verify that new data integrations do not negatively impact performance.
+  <!-- TODO: benchmark.md -->
 
 ## Code Style and Standards
 
