@@ -41,15 +41,15 @@ You can contribute in various ways:
 
 1. **Fork the Repository**: Create a personal fork of the repository on GitHub.
 2. **Make Your Changes**: Implement your changes in your fork.
-3. **Run Tests**: Ensure that existing tests pass and add new tests if applicable.
-4. **Commit Changes**: Write clear and concise commit messages.
+3. **Commit Changes**: Write clear and concise commit messages.
     ```bash
     git commit -m "Describe the changes made"
     ```
-5. **Push to GitHub**: Push your changes to your fork.
+4. **Push to GitHub**: Push your changes to your fork.
     ```bash
     git push origin branch-name
     ```
+5. **Open a Pull Request**
 
 ### For New Features
 
