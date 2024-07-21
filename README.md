@@ -4,7 +4,8 @@
 
 ### Table of Contents
 1. [Overview](#-overview)
-2. [Key Features](#key-features)
+   - [Key Features](#key-features)
+   - [Current Status]()
 3. [Installation](#-install)
    - [End-User](#end-user)
    - [Development](#development)
@@ -33,7 +34,11 @@
 - 📚 **Up-to-date Knowledge**: Use the `RAG` system to keep the agent informed with the latest documents and data.
 - ⚙️ **Scalability**: Independently deployable components allow you to utilize any hardware setup.
 
-## 💻 Install
+## Current Status
+
+- Can't use `openvpn` in Docker container to interact with TryHackMe machines
+
+# 💻 Install
 **Requirements**
 - Ollama (see [Ollama](https://github.com/ollama/ollama))
 - Docker (see [Docker Desktop](https://docs.docker.com/desktop/)) (*in development*)
