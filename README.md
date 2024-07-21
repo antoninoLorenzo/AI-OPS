@@ -134,7 +134,7 @@ To integrate a LLM see [LLM Integration](./CONTRIBUTE.md#llm-integration) in CON
 
 > **The frontend is prototyped in `frontend-prototype` branch, containing a `React` application, however it is not currently in development*
 
-> **The RAG components are implemented, however we it must be integrated with the main application*
+> **The RAG components are implemented, however it still needs to be integrated with the main application*
 
 ![Deployment Diagram](static/images/deployment_diagram.svg)
 
