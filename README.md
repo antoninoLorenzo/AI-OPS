@@ -5,7 +5,6 @@
 ### Table of Contents
 1. [Overview](#-overview)
    - [Key Features](#key-features)
-   - [Current Status]()
 3. [Installation](#-install)
    - [End-User](#end-user)
    - [Development](#development)
@@ -34,6 +33,7 @@
 - 📚 **Up-to-date Knowledge**: Use the `RAG` system to keep the agent informed with the latest documents and data.
 - ⚙️ **Scalability**: Independently deployable components allow you to utilize any hardware setup.
 
+<!--
 ## Current Status
 
 A manual testing process is being done.
@@ -41,7 +41,7 @@ A manual testing process is being done.
 Issues:
 - Can't use `openvpn` in Docker container to interact with TryHackMe machines.
 - In `ai-ops-cli` multiline strings can't be pasted.
-
+-->
 # 💻 Install
 **Requirements**
 - Ollama (see [Ollama](https://github.com/ollama/ollama))
