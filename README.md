@@ -36,7 +36,11 @@
 
 ## Current Status
 
-- Can't use `openvpn` in Docker container to interact with TryHackMe machines
+A manual testing process is being done.
+
+Issues:
+- Can't use `openvpn` in Docker container to interact with TryHackMe machines.
+- 
 
 # 💻 Install
 **Requirements**
