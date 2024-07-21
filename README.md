@@ -115,7 +115,7 @@ Once the CLI is running, you can interact with the agent using the following com
 - `load`   : Load a saved session.```
 
 ### Supported Models
-To integrate a LLM see [LLM Integration](./CONTRIBUTE.md#llm-integration)
+To integrate a LLM see [LLM Integration](./CONTRIBUTE.md#llm-integration) in CONTRIBUTE.md
 | Name         | Implemented (prompts) |
 |--------------|----------------------|
 | **Gemma 7B** | &check;              |
