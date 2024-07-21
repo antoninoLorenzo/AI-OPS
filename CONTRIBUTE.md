@@ -100,7 +100,7 @@ You can contribute in various ways:
 
 ## Testing
 
-### LLM Integration
+<h3 id="llm-integration">LLM Integration</h2>
 
 - When integrating new LLM models, ensure they meet the existing acceptance tests ([planning](./test/test_acceptance/test_planning.py) and [conversion](./test/test_acceptance/test_conversion.py)). Validate that the new model performs as expected within the AI-OPS framework.
 <!-- TODO: test_acceptance.md -->
