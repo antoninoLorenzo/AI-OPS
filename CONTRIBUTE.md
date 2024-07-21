@@ -21,8 +21,8 @@ and maintain realistic expectations.
 ## Design Goals
 
 Our main design goals for this project are:
-- **Cost-Free Solution**: Penetration testing tools are free (most of them), so there’s no reason to pay for inference APIs or LLM-as-a-service. This is a challenge, but we hope you find it motivating rather than limiting.
-- **Flexibility**: Penetration testers have their own preferences and workflows, so flexibility is key to delivering a quality tool.
+- **Cost-Free Solution**: Penetration testing tools are free (most of them), so **there’s no reason to pay for inference** APIs or LLM-as-a-service. This is a challenge, but we hope you find it motivating rather than limiting.
+- **Flexibility**: Penetration testers have their own preferences and workflows, so flexibility is key to deliver a quality tool.
 - **Human In the Loop**: This solution is not meant to automate the entire penetration testing process. It’s designed to provide another perspective on a problem, acting on your instructions, but AI will never replace experience.
 
 # How to Contribute
@@ -100,7 +100,7 @@ You can contribute in various ways:
 
 ## Testing
 
-### LLM Integration
+<h3 id="llm-integration">LLM Integration</h2>
 
 - When integrating new LLM models, ensure they meet the existing acceptance tests ([planning](./test/test_acceptance/test_planning.py) and [conversion](./test/test_acceptance/test_conversion.py)). Validate that the new model performs as expected within the AI-OPS framework.
 <!-- TODO: test_acceptance.md -->

@@ -4,7 +4,7 @@
 
 ### Table of Contents
 1. [Overview](#-overview)
-2. [Key Features](#key-features)
+   - [Key Features](#key-features)
 3. [Installation](#-install)
    - [End-User](#end-user)
    - [Development](#development)
@@ -24,7 +24,7 @@
 
 **AI-OPS** is an AI-powered, Open-source Penetration testing Suite that leverages Large Language Models (LLMs) AI-Agent to assist and automate tasks such as reconnaissance, exploitation, and report generation. 
 
-> **Note:** AI-OPS is designed to enhance, not replace, human penetration testers, similar to how AI enhances great programmers by making them more productive.
+> **Note:** AI-OPS is designed to enhance, not replace, human penetration testers.
 
 ## Key Features
 
@@ -33,7 +33,16 @@
 - 📚 **Up-to-date Knowledge**: Use the `RAG` system to keep the agent informed with the latest documents and data.
 - ⚙️ **Scalability**: Independently deployable components allow you to utilize any hardware setup.
 
-## 💻 Install
+<!--
+## Current Status
+
+A manual testing process is being done.
+
+Issues:
+- Can't use `openvpn` in Docker container to interact with TryHackMe machines.
+- In `ai-ops-cli` multiline strings can't be pasted.
+-->
+# 💻 Install
 **Requirements**
 - Ollama (see [Ollama](https://github.com/ollama/ollama))
 - Docker (see [Docker Desktop](https://docs.docker.com/desktop/)) (*in development*)
@@ -106,6 +115,7 @@ Once the CLI is running, you can interact with the agent using the following com
 - `load`   : Load a saved session.```
 
 ### Supported Models
+To integrate a LLM see [LLM Integration](./CONTRIBUTE.md#llm-integration) in CONTRIBUTE.md
 | Name         | Implemented (prompts) |
 |--------------|----------------------|
 | **Gemma 7B** | &check;              |
