@@ -24,7 +24,7 @@
 
 **AI-OPS** is an AI-powered, open-source penetration testing suite that leverages large language models (LLMs) and AI agents to assist and automate tasks such as reconnaissance, exploitation, and report generation. It is <ins>designed to enhance, not replace, the capabilities of human penetration testers</ins>.
 
-> **Note:** AI-OPS is currently in development, and some functionalities are not yet implemented. Any support or feedback is highly appreciated. For more details, please refer to [CONTRIBUTE.md](./CONTRIBUTE.md).
+> **Note:** AI-OPS is currently in development and some functionalities are not implemented. Any support or feedback is highly appreciated. For more details, please refer to [CONTRIBUTE.md](./CONTRIBUTE.md).
 
 ## Key Features
 
