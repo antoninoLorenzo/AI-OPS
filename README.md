@@ -142,14 +142,14 @@ To integrate a LLM see [LLM Integration](./CONTRIBUTE.md#llm-integration) in CON
 
 ### Available Tools
 
-| Name        | Use Case                         | Implemented         |
-|-------------|----------------------------------|---------------------|
-| nmap        | Scanning/Network Exploitation    | &check;             |
-| hashcat     | Password Cracking                | &check;             |
-| SQLmap      | SQL Injection                    | &check;             | 
-| gobuster    | Enumeration                      | &check;             |
-| searchsploit| Research Vulnerabilities         | &check;             |
-| Metasploit  | Exploitation                     | &cross;             |
+| Name                                                    | Use Case                         | Implemented         |
+|---------------------------------------------------------|----------------------------------|---------------------|
+| [nmap](https://github.com/nmap/nmap)                    | Scanning/Network Exploitation    | &check;             |
+| [gobuster](https://github.com/OJ/gobuster)              | Enumeration                      | &check;             |
+| [hashcat](https://github.com/hashcat/hashcat)           | Password Cracking                | &check;             |
+| [thc-hydra](https://github.com/vanhauser-thc/thc-hydra) | Brute Force                      | &check;             |
+| [SQLmap](https://github.com/sqlmapproject/sqlmap)       | SQL Injection                    | &check;             | 
+| [searchsploit](https://www.kali.org/tools/exploitdb/)   | Research Vulnerabilities         | &check;             |
 
 *Note: virtually any tools that do not require additional code (such as Metasploit) can be executed*
 
