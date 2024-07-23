@@ -52,6 +52,11 @@ class Provider(ABC):
         """Implement to makes query to the LLM provider"""
 
 
+class ProviderError(Exception):
+    """Just a wrapper to Exception for error handling
+    when an error is caused by the LLM provider"""
+
+
 @dataclass
 class Ollama(Provider):
     """Ollama Interface"""
@@ -74,7 +79,7 @@ class Ollama(Provider):
             for chunk in stream:
                 yield chunk['message']['content']
         except ResponseError as err:
-            raise RuntimeError(err)
+            raise ProviderError(err)
 
 
 @dataclass

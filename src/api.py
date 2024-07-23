@@ -21,6 +21,7 @@ Knowledge Related:
 - /collections/new: Creates a new Collection.
 """
 import os
+import json
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Body
@@ -33,6 +34,7 @@ from src.agent import Agent
 # from src.agent.knowledge import Store
 from src.agent.plan import TaskStatus
 from src.agent.tools import TOOLS
+from src.agent.llm import ProviderError
 
 load_dotenv()
 
@@ -170,9 +172,12 @@ def delete_session(sid: int):
 # --- AGENT RELATED
 
 def query_generator(sid: int, q: str):
-    stream = agent.query(sid, q, rag=False)
-    for chunk in stream:
-        yield chunk
+    try:
+        stream = agent.query(sid, q, rag=False)
+        for chunk in stream:
+            yield chunk
+    except ProviderError as err:
+        yield json.dumps({'error': str(err)})
 
 
 @app.post('/session/{sid}/query/')
