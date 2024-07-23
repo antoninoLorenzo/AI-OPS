@@ -1,6 +1,6 @@
 # Anthem THM
 
-The target machine is [Anthem](https://tryhackme.com/r/room/anthem), a Windows machine, the type of services are a **HTTP Webiste** and **RDP**. 
+The target machine is [Anthem](https://tryhackme.com/r/room/anthem), a Windows machine, the type of services are an **HTTP Webiste** and **RDP**. 
 
 ## Reconnaissance
 
