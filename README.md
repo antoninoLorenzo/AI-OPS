@@ -22,9 +22,9 @@
 
 ## 💡 Overview
 
-**AI-OPS** is an AI-powered, Open-source Penetration testing Suite that leverages Large Language Models (LLMs) AI-Agent to assist and automate tasks such as reconnaissance, exploitation, and report generation. 
+**AI-OPS** is an AI-powered, open-source penetration testing suite that leverages large language models (LLMs) and AI agents to assist and automate tasks such as reconnaissance, exploitation, and report generation. It is <ins>designed to enhance, not replace, the capabilities of human penetration testers</ins>.
 
-> **Note:** AI-OPS is designed to enhance, not replace, human penetration testers.
+> **Note:** AI-OPS is currently in development and some functionalities are not implemented. Any support or feedback is highly appreciated. For more details, please refer to [CONTRIBUTE.md](./CONTRIBUTE.md).
 
 ## Key Features
 
@@ -125,15 +125,18 @@ To integrate a LLM see [LLM Integration](./CONTRIBUTE.md#llm-integration) in CON
 <!--| **LLama 3**  | &cross;               | -->
 
 ### Components
-![Deployment Diagram](static/images/deployment_diagram.svg)
-
 | Component                                  | Description                                                             |
 |--------------------------------------------|-------------------------------------------------------------------------|
-| Frontend                                   | Web interface for the AI Agent built in `React`                         |
+| Frontend                                   | Web interface for the AI Agent built in `React` (**not implemented***)  |
 | AI Agent                                   | The implementation of the AI Agent exposed to `Frontend` with `FastAPI` |
-| [Qdrant](https://github.com/qdrant/qdrant) | Vector Database                                                         |
+| [Qdrant](https://github.com/qdrant/qdrant) | Vector Database  (**not integrated****)                                 |
 | [Ollama](https://github.com/ollama/ollama) | LLM Provider                                                            | 
 
+> **The frontend is prototyped in `frontend-prototype` branch, containing a `React` application, however it is not currently in development*
+
+> **The RAG components are implemented, however it still needs to be integrated with the main application*
+
+![Deployment Diagram](static/images/deployment_diagram.svg)
 
 ## 🛠️Tools
 
