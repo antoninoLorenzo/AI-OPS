@@ -1,12 +1,11 @@
 # Agent Sudo THM
 
-The target machine is [Agent Sudo](https://tryhackme.com/r/room/agentsudoctf), a Linux machine, the tasks went from some
-basic **Enumeration** to **FTP** access, **Image Stenography**; the last task was **Linux Privilege Escalation** based 
+The target machine is [Agent Sudo](https://tryhackme.com/r/room/agentsudoctf), a Linux machine; the tasks went from **Enumeration** to **FTP** access and **Image Stenography**. The last task was **Linux Privilege Escalation** based 
 on a <ins>sudo vulnerability</ins>.
 
 ## Reconnaissance
 - ( 1 ) correctly proposed nmap and gobuster commands
-- ( 0 ) proposed inspecting page, http headers, whois and (yielded no results)
+- ( 0 ) proposed inspecting page, http headers and whois, it yielded no results
 - ( 1 ) given the hint from the **CTF** it successfully found the ftp username  
 
 **Overall Usefulness**: it was quite useful for the third step, without AI-OPS I would have been blocked for a while. 
