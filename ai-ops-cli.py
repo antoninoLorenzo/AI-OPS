@@ -245,7 +245,8 @@ class AgentClient:
         self.console.print("- [bold blue]load[/]   : Opens a session.")
 
 
-if __name__ == "__main__":
+def main():
+    """Main function for AI-OPS CLI client"""
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -259,3 +260,7 @@ if __name__ == "__main__":
         client.run()
     except KeyboardInterrupt:
         sys.exit()
+
+
+if __name__ == "__main__":
+    main()
