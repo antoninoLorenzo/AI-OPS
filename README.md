@@ -72,9 +72,13 @@ Issues:
   ```
 
 4. **CLI Client**
+- Install Client
+  ```
+  pip install .
+  ```
 - Run Client
   ```
-  python ai-ops-cli.py --api AGENT_API_ADDRESS
+  ai-ops-cli --api AGENT_API_ADDRESS
   ```
   
 ### Development
