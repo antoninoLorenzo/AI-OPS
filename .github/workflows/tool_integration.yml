@@ -10,7 +10,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       REQUIREMENTS_PATH: 'requirements.txt'
-      PYTHONPATH: ${{ github.workspace }}/src
     steps:
       -
         name: "Checkout Repository"
@@ -26,6 +25,9 @@ jobs:
           pip install --upgrade pip
           pip install wheel pylint
           pip install -r ${{env.REQUIREMENTS_PATH}}
+      -
+        name: "Set PYTHONPATH"
+        run: echo "PYTHONPATH=$(pwd)/src" >> $GITHUB_ENV
       -
         name: "Run TestToolIntegration"
         run: python3 test/tool_integration/test_tool_integration.py
