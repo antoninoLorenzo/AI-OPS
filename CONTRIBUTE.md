@@ -9,6 +9,7 @@
 4. [Install](#install)
 5. [Testing](#testing)
    - [LLM Integration](#llm-integration)
+   - [Tool Integration]()
    - [RAG (Retrieval-Augmented Generation)](#rag-retrieval-augmented-generation)
 6. [Code Style and Standards](#code-style-and-standards)
 
@@ -104,6 +105,11 @@ You can contribute in various ways:
 
 - When integrating new LLM models, ensure they meet the existing acceptance tests ([planning](./test/test_acceptance/test_planning.py) and [conversion](./test/test_acceptance/test_conversion.py)). Validate that the new model performs as expected within the AI-OPS framework.
 <!-- TODO: test_acceptance.md -->
+
+### Tool Integration
+
+- When integrating a new tool run the test `test/tool_integration/test_tool_integration.py` to ensure it doesn't break
+when starting the API. Anyway there is a GitHub Actions Workflow that will ensure the test passes.
 
 ### RAG (Retrieval-Augmented Generation)
 
