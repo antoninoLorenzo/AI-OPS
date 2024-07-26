@@ -10,7 +10,7 @@ from src.agent.tools.base import Tool
 
 
 class TestToolIntegration(unittest.TestCase):
-    BASE_PATH = Path('../../tools_settings')
+    BASE_PATH = Path('tools_settings') if Path('tools_settings').exists() else Path('../../tool_settings')
 
     def test_load(self):
         """Try to load tool and fail if any exception is raised"""
