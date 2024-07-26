@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       REQUIREMENTS_PATH: 'requirements.txt'
+      PYTHONPATH: ${{ github.workspace }}/src
     steps:
       -
         name: "Checkout Repository"
