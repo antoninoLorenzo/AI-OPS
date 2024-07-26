@@ -10,34 +10,28 @@ jobs:
     runs-on: ubuntu-latest
     env:
       REQUIREMENTS_PATH: 'requirements.txt'
+      PYTHONPATH: ${{ github.workspace }}/src  # Set PYTHONPATH globally
+
     steps:
-      -
-        name: "Checkout Repository"
+      - name: "Checkout Repository"
         uses: actions/checkout@v3
-      -
-        name: "Setup python"
+
+      - name: "Setup python"
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ inputs.python-version }}
-      -
-        name: "Setup installation requirements"
+          python-version: '3.x'  # Specify the exact version if needed
+
+      - name: "Setup installation requirements"
         run: |
           pip install --upgrade pip
           pip install wheel pylint
-          pip install -r ${{env.REQUIREMENTS_PATH}}
-      -
-        name: "Set PYTHONPATH"
-        run: |
-          echo $(ls)
-          echo "PYTHONPATH=$(pwd)/src"          
-          echo "PYTHONPATH=$(pwd)/src" >> $GITHUB_ENV
-      - 
-        name: "Verify PYTHONPATH and Directory Structure"
+          pip install -r ${{ env.REQUIREMENTS_PATH }}
+
+      - name: "Verify PYTHONPATH and Directory Structure"
         run: |
           echo "PYTHONPATH: $PYTHONPATH"
           ls -R
-      -
-        name: "Run TestToolIntegration"
+
+      - name: "Run TestToolIntegration"
         run: |
-          export PYTHONPATH=$(pwd)/src
           python3 ./test/tool_integration/test_tool_integration.py
