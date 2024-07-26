@@ -1,0 +1,27 @@
+name: "Tool Integration"
+
+on:
+  push:
+    paths:
+      - 'tools_settings/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      REQUIREMENTS_PATH: 'requirements.txt'
+    steps:
+      -
+        name: "Setup python"
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ inputs.python-version }}
+      -
+        name: "Setup installation requirements"
+        run: |
+          pip install --upgrade pip
+          pip install wheel pylint
+          pip install -r ${{env.REQUIREMENTS_PATH}}
+      -
+        name: "Run TestToolIntegration"
+        run: python3 test/tool_integration/test_tool_integration.py
