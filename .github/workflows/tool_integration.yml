@@ -27,7 +27,9 @@ jobs:
           pip install -r ${{env.REQUIREMENTS_PATH}}
       -
         name: "Set PYTHONPATH"
-        run: echo "PYTHONPATH=$(pwd)/src" >> $GITHUB_ENV
+        run: |
+          echo $(pwd)
+          echo "PYTHONPATH=$(pwd)/src" >> $GITHUB_ENV
       -
         name: "Run TestToolIntegration"
         run: python3 test/tool_integration/test_tool_integration.py
