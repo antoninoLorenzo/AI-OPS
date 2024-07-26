@@ -26,6 +26,7 @@ jobs:
           pip install --upgrade pip
           pip install wheel pylint
           pip install -r ${{ env.REQUIREMENTS_PATH }}
+          python3 -m spacy download en_core_web_lg
 
       - name: "Verify PYTHONPATH and Directory Structure"
         run: |
