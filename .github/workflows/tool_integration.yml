@@ -28,11 +28,6 @@ jobs:
           pip install -r ${{ env.REQUIREMENTS_PATH }}
           python3 -m spacy download en_core_web_lg
 
-      - name: "Verify PYTHONPATH and Directory Structure"
-        run: |
-          echo "PYTHONPATH: $PYTHONPATH"
-          ls -R
-
       - name: "Run TestToolIntegration"
         run: |
           python3 ./test/tool_integration/test_tool_integration.py
