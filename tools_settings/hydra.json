@@ -5,6 +5,6 @@
         "**Basic Usage:**\n`hydra [options] PROTOCOL://TARGET:PORT/MODULE-OPTIONS`\nExample:\n`hydra -l admin -p password ftp://192.168.1.100/`",
         "**Advanced Usage:**\n`hydra [options] -s PORT TARGET PROTOCOL [MODULE-OPTIONS]`\nExample:\n`hydra -l admin -P passwords.txt -s 22 192.168.0.0/24 ssh`",
         "**Options:**\n- `-l LOGIN`  Specify a single login to use.\n- `-L LOGIN_FILE`  Specify a file containing a list of logins.\n- `-p PASSWORD`  Specify a single password to use.\n- `-P PASSWORD_FILE`  Specify a file containing a list of passwords.\n- `-C ACCOUNT_FILE`  Specify a file containing login and password pairs separated by a colon.\n- `-x MIN:MAX:CHARSET`  Brute force passwords within the specified length and character set.\n- `-e [s|n|r]`  Try passwords based on the login (e.g., \"-e sn\" tries the login as password and an empty password).\n- `-S`  Use SSL/TLS.\n- `-6`  Use IPv6.\n- `-M TARGETS_FILE`  Specify a file containing a list of targets.\n- `-s PORT`  Specify the port to use.\n- `-v`  Enable verbose output.",
-        "**Proxy Usage:**\n- `HYDRA_PROXY_HTTP`  Set the HTTP proxy for HTTP services.\n- `HYDRA_PROXY`  Set the proxy for all other services.",
+        "**Proxy Usage:**\n- `HYDRA_PROXY_HTTP`  Set the HTTP proxy for HTTP services.\n- `HYDRA_PROXY`  Set the proxy for all other services."
     ]
 }
