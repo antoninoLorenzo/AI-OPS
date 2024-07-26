@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       REQUIREMENTS_PATH: 'requirements.txt'
-      PYTHONPATH: ${{ github.workspace }}/src  # Set PYTHONPATH globally
+      PYTHONPATH: ${{ github.workspace }}
 
     steps:
       - name: "Checkout Repository"
@@ -19,7 +19,7 @@ jobs:
       - name: "Setup python"
         uses: actions/setup-python@v4
         with:
-          python-version: '3.x'  # Specify the exact version if needed
+          python-version: ${{ inputs.python-version }}
 
       - name: "Setup installation requirements"
         run: |
