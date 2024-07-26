@@ -28,9 +28,11 @@ jobs:
       -
         name: "Set PYTHONPATH"
         run: |
-          echo $(pwd)
           echo $(ls)
+          echo "PYTHONPATH=$(pwd)/src"          
           echo "PYTHONPATH=$(pwd)/src" >> $GITHUB_ENV
       -
         name: "Run TestToolIntegration"
-        run: python3 test/tool_integration/test_tool_integration.py
+        run: |
+          export PYTHONPATH=$(pwd)/src
+          python3 ./test/tool_integration/test_tool_integration.py
