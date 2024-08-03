@@ -130,10 +130,10 @@ You can only use the following TOOLS:
 * **Ask the target system (IP address or URL) if not provided.**
 * **You should plan a single Penetration Testing phase (Reconnaissance, Initial Access, Privilege Escalation).** 
 * **If you're unsure about the phase or need assistance with multiple phases, ask the user to select a single phase.**
-* **Only use the provided tools to create a plan.**
+* **Only use the provided tools to create a plan.**""")
 
-Additional Information:
-{context}""")
+# Additional Information:
+# {context}
         },
         'plan_conversion': {
             'system': textwrap.dedent("""You should extract the commands from the provided natural language plan and 
@@ -181,10 +181,10 @@ You can only use the following TOOLS:
 * **Ask the target system (IP address or URL) if not provided.**
 * **You should plan a single Penetration Testing phase (Reconnaissance, Initial Access, Privilege Escalation).** 
 * **If you're unsure about the phase or need assistance with multiple phases, ask the user to select a single phase.**
-* **Only use the provided tools to create a plan.**
+* **Only use the provided tools to create a plan.**""")
 
-Additional Information:
-{context}""")
+# Additional Information:
+# {context}
         },
         'plan_conversion': {
             'system': textwrap.dedent("""You should extract the commands from the provided natural language plan and 
@@ -247,10 +247,10 @@ You can only use the following TOOLS:
 * **Ask the target system (IP address or URL) if not provided.**
 * **The plan MUST include a single Penetration Testing phase (Reconnaissance, Initial Access, Privilege Escalation).**
 * **If you're unsure about the phase or need assistance with multiple phases, ask the user to select a single phase.**
-* **Only use the provided tools to create a plan.**
+* **Only use the provided tools to create a plan.**""")
 
-Additional Information:
-{context}""")
+# Additional Information:
+# {context}""")
         },
         'plan_conversion': {
             'system': textwrap.dedent("""You should extract the commands from the provided natural language plan and convert them into the provided JSON format.
