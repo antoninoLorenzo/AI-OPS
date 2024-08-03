@@ -18,6 +18,7 @@ class Store:
     def __init__(self,
                  url: str = 'http://localhost:6333',
                  embedding_url: str = 'http://localhost:11434',
+                 embedding_model: str = 'nomic-embed-text',
                  in_memory: bool = False,
                  router: Router = None
                  ):
@@ -40,7 +41,7 @@ class Store:
             self._collections: Dict[str: Collection] = coll
 
         self._encoder = ollama.Client(host=embedding_url).embeddings
-        self._embedding_model: str = 'nomic-embed-text'
+        self._embedding_model: str = embedding_model
         self._embedding_size: int = len(
             self._encoder(
                 self._embedding_model,
@@ -111,14 +112,14 @@ class Store:
             'title': document.name,
             'topic': str(document.topic),
             'text': ch,
-            'embedding': self._encoder(self._embedding_model, ch)
+            'embedding': self._encoder(self._embedding_model, ch)['embedding']
         } for ch in doc_chunks]
         current_len = self._collections[collection_name].size
 
         points = [
             models.PointStruct(
                 id=current_len + i,
-                vector=item['embedding']['embedding'],
+                vector=item['embedding'],
                 payload={'text': item['text'], 'title': item['title'], 'topic': item['topic']}
             )
             for i, item in enumerate(emb_chunks)
