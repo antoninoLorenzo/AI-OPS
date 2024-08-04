@@ -48,6 +48,7 @@ class AgentSettings(BaseSettings):
     ENDPOINT: str = os.environ.get('ENDPOINT', 'http://localhost:11434')
     PROVIDER: str = os.environ.get('PROVIDER', 'ollama')
     PROVIDER_KEY: str = os.environ.get('PROVIDER_KEY', '')
+    USE_RAG: bool = os.environ.get('USE_RAG', False)
 
 
 class RAGSettings(BaseSettings):
@@ -70,36 +71,38 @@ class APISettings(BaseSettings):
 
 agent_settings = AgentSettings()
 api_settings = APISettings()
-rag_settings = RAGSettings()
 
 
 # --- Initialize RAG
-store = Store(
-    url=rag_settings.RAG_URL,
-    embedding_url=rag_settings.EMBEDDING_URL,
-    embedding_model=rag_settings.EMBEDDING_MODEL,
-    in_memory=rag_settings.IN_MEMORY
-)
+if agent_settings.USE_RAG:
+    rag_settings = RAGSettings()
 
-initialize_knowledge(rag_settings.DOCS_BASE_PATH, store)
-available = ''
-for name, coll in store.collections.items():
-    topics = ", ".join([topic.name for topic in coll.topics])
-    available += f"- '{name}': {topics}\n"
+    store = Store(
+        url=rag_settings.RAG_URL,
+        embedding_url=rag_settings.EMBEDDING_URL,
+        embedding_model=rag_settings.EMBEDDING_MODEL,
+        in_memory=rag_settings.IN_MEMORY
+    )
+
+    initialize_knowledge(rag_settings.DOCS_BASE_PATH, store)
+    available = ''
+    for name, coll in store.collections.items():
+        topics = ", ".join([topic.name for topic in coll.topics])
+        available += f"- '{name}': {topics}\n"
 
 
-@TR.register(
-    description=f"""Search documents in a Retrieval Augmented Generation Vector Database.
-    Available collections are:
-    {available}
-    """
-)
-def search_rag(rag_query: str, collection: str) -> str:
-    """
-    :param rag_query: what should be searched
-    :param collection: the collection name
-    """
-    return '\n\n'.join(store.retrieve_from(rag_query, collection))
+    @TR.register(
+        description=f"""Search documents in a Retrieval Augmented Generation Vector Database.
+        Available collections are:
+        {available}
+        """
+    )
+    def search_rag(rag_query: str, collection: str) -> str:
+        """
+        :param rag_query: what should be searched
+        :param collection: the collection name
+        """
+        return '\n\n'.join(store.retrieve_from(rag_query, collection))
 
 
 # --- Initialize Agent

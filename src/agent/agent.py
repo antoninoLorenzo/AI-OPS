@@ -18,7 +18,6 @@ class Agent:
 
     def __init__(self, model: str,
                  tools_docs: str = '',
-                 knowledge_base: Store = None,
                  llm_endpoint: str = 'http://localhost:11434',
                  provider: str = 'ollama',
                  provider_key: str = '',
@@ -26,10 +25,10 @@ class Agent:
         """
         :param model: llm model name
         :param tools_docs: documentation of penetration testing tools
-        :param knowledge_base:
         :param llm_endpoint: llm endpoint
         :param provider: llm provider
         :param provider_key: if provider requires an api key it must be provided here
+        :param tool_registry: tools that can be executed automatically by the LLM use ToolRegistry
         """
         # Pre-conditions
         if provider not in AVAILABLE_PROVIDERS.keys():
@@ -48,10 +47,8 @@ class Agent:
             api_key=provider_key
         )
         self.mem = Memory()
-        # TODO: remove Store use tool calling
-        # self.vdb: Store | None = knowledge_base
         self.tr: ToolRegistry | None = tool_registry
-        if tool_registry is not None:
+        if tool_registry is not None and len(tool_registry) > 0:
             self.tools = [tool for tool in self.tr.marshal('base')]
         else:
             self.tools = []
@@ -102,6 +99,31 @@ class Agent:
             Message(Role.ASSISTANT, response, tokens=response_tokens)
         )
 
+    def invoke_tools(self, tool_response):
+        """Execute tools (ex. RAG) from llm response"""
+        results = []
+
+        call_stack = []
+        for tool in tool_response['message']['tool_calls']:
+            tool_meta = {
+                'name': tool['function']['name'],
+                'args': tool['function']['arguments']
+            }
+
+            if tool_meta in call_stack:
+                continue
+            try:
+                res = self.tr.compile(
+                    name=tool_meta['name'],
+                    arguments=tool_meta['args']
+                )
+                call_stack.append(tool_meta)
+                results.append({'role': 'tool', 'content': str(res)})
+            except NotRegisteredError:
+                pass
+
+        return results
+
     def new_session(self, sid: int):
         """Initializes a new conversation"""
         self.mem.store_message(sid, Message(Role.SYS, self.system_plan_gen))
@@ -125,32 +147,6 @@ class Agent:
     def rename_session(self, sid: int, session_name: str):
         """Rename the specified session"""
         self.mem.rename_session(sid, session_name)
-
-    def invoke_tools(self, tool_response):
-        """Execute tools (ex. RAG) from llm response"""
-        results = []
-
-        call_stack = []
-        for tool in tool_response['message']['tool_calls']:
-            tool_meta = {
-                'name': tool['function']['name'],
-                'args': tool['function']['arguments']
-            }
-
-            if tool_meta in call_stack:
-                continue
-            print(tool_meta)
-            try:
-                res = self.tr.compile(
-                    name=tool_meta['name'],
-                    arguments=tool_meta['args']
-                )
-                call_stack.append(tool_meta)
-                results.append({'role': 'tool', 'content': str(res)})
-            except NotRegisteredError:
-                pass
-
-        return results
 
     def extract_plan(self, plan_nl):
         """Converts a structured LLM response in a Plan object"""
@@ -217,12 +213,3 @@ class Agent:
 
         self.mem.store_plan(sid, plan)
 
-    def _retrieve(self, user_in: str):
-        """Get context from Qdrant"""
-        if not self.vdb:
-            raise RuntimeError('RAG is not initialized')
-        context = ''
-        for retrieved in self.vdb.retrieve(user_in):
-            context += (f"{retrieved.payload['title']}:"
-                        f"\n{retrieved.payload['text']}\n\n")
-        return context
