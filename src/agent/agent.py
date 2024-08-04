@@ -83,6 +83,8 @@ class Agent:
                 messages,
                 tools=self.tools
             )
+            # TODO:
+            #   results are added in the current `messages`, but are not persisted in memory
             if tool_response['message'].get('tool_calls'):
                 results = self.invoke_tools(tool_response)
                 messages.extend(results)
