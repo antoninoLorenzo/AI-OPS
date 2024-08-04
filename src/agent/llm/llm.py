@@ -8,8 +8,7 @@ from dataclasses import dataclass, field
 
 import requests.exceptions
 from requests import Session
-from ollama import Client
-from ollama._types import ResponseError
+from ollama import Client, ResponseError
 from httpx import ConnectError
 
 AVAILABLE_MODELS = {
@@ -17,25 +16,29 @@ AVAILABLE_MODELS = {
         'options': {
             'temperature': 0.5,
             'num_ctx': 8192
-        }
+        },
+        'tools': True
     },
     'gemma:7b': {
         'options': {
             'temperature': 0.5,
             'num_ctx': 8192
-        }
+        },
+        'tools': False
     },
     'gemma2:9b': {
         'options': {
             'temperature': 0.5,
             'num_ctx': 8192
-        }
+        },
+        'tools': False
     },
     'mistral': {
         'options': {
             'temperature': 0.5,
             'num_ctx': 8192
-        }
+        },
+        'tools': True
     },
 }
 
@@ -50,6 +53,10 @@ class Provider(ABC):
     @abstractmethod
     def query(self, messages: list):
         """Implement to makes query to the LLM provider"""
+
+    @abstractmethod
+    def tool_query(self, messages: list, tools: list | None = None):
+        """Implement for LLM tool calling"""
 
 
 class ProviderError(Exception):
@@ -67,7 +74,7 @@ class Ollama(Provider):
             raise ValueError(f'Model {self.model} is not available')
         self.client = Client(self.client_url)
 
-    def query(self, messages: list):
+    def query(self, messages: list, stream=True, tools: list | None = None):
         """Generator that returns response chunks."""
         try:
             stream = self.client.chat(
@@ -80,6 +87,21 @@ class Ollama(Provider):
                 yield chunk['message']['content']
         except ResponseError as err:
             raise ProviderError(err)
+
+    def tool_query(self, messages: list, tools: list | None = None):
+        """"""
+        if not AVAILABLE_MODELS[self.model]['tools']:
+            raise NotImplementedError(f'Model {self.model} do not implement tool calling')
+
+        if not tools:
+            # TODO: should add validation for tools
+            raise ValueError('Empty tool list')
+
+        return self.client.chat(
+            model=self.model,
+            messages=messages,
+            tools=tools
+        )
 
 
 @dataclass
@@ -94,7 +116,7 @@ class OpenRouter(Provider):
             'mistral': 'mistralai/mistral-7b-instruct:free'
         }
 
-    def query(self, messages: list):
+    def query(self, messages: list, stream=True, tools: list | None = None):
         """Generator that returns response chunks."""
         response = self.session.post(
                 url=self.client_url,
@@ -120,6 +142,9 @@ class OpenRouter(Provider):
 
         return output
 
+    def tool_query(self, messages: list, tools: list | None = None):
+        raise NotImplementedError("Tool Calling not available for OpenRouter")
+
 
 @dataclass
 class LLM:
@@ -141,3 +166,7 @@ class LLM:
         """Generator that returns response chunks."""
         for chunk in self.provider.query(messages):
             yield chunk
+
+    def tool_query(self, messages: list, tools: list | None = None):
+        """"""
+        return self.provider.tool_query(messages, tools)
