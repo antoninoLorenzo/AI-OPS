@@ -28,23 +28,36 @@ from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic_settings import BaseSettings
+from tool_parse import ToolRegistry, NotRegisteredError
 
-# from src import upload_knowledge
+from src import initialize_knowledge
 from src.agent import Agent
-# from src.agent.knowledge import Store
+from src.agent.knowledge import Store
 from src.agent.plan import TaskStatus
 from src.agent.tools import TOOLS
 from src.agent.llm import ProviderError
 
 load_dotenv()
+TR = ToolRegistry()
 
 
+# --- Get AI-OPS Settings
 class AgentSettings(BaseSettings):
     """Setup for AI Agent"""
     MODEL: str = os.environ.get('MODEL', 'gemma:7b')
     ENDPOINT: str = os.environ.get('ENDPOINT', 'http://localhost:11434')
     PROVIDER: str = os.environ.get('PROVIDER', 'ollama')
     PROVIDER_KEY: str = os.environ.get('PROVIDER_KEY', '')
+
+
+class RAGSettings(BaseSettings):
+    """Settings for Qdrant vector database"""
+    RAG_URL: str = os.environ.get('RAG_URL', 'http://localhost:6333')
+    IN_MEMORY: bool = os.environ.get('IN_MEMORY', True)
+    EMBEDDING_MODEL: str = os.environ.get('EMBEDDING_MODEL', 'nomic-embed-text')
+    # There the assumption that embedding url is the same of llm provider
+    EMBEDDING_URL: str = os.environ.get('ENDPOINT', 'http://localhost:11434')
+    DOCS_BASE_PATH: str = os.environ.get('DOCS_BASE_PATH', './data/json/')
 
 
 class APISettings(BaseSettings):
@@ -57,15 +70,49 @@ class APISettings(BaseSettings):
 
 agent_settings = AgentSettings()
 api_settings = APISettings()
+rag_settings = RAGSettings()
 
+
+# --- Initialize RAG
+store = Store(
+    url=rag_settings.RAG_URL,
+    embedding_url=rag_settings.EMBEDDING_URL,
+    embedding_model=rag_settings.EMBEDDING_MODEL,
+    in_memory=rag_settings.IN_MEMORY
+)
+
+initialize_knowledge(rag_settings.DOCS_BASE_PATH, store)
+available = ''
+for name, coll in store.collections.items():
+    topics = ", ".join([topic.name for topic in coll.topics])
+    available += f"- '{name}': {topics}\n"
+
+
+@TR.register(
+    description=f"""Search documents in a Retrieval Augmented Generation Vector Database.
+    Available collections are:
+    {available}
+    """
+)
+def search_rag(rag_query: str, collection: str) -> str:
+    """
+    :param rag_query: what should be searched
+    :param collection: the collection name
+    """
+    return '\n\n'.join(store.retrieve_from(rag_query, collection))
+
+
+# --- Initialize Agent
 agent = Agent(
     model=agent_settings.MODEL,
     llm_endpoint=agent_settings.ENDPOINT,
     tools_docs='\n'.join([tool.get_documentation() for tool in TOOLS]),
     provider=agent_settings.PROVIDER,
-    provider_key=agent_settings.PROVIDER_KEY
+    provider_key=agent_settings.PROVIDER_KEY,
+    tool_registry=TR
 )
 
+# --- Initialize API
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
@@ -173,7 +220,7 @@ def delete_session(sid: int):
 
 def query_generator(sid: int, q: str):
     try:
-        stream = agent.query(sid, q, rag=False)
+        stream = agent.query(sid, q)
         for chunk in stream:
             yield chunk
     except ProviderError as err:
@@ -271,3 +318,6 @@ def create_collection(title: str, base_path: str, topics: list):
         ...
     ]
     """
+    # TODO:
+    #  when a new collection is uploaded the search_rag tool
+    #  should be re-registered and the agent should be updated

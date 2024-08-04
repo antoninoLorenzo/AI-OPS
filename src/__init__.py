@@ -4,7 +4,7 @@ from pathlib import Path
 from src.agent.knowledge import Collection, Document, Store, Topic
 
 
-def upload_knowledge(path: str, vdb: Store):
+def initialize_knowledge(path: str, vdb: Store):
     """Used to initialize and keep updated the Knowledge Base.
     Already existing Collections will not be overwritten.
     :param path: where the JSON datasets are located.
@@ -15,29 +15,27 @@ def upload_knowledge(path: str, vdb: Store):
         if not (p.is_file() and p.suffix == '.json'):
             continue
 
-        if p.name in ['hack_tricks.json', 'null_byte.json']:
-            continue
+        if p.name in ['owasp.json']:
+            with open(str(p), 'r', encoding='utf-8') as file:
+                data = json.load(file)
 
-        with open(str(p), 'r', encoding='utf-8') as file:
-            data = json.load(file)
+                documents = []
+                topics = set()
+                for item in data:
+                    topic = Topic(item['category'])
+                    topics.add(topic)
 
-            documents = []
-            topics = set()
-            for item in data:
-                topic = Topic(item['category'])
-                topics.add(topic)
+                    document = Document(
+                        name=item['title'],
+                        content=item['content'],
+                        topic=topic
+                    )
+                    documents.append(document)
 
-                document = Document(
-                    name=item['title'],
-                    content=item['content'],
-                    topic=topic
+                collection = Collection(
+                    collection_id=i,
+                    title=p.name,
+                    documents=documents,
+                    topics=list(topics)
                 )
-                documents.append(document)
-
-            collection = Collection(
-                collection_id=i,
-                title=p.name,
-                documents=documents,
-                topics=list(topics)
-            )
-            vdb.create_collection(collection)
+                vdb.create_collection(collection)
