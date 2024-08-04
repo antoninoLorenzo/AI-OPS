@@ -1,4 +1,4 @@
-![pylint](https://img.shields.io/badge/PyLint-8.77-yellow?logo=python&logoColor=white)
+![pylint](https://img.shields.io/badge/PyLint-8.36-yellow?logo=python&logoColor=white)
 
 🚧 *Under Development* 🚧
 
