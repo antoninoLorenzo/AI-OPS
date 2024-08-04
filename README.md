@@ -122,11 +122,12 @@ Once the CLI is running, you can interact with the agent using the following com
 
 ### Supported Models
 To integrate a LLM see [LLM Integration](./CONTRIBUTE.md#llm-integration) in CONTRIBUTE.md
-| Name         | Implemented (prompts) |
-|--------------|----------------------|
-| **Gemma 7B** | &check;              |
-| **Gemma2 9B**| &check;              |  
-| **Mistral**  | &check;              |
+
+| Name         | Implemented   |
+|--------------|---------------|
+| **Gemma 7B** | &check;       |
+| **Gemma2 9B**| &check;       |  
+| **Mistral**  | &check;       |
 
 <!--| **LLama 3**  | &cross;               | -->
 
@@ -135,12 +136,10 @@ To integrate a LLM see [LLM Integration](./CONTRIBUTE.md#llm-integration) in CON
 |--------------------------------------------|-------------------------------------------------------------------------|
 | Frontend                                   | Web interface for the AI Agent built in `React` (**not implemented***)  |
 | AI Agent                                   | The implementation of the AI Agent exposed to `Frontend` with `FastAPI` |
-| [Qdrant](https://github.com/qdrant/qdrant) | Vector Database  (**not integrated****)                                 |
+| [Qdrant](https://github.com/qdrant/qdrant) | Vector Database                                                         |
 | [Ollama](https://github.com/ollama/ollama) | LLM Provider                                                            | 
 
 > **The frontend is prototyped in `frontend-prototype` branch, containing a `React` application, however it is not currently in development*
-
-> **The RAG components are implemented, however it still needs to be integrated with the main application*
 
 ![Deployment Diagram](static/images/deployment_diagram.svg)
 
