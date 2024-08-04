@@ -155,7 +155,7 @@ class Store:
             limit=limit,
             score_threshold=0.5
         )
-        return hits
+        return [points.payload['text'] for points in hits]
 
     def get_available_collections(self):
         """Makes a query to Qdrant and uses collections metadata to get
