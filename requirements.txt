@@ -1,6 +1,6 @@
 fastapi~=0.111.0
 ollama~=0.3.1
-qdrant-client
+qdrant-client~=1.9.0
 spacy~=3.7.5
 uvicorn
 isort
