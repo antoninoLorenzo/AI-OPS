@@ -44,7 +44,7 @@ TR = ToolRegistry()
 # --- Get AI-OPS Settings
 class AgentSettings(BaseSettings):
     """Setup for AI Agent"""
-    MODEL: str = os.environ.get('MODEL', 'gemma:7b')
+    MODEL: str = os.environ.get('MODEL', 'gemma2:9b')
     ENDPOINT: str = os.environ.get('ENDPOINT', 'http://localhost:11434')
     PROVIDER: str = os.environ.get('PROVIDER', 'ollama')
     PROVIDER_KEY: str = os.environ.get('PROVIDER_KEY', '')
