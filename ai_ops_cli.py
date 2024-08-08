@@ -10,6 +10,8 @@ from urllib.parse import urlparse
 import requests
 from requests.exceptions import ConnectionError
 from rich.console import Console
+from rich.live import Live
+from rich.markdown import Markdown
 from rich.tree import Tree
 from rich.prompt import Prompt, InvalidResponse
 
@@ -178,16 +180,17 @@ class AgentClient:
             if q == '-1':
                 break
 
-            with self.client.post(
-                    query_url,
-                    json={'query': q},
-                    headers=None,
-                    stream=True) as resp:
+            with self.client.post(query_url, json={'query': q}, headers=None, stream=True) as resp:
                 resp.raise_for_status()
-                self.console.print('[bold white]Assistant[/]: ', end='')
-                for chunk in resp.iter_content():
-                    if chunk:
-                        print(chunk.decode(), end='', flush=True)
+
+                response_text = '**Assistant**: '
+                with Live(console=self.console, refresh_per_second=10) as live:
+                    live.update(Markdown(response_text))
+                    for chunk in resp.iter_content():
+                        if chunk:
+                            response_text += chunk.decode()
+                            live.update(Markdown(response_text))
+
                 print()
 
     def execute_plan(self):
