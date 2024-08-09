@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from src.agent.knowledge.nlp import extract_keywords, similarity
 from src.agent.llm import LLM
 from src.agent.prompts import PROMPTS
+from src.utils.deprecated import deprecated
 
 
 class Router(ABC):
@@ -18,6 +19,7 @@ class Router(ABC):
         raise NotImplementedError()
 
 
+@deprecated(reason="Query Routing is going to be removed.")
 class SimilarityRouter(Router):
     """Uses NLP techniques to find a candidate collection for a given query"""
 
@@ -56,6 +58,7 @@ class SimilarityRouter(Router):
         return max(points, key=lambda k: points[k])
 
 
+@deprecated(reason="Query Routing is going to be removed.")
 class LLMRouter(Router):
     """Uses a Large Language Model to find candidate collection for given query.
     Using a local model is not the best choice for performance, HuggingFace

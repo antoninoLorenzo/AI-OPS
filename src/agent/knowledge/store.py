@@ -9,6 +9,7 @@ from qdrant_client import QdrantClient, models
 from src.agent.knowledge.collections import Collection, Document, Topic
 from src.agent.knowledge.nlp import chunk
 from src.agent.knowledge.routing import Router
+from src.utils.deprecated import deprecated
 
 
 class Store:
@@ -134,6 +135,7 @@ class Store:
         # self._collections[collection_name].documents.append(document)
         self._collections[collection_name].size = current_len + len(emb_chunks)
 
+    @deprecated(reason="Query Routing is handled by LLM tool calling.")
     def retrieve(self, query: str, limit: int = 3):
         """Performs Query Routing and Retrieval of chunks"""
         if not self._query_router:
