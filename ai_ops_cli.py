@@ -216,15 +216,19 @@ class AgentClient:
         response.raise_for_status()
 
         body: dict = response.json()
-        for i, plan in body.items():
-            tasks = ''
-            for task in plan:
-                tasks += f'ai-ops:~$ {task["command"]}\n'
-                if len(task['output']) > 0:
-                    tasks += f'\n{task["output"]}\n'
 
-            self.console.print(f'[+] Plan {i}\n\n'
-                               f'{tasks}')
+        if 'error' in body:
+            self.console.print(f'[bold red][!][/] {body["error"]}')
+        else:
+            for i, plan in body.items():
+                tasks = ''
+                for task in plan:
+                    tasks += f'ai-ops:~$ {task["command"]}\n'
+                    if len(task['output']) > 0:
+                        tasks += f'\n{task["output"]}\n'
+
+                self.console.print(f'[+] Plan {i}\n\n'
+                                   f'{tasks}')
 
     def help(self):
         """Print help message"""

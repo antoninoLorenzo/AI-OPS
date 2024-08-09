@@ -251,6 +251,12 @@ def list_plans(sid: int):
     """
     session = agent.get_session(sid)
     plans = {}
+
+    if session is None:
+        return {"error": "No session found"}
+    elif session.plans is None or len(session.plans) == 0:
+        return {"error": "No plans available"}
+
     for i, plan in enumerate(session.plans):
         tasks = []
         for task in plan.tasks:
