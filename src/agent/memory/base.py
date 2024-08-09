@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Dict, List
 
 from src.agent.plan import Plan, Task
-from src.agent.tools import Terminal
+from src.agent.tools import Tool
 
 SESSIONS_PATH = Path(Path.home() / '.aiops' / 'sessions')
 if not SESSIONS_PATH.exists():
@@ -106,7 +106,7 @@ class Session:
                     tasks.append(Task(
                         command=task['command'],
                         thought=task['thought'],
-                        tool=Terminal,
+                        tool=Tool,
                         output=task['output']
                     ))
                 session.add_plan(Plan(tasks))
