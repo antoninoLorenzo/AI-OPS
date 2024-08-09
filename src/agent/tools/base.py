@@ -9,18 +9,21 @@ class Tool:
     tool_description: str
     args_description: str
 
+    def __init__(self, name: str, tool_description: str, args_description: str):
+        self.name = name
+        self.tool_description = tool_description
+        self.args_description = args_description
+
     @staticmethod
     def load_tool(path: str):
         """Get tool description from json file"""
         with open(path, 'r', encoding='utf-8') as fp:
             tool_data = json.load(fp)
+            name = tool_data['name']
+            tool_description = ''.join(tool_data['tool_description'])
+            args_description = ''.join(tool_data['args_description'])
 
-            tool = Tool()
-            tool.name = tool_data['name']
-            tool.tool_description = ''.join(tool_data['tool_description'])
-            tool.args_description = ''.join(tool_data['args_description'])
-
-            return tool
+            return Tool(name, tool_description, args_description)
 
     @staticmethod
     def run(*args):

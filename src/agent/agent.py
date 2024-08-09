@@ -10,7 +10,7 @@ from src.agent.llm import LLM, AVAILABLE_PROVIDERS
 from src.agent.memory import Memory, Message, Role
 from src.agent.plan import Plan, Task
 from src.agent.prompts import PROMPTS
-from src.agent.tools import Terminal
+from src.agent.tools import Tool
 
 
 class Agent:
@@ -192,7 +192,7 @@ class Agent:
             tasks.append(Task(
                 command=cmd,
                 thought=task['thought'] if 'thought' in task else None,
-                tool=Terminal
+                tool=Tool
             ))
 
         return Plan(tasks)
