@@ -28,8 +28,9 @@ class TestBaseTool(unittest.TestCase):
         WRONG_SCHEMAS = {
             "wrong_type": "",
             "empty_schema": {},
-            "missing_keys_1": {"name": "test"},
-            "missing_keys_2": {"name": "test", "tool_description": "tool"},
+            "missing_keys": {"name": "test"},
+            "more_keys": {"name": "test", "tool_description": "tool", "args_description": "", "sum_else": ""},
+            "wrong_schema": {"1": 1, "2": 2, "3": 3},
             "empty_field": {"name": "test", "tool_description": "tool", "args_description": ""},
             "nested_schema": [{"name": "test"}],
         }
@@ -60,10 +61,11 @@ class TestBaseTool(unittest.TestCase):
         EXPECTED = {
             "wrong_type": TypeError,
             "empty_schema": ValueError,
-            "missing_keys_1": ValueError,
-            "missing_keys_2": ValueError,
+            "missing_keys": ValueError,
+            "more_keys": ValueError,
+            "wrong_schema": ValueError,
             "empty_field": ValueError,
-            "nested_schema": ValueError,
+            "nested_schema": TypeError,
         }
 
         for path in Path(f'./{self.SCHEMA_PATH}').iterdir():
