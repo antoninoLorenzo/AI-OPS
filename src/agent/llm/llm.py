@@ -74,7 +74,7 @@ class Ollama(Provider):
             raise ValueError(f'Model {self.model} is not available')
         self.client = Client(self.client_url)
 
-    def query(self, messages: list, stream=True, tools: list | None = None):
+    def query(self, messages: list):
         """Generator that returns response chunks."""
         try:
             stream = self.client.chat(
@@ -116,7 +116,7 @@ class OpenRouter(Provider):
             'mistral': 'mistralai/mistral-7b-instruct:free'
         }
 
-    def query(self, messages: list, stream=True, tools: list | None = None):
+    def query(self, messages: list):
         """Generator that returns response chunks."""
         response = self.session.post(
                 url=self.client_url,
