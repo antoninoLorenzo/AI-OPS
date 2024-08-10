@@ -18,10 +18,20 @@ class Tool:
     def load_tool(path: str):
         """Get tool description from json file"""
         with open(path, 'r', encoding='utf-8') as fp:
-            tool_data = json.load(fp)
+            tool_data: dict = json.load(fp)
+            keys = ['name', 'tool_description', 'args_description']
+
+            if not isinstance(tool_data, dict):
+                raise TypeError(f"Wrong format for tool schema at {path}: expected dict but got {type(tool_data)}.")
+            elif len(tool_data) != 3 or False in [key in keys for key in tool_data.keys()]:
+                raise ValueError(f"Wrong format for tool schema at {path}: invalid keys.")
+
             name = tool_data['name']
             tool_description = ''.join(tool_data['tool_description'])
             args_description = ''.join(tool_data['args_description'])
+
+            if not (name and tool_description and args_description):
+                raise ValueError(f"Wrong format for tool schema at {path}: empty values.")
 
             return Tool(name, tool_description, args_description)
 
