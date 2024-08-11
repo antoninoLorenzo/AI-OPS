@@ -41,7 +41,9 @@ class Tool:
     def run(*args):
         """Execute a tool"""
         if not isinstance(args[0], str):
-            raise ValueError(f'Argument must be a string found {type(args[0])}')
+            raise TypeError(f'Argument must be a string found {type(args[0])}.')
+        elif len(args[0]) == 0:
+            raise ValueError(f'String is empty.')
 
         command = args[0].encode('utf-8').decode('utf-8')
         arguments = command.split()
