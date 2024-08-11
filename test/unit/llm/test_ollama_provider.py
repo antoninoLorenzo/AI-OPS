@@ -1,7 +1,7 @@
 import os
+import sys
 import unittest
 
-from annotated_types import test_cases
 from dotenv import load_dotenv
 from src.agent.llm import Ollama
 
@@ -28,7 +28,16 @@ class TestOllamaProvider(unittest.TestCase):
     3. [ ] `tool_query`: returns something that I knew when I wrote the code :|
     """
 
+    @classmethod
+    def setUpClass(cls):
+        load_dotenv()
+        endpoint = os.environ.get('ENDPOINT')
+        if not endpoint:
+            print("\nPlease add ENDPOINT environment variable with Ollama endpoint")
+            sys.exit(-1)
+
     def test_init(self):
+        print()
         CASES = {
             "not_supported_model":
                 {
@@ -46,10 +55,16 @@ class TestOllamaProvider(unittest.TestCase):
         for case_name, case_input in CASES.items():
             model = case_input['model']
             expected = case_input['expected']
+            print(f'Running case {case_name}\n\t- Input: {model}\n\t- Expected: {expected}')
 
-            self.assertRaises(expected, Ollama.__init__, model, os.environ['ENDPOINT'])
+            try:
+                _ = Ollama(model, expected)
+                self.fail(f'{case_name} should raise {expected}')
+            except expected:
+                pass
 
     def test_query(self):
+        print()
         CASES = {
             "invalid_type_1":
                 {
@@ -64,7 +79,7 @@ class TestOllamaProvider(unittest.TestCase):
             "empty_list":
                 {
                     "input": [],
-                    "expected": ValueError
+                    "expected": TypeError
                 },
             "invalid_role":
                 {
@@ -99,16 +114,18 @@ class TestOllamaProvider(unittest.TestCase):
         }
 
         llm = Ollama(model='gemma2:9b', client_url=os.environ['ENDPOINT'])
+
+        def llm_query(messages):
+            for _ in llm.query(messages):
+                pass
+
         for case_name, case_input in CASES.items():
             test_input = case_input['input']
             expected = case_input['expected']
             print(f'Running case {case_name}\n\t- Input: {test_input}\n\t- Expected: {expected}')
 
-            self.assertRaises(expected, llm.query, test_input)
+            self.assertRaises(expected, llm_query, test_input)
 
 
 if __name__ == '__main__':
-    load_dotenv()
-    if os.environ.get('ENDPOINT') is None:
-        print("Please add ENDPOINT environment variable with Ollama endpoint")
     unittest.main()
