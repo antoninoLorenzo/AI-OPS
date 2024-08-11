@@ -9,12 +9,12 @@ from src.agent.llm import Ollama
 class TestOllamaProvider(unittest.TestCase):
     """Tests the Ollama class from `src.agent.llm.llm`
 
-    1. [ ] initialization
+    1. [x] initialization
 
         - what happens if model is not supported?
         - what happens if model is not available? (! suppose mistral model is not available)
 
-    2. [ ] `query`: returns a generator for the response tokens (chunks)
+    2. [x] `query`: returns a generator for the response tokens (chunks)
 
         - what happens if message list is empty?
         - what happens if message list is malformed?
