@@ -16,7 +16,7 @@ class TestBaseTool(unittest.TestCase):
         - what happens if the content of json fields is empty?
         - what happens if the provided path doesn't exist?
 
-    2. [ ] `run`: executes a command
+    2. [x] `run`: executes a command
 
         - what happens if invalid input is provided? (not the string command)
         - what happens if command execution fails?
