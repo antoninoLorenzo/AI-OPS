@@ -26,6 +26,8 @@ class TestBaseTool(unittest.TestCase):
     """
     SCHEMA_PATH = Path(Path(__file__).parent / 'base_tool_schemas')
     CMDS_PATH = Path(Path(__file__).parent / 'cmd_cases.json')
+    BASE_PATH = Path('tools_settings') if Path('tools_settings').exists() \
+        else Path(Path(__file__).parent.parent.parent.parent / 'tools_settings')  # awful
 
     @classmethod
     def setUpClass(cls):
@@ -109,6 +111,17 @@ class TestBaseTool(unittest.TestCase):
                     self.assertIsNotNone(Tool.run(cmd_input), f"Empty output for {cmd_input}")
                 else:
                     self.assertRaises(EXPECTED[case], Tool.run, cmd_input)
+
+    def test_load_tool_from_generated(self):
+        """The tool documentations in `tools_settings` are LLM generated, to ensure
+        the correct JSON format is generated every time a new tool is added this
+        test verifies the tool can be correctly loaded."""
+        try:
+            for path in Path(self.BASE_PATH).iterdir():
+                if path.is_file() and path.suffix == '.json':
+                    Tool.load_tool(str(path))
+        except Exception as err:
+            self.fail(f'Tool Integration failed.\n{err}')
 
 
 if __name__ == "__main__":
