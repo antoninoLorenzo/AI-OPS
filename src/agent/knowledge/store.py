@@ -146,8 +146,22 @@ class Store:
         )
         return self.retrieve_from(query, collection_name, limit)
 
-    def retrieve_from(self, query: str, collection_name: str, limit: int = 3):
-        """Performs retrieval of chunks from the vector database"""
+    def retrieve_from(self, query: str, collection_name: str,
+                      limit: int = 3,
+                      threshold: int = 0.5) -> list[str] | None:
+        """Performs retrieval of chunks from the vector database.
+        :param query:
+            A natural language query used to search in the vector database.
+        :param collection_name:
+            The name of the collection where the search happens; the collection
+            must exist inside the vector database.
+        :param limit:
+            Number of maximum results returned by the search.
+        :param threshold:
+            Minimum similarity score that must be satisfied by the search
+            results.
+        :return: list of chunks or None
+        """
         if len(query) < 3:
             return None
 
@@ -155,9 +169,10 @@ class Store:
             collection_name=collection_name,
             query_vector=self._encoder(self._embedding_model, query)['embedding'],
             limit=limit,
-            score_threshold=0.5
+            score_threshold=threshold
         )
-        return [points.payload['text'] for points in hits]
+        results = [points.payload['text'] for points in hits]
+        return results if results else None
 
     def get_available_collections(self):
         """Makes a query to Qdrant and uses collections metadata to get
