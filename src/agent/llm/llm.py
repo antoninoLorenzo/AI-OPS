@@ -14,7 +14,6 @@ from httpx import ConnectError
 
 from src.agent.memory.base import Role
 
-
 AVAILABLE_MODELS = {
     'llama3': {
         'options': {
@@ -140,15 +139,22 @@ class Ollama(Provider):
         if not AVAILABLE_MODELS[self.model]['tools']:
             raise NotImplementedError(f'Model {self.model} do not implement tool calling')
 
+        try:
+            self.verify_messages_format(messages)
+        except (TypeError, ValueError) as input_err:
+            raise input_err from input_err
+
         if not tools:
-            # TODO: should add validation for tools
             raise ValueError('Empty tool list')
 
-        return self.client.chat(
+        tool_response = self.client.chat(
             model=self.model,
             messages=messages,
             tools=tools
         )
+
+        return tool_response if tool_response['message'].get('tool_calls') \
+            else None
 
 
 @dataclass
