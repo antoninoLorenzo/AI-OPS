@@ -3,6 +3,7 @@ import sys
 import unittest
 
 from dotenv import load_dotenv
+from tool_parse import ToolRegistry
 from src.agent.llm import Ollama, ProviderError
 
 
@@ -14,7 +15,7 @@ class TestOllamaProvider(unittest.TestCase):
         - what happens if model is not supported?
         - what happens if model is not available? (! suppose gemma:7b model is not available)
 
-    2. [ ] `verify_messages_format`: verify that the message format is valid
+    2. [x] `verify_messages_format`: verify that the message format is valid
 
         - what happens if message list is empty?
         - what happens if message list is malformed?
@@ -27,9 +28,8 @@ class TestOllamaProvider(unittest.TestCase):
 
         - what happens if Ollama is down?
 
-    3. [ ] `tool_query`: returns dictionary if llm invoked tools, otherwise None
+    3. [x] `tool_query`: returns dictionary if llm invoked tools, otherwise None
 
-        - what happens if messages are wrong type/format?
         - what happens if specified model do not support tool calling?
         - what happens if LLM do not invoke any tools?
     """
@@ -46,6 +46,12 @@ class TestOllamaProvider(unittest.TestCase):
     def llm_query(llm, messages):
         for _ in llm.query(messages):
             pass
+
+    @staticmethod
+    def safe_issubclass(cls, parent):
+        if cls is None:
+            return False
+        return issubclass(cls, parent)
 
     def test_init(self):
         print()
@@ -160,7 +166,11 @@ class TestOllamaProvider(unittest.TestCase):
             print(f'Running case {case_name}\n\t- Input: {test_input}\n\t- Expected: {expected}')
 
             messages = test_input['messages']
-            self.assertRaises(expected, Ollama.verify_messages_format, messages)
+            self.assertRaises(
+                expected,
+                Ollama.verify_messages_format,
+                messages
+            )
 
     def test_query(self):
         print()
@@ -190,37 +200,68 @@ class TestOllamaProvider(unittest.TestCase):
                 model='gemma2:9b',
                 client_url=endpoint
             )
-            self.assertRaises(expected, self.llm_query, test_llm, messages)
+            self.assertRaises(
+                expected,
+                self.llm_query,
+                test_llm,
+                messages
+            )
 
-    @unittest.skip
     def test_tool_call(self):
         print()
+        TR = ToolRegistry()
         CASES = {
             "unsupported_model":
                 {
-                    "input": {"model": "gemma2:9b"},
+                    "input":
+                        {
+                            "model": "gemma2:9b",
+                            "messages": [{"role": "assistant", "content": "What is the sum of 10 and 30?"}]
+                        },
                     "expected": NotImplementedError
                 },
             "no_tools_called":
                 {
-                    "input": {"model": "mistral"},
+                    "input":
+                        {
+                            "model": "mistral",
+                            "messages": [{"role": "assistant", "content": "What is the capital of France?"}]
+                        },
                     "expected": None
                 }
         }
 
+        @TR.register(
+            description="Sums two integer numbers"
+        )
+        def sum_tool(a: int, b: int) -> int:
+            return a + b
+
+        tools = [tool for tool in TR.marshal('base')]
+
         for case_name, case_input in CASES.items():
             test_input = case_input['input']
             expected = case_input['expected']
+            print(f'Running case {case_name}\n\t- Input: {test_input}\n\t- Expected: {expected}')
 
             llm = Ollama(
                 model=test_input['model'],
                 client_url=os.environ['ENDPOINT']
             )
 
-            if issubclass(expected, BaseException):
-                pass
+            if self.safe_issubclass(expected, BaseException):
+                self.assertRaises(
+                    NotImplementedError,
+                    llm.tool_query,
+                    test_input['messages'],
+                    tools
+                )
             else:
-                pass
+                result = llm.tool_query(test_input['messages'], tools)
+                self.assertIsNone(
+                    result,
+                    f"Expected None got {result}"
+                )
 
 
 if __name__ == '__main__':
