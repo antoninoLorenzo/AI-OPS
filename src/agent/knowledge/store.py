@@ -3,9 +3,12 @@ import json
 from pathlib import Path
 from typing import Dict
 
+import httpx
 import ollama
+import qdrant_client.http.exceptions
 from qdrant_client import QdrantClient, models
 
+from src.agent.llm.llm import ProviderError
 from src.agent.knowledge.collections import Collection, Document, Topic
 from src.agent.knowledge.nlp import chunk
 from src.agent.knowledge.routing import Router
@@ -17,12 +20,30 @@ class Store:
     Manages Collections and implements the Upload/Retrieve operations."""
 
     def __init__(self,
-                 url: str = 'http://localhost:6333',
                  embedding_url: str = 'http://localhost:11434',
                  embedding_model: str = 'nomic-embed-text',
+                 url: str = 'http://localhost:6333',
                  in_memory: bool = False,
                  router: Router = None
                  ):
+        """
+        :param embedding_url:
+            The url of the Ollama server.
+        :param embedding_model:
+            The embedding model that will be used to embed the documents.
+            Ollama embedding models are:
+
+            - nomic-embed-text (Default)
+            - mxbai-embed-large
+            - all-minilm
+        :param url:
+            Url must be provided to specify where is deployed Qdrant.
+            Note: it won't be used if `in_memory` is set to True.
+        :param in_memory:
+            Specifies whether the Qdrant database is loaded in memory
+            or it is deployed on a specific endpoint.
+        :param router: @deprecated
+        """
         self._in_memory = in_memory
 
         if in_memory:
@@ -34,7 +55,11 @@ class Store:
             if not self._metadata.exists():
                 self._metadata.mkdir(parents=True, exist_ok=True)
 
-            available = self.get_available_collections()
+            try:
+                available = self.get_available_collections()
+            except qdrant_client.http.exceptions.ResponseHandlingException as err:
+                raise RuntimeError(f"Error: {err}")
+
             if available:
                 coll = {name: collection for name, collection in available}
             else:
@@ -43,13 +68,18 @@ class Store:
 
         self._encoder = ollama.Client(host=embedding_url).embeddings
         self._embedding_model: str = embedding_model
-        self._embedding_size: int = len(
-            self._encoder(
-                self._embedding_model,
-                prompt='init'
-            )['embedding']
-        )
-        self._query_router: Router | None = router
+
+        # noinspection PyProtectedMember
+        try:
+            self._embedding_size: int = len(
+                self._encoder(
+                    self._embedding_model,
+                    prompt='init'
+                )['embedding']
+            )
+            self._query_router: Router | None = router
+        except (httpx.ConnectError, ollama._types.ResponseError) as err:
+            raise ProviderError(f"Can't load embedding model: {err}")
 
     def create_collection(self, collection: Collection):
         """Creates a new Qdrant collection, uploads the collection documents
@@ -76,6 +106,7 @@ class Store:
               f'initialized with {len(collection.documents)} documents')
 
         # update metadata in production
+        # TODO: refactor
         if not self._in_memory:
             file_name = collection.title if collection.title.endswith('.json') else collection.title + '.json'
             new_file = str(Path(self._metadata / file_name))
@@ -224,6 +255,3 @@ class Store:
             return None
         return self._collections[name]
 
-
-if __name__ == '__main__':
-    store = Store()
