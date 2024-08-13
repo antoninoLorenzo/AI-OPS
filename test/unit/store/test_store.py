@@ -68,6 +68,7 @@ class TestStore(unittest.TestCase):
                 pass
 
     def test_upload(self):
+        # TODO: make collection mocks
         CASES = {
             "type_collection_name":
                 {
