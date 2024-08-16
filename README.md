@@ -215,6 +215,12 @@ it as short as possible to maintain the context of a reasonable length.
 
 **TODO**
 
+## ▶️ Applications
+
+### Write-Ups
+
+- [Brute It — Try Hack Me Writeup](https://medium.com/@lorenzoantonino946/brute-it-walkthrough-try-hack-me-writeup-8b93c65213cb)
+
 ## ⚖️ Ethical and Legal Considerations
 
 **AI-OPS** is designed as a penetration testing tool intended for academic and educational purposes only. Its primary goal is to assist cybersecurity professionals and enthusiasts in enhancing their understanding and skills in penetration testing through the use of AI-driven automation and tools.
