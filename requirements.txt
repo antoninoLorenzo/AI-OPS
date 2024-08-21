@@ -18,3 +18,4 @@ google-generativeai
 pydantic_settings
 httpx
 tool-parse
+docker
