@@ -1,6 +1,5 @@
 # ----------- Agent API Docker File
 # TODO : Setup volume for persistent sessions
-# TODO : add healthcheck
 
 # Kali Setup
 FROM kalilinux/kali-rolling
@@ -32,14 +31,9 @@ RUN cd AI-OPS/  && \
 
 VOLUME ["/root/.aiops"]
 
-# Run healtcheck
-# ...
-
 # Run API
 ENV MODEL=${ollama_model}
 ENV ENDPOINT=${ollama_endpoint}
-RUN echo "MODEL=$MODEL"       && \
-    echo "ENDPOINT=$ENDPOINT"
 
 EXPOSE 8000
 CMD ["fastapi", "dev", "--host", "0.0.0.0", "./AI-OPS/src/api.py"]

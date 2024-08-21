@@ -3,7 +3,7 @@ import re
 import json
 from json import JSONDecodeError
 
-from tool_parse import ToolRegistry, NotRegisteredError
+from tool_parse import ToolRegistry
 
 from src.agent.knowledge import Store
 from src.agent.llm import LLM, AVAILABLE_PROVIDERS
@@ -121,7 +121,7 @@ class Agent:
                 )
                 call_stack.append(tool_meta)
                 results.append({'role': 'tool', 'content': str(res)})
-            except NotRegisteredError:
+            except Exception:
                 pass
 
         return results

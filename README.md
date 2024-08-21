@@ -1,4 +1,4 @@
-![pylint](https://img.shields.io/badge/PyLint-8.44-yellow?logo=python&logoColor=white)
+![pylint](https://img.shields.io/badge/PyLint-8.58-yellow?logo=python&logoColor=white)
 
 🚧 *Under Development* 🚧
 
@@ -46,8 +46,9 @@ Issues:
 -->
 # 💻 Install
 **Requirements**
-- Ollama (see [Ollama](https://github.com/ollama/ollama))
-- Docker (see [Docker Desktop](https://docs.docker.com/desktop/)) (*in development*)
+- Python
+- [Ollama](https://github.com/ollama/ollama)
+- Docker (see [Docker Desktop](https://docs.docker.com/desktop/)) 
 
 ### End-User
 1. **Setup**
@@ -62,12 +63,9 @@ Issues:
 - As an alternative see my solution: [Ollama on Colab](https://github.com/antoninoLorenzo/Ollama-on-Colab-with-ngrok)
 
 3. **Agent API**
-- Build Docker Image
+- Run `ai_ops_api.py` or build manually:
   ```
   docker build -t ai-ops:api-dev --build-arg ollama_endpoint=ENDPOINT ollama_model=MODEL .
-  ```
-- Run Docker Container
-  ```
   docker run -p 8000:8000 ai-ops:api-dev
   ```
 
