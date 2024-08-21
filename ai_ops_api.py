@@ -1,9 +1,6 @@
-import os
 import io
 import sys
-import time
 import argparse
-import subprocess
 from pathlib import Path
 
 import docker
@@ -17,7 +14,7 @@ except DockerException:
     print('[!] Docker daemon not running.')
     sys.exit(-1)
 
-DK_FILE_PATH = Path(Path(__file__).parent / 'TestDockerfile')
+DK_FILE_PATH = Path(Path(__file__).parent / 'Dockerfile')
 BUILD_ARGS = {
     'ollama_model': 'gemma:7b',
     'ollama_endpoint': 'http://localhost:11434'
@@ -26,7 +23,7 @@ BUILD_ARGS = {
 
 def run_docker_api(container: Container | None = None,
                    build_image: Image | None = None):
-    print('### create')
+    print('### run_docker_api')
     img = None
     if container:
         print('Container is provided')
@@ -66,29 +63,45 @@ def run_docker_api(container: Container | None = None,
     print('Done')
 
 
-# image gets built if we don't want to update it
-# (`update` is False ) and it is not found
-_update = False
-_container = None
-image = None
-available_images = {image.tags[0]: image for image in CLIENT.images.list()}
-if not _update and 'ai-ops:api-dev' in available_images.keys():
-    print('Found Image for AI-OPS')
-    image = available_images['ai-ops:api-dev']
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
 
+    parser.add_argument(
+        '--update',
+        default="0",
+        choices=["0", "1"],
+        required=False,
+        help='Update: if set to 1 image is rebuilt'
+    )
 
-# container is restarted if we don't want to update it
-# (`update` is False ) and it is found, if not found run from image
-available_containers = {ctr.attrs.get('Name'): ctr for ctr in CLIENT.containers.list(all=True)}
-if not _update and '/ai-ops-api' in available_containers.keys():
-    print('Found Container for AI-OPS')
-    _container = available_containers['/ai-ops-api']
+    args = parser.parse_args(sys.argv[1:])
 
-# delete existing container if it already exists
-if _update and '/ai-ops-api' in available_containers.keys():
-    ctr: Container = available_containers['/ai-ops-api']
-    if ctr.status == 'running':
-        ctr.stop()
-    ctr.remove()
+    # image gets built if we don't want to update it
+    # (`update` is False ) and it is not found
+    _update = int(args.update)
+    _container = None
+    image = None
+    available_images = {image.tags[0]: image for image in CLIENT.images.list()}
+    if not _update and 'ai-ops:api-dev' in available_images.keys():
+        print('Found Image for AI-OPS')
+        image = available_images['ai-ops:api-dev']
 
-run_docker_api(container=_container, build_image=image)
+    # container is restarted if we don't want to update it
+    # (`update` is False ) and it is found, if not found run from image
+    available_containers = {ctr.attrs.get('Name'): ctr for ctr in CLIENT.containers.list(all=True)}
+    if not _update and '/ai-ops-api' in available_containers.keys():
+        print('Found Container for AI-OPS')
+        _container = available_containers['/ai-ops-api']
+
+    # delete existing container if it already exists
+    if _update and '/ai-ops-api' in available_containers.keys():
+        ctr: Container = available_containers['/ai-ops-api']
+        if ctr.status == 'running':
+            ctr.stop()
+        ctr.remove()
+
+    # delete existing image if it already exists
+    if _update and 'ai-ops:api-dev' in available_images.keys():
+        available_images['ai-ops:api-dev'].remove()
+
+    run_docker_api(container=_container, build_image=image)
