@@ -28,7 +28,7 @@ from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic_settings import BaseSettings
-from tool_parse import ToolRegistry, NotRegisteredError
+from tool_parse import ToolRegistry
 
 from src import initialize_knowledge
 from src.agent import Agent
