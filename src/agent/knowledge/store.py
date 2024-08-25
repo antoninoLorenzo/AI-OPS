@@ -199,8 +199,10 @@ class Store:
             results.
         :return: list of chunks or None
         """
-        if len(query) < 3:
-            return None
+        if not len(query):
+            raise ValueError('Query cannot be empty')
+        if collection_name not in self._collections.keys():
+            raise ValueError(f'Collection {collection_name} does not exist')
 
         hits = self._connection.search(
             collection_name=collection_name,
