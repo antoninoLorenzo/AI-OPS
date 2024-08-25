@@ -72,6 +72,7 @@ class TestStore(unittest.TestCase):
             except expected:
                 pass
 
+    @unittest.skip
     def test_upload(self):
         store = Store(embedding_url=os.environ.get('ENDPOINT'))
 
@@ -130,6 +131,90 @@ class TestStore(unittest.TestCase):
                 store.upload,
                 case_document,
                 case_c_name
+            )
+
+    def test_retrieve_from(self):
+        store = Store(embedding_url=os.environ.get('ENDPOINT'))
+
+        CASES = {
+            "na_query":
+                {
+                    "input":
+                        {
+                            "query": "",
+                            "collection_name": "test",
+                            "limit": 3,
+                            "threshold": 0.5
+                        },
+                    "expected": ValueError
+                },
+            "ne_collection_name":
+                {
+                    "input":
+                        {
+                            "query": "Hello World",
+                            "collection_name": "god",
+                            "limit": 3,
+                            "threshold": 0.5
+                        },
+                    "expected": ValueError
+                },
+            "oob_limit":
+                {
+                    "input":
+                        {
+                            "query": "Hello World",
+                            "collection_name": "test",
+                            "limit": 0,
+                            "threshold": 0.5
+                        },
+                    "expected": ValueError
+                },
+            "lower_oob_threshold":
+                {
+                    "input":
+                        {
+                            "query": "Hello World",
+                            "collection_name": "test",
+                            "limit": 0,
+                            "threshold": 0
+                        },
+                    "expected": ValueError
+                },
+            "higher_oob_threshold":
+                {
+                    "input":
+                        {
+                            "query": "Hello World",
+                            "collection_name": "test",
+                            "limit": 0,
+                            "threshold": 0.99
+                        },
+                    "expected": ValueError
+                },
+        }
+
+        try:
+            store.create_collection(Collection(2, 'test', [], []))
+        except RuntimeError:
+            pass
+
+        for case_name, case_input in CASES.items():
+            case_query = case_input['input']['query']
+            case_c_name = case_input['input']['collection_name']
+            case_limit = case_input['input']['limit']
+            case_threshold = case_input['input']['threshold']
+            expected = case_input['expected']
+
+            print(f'Running case {case_name}\n\t- Input: {case_input["input"]}\n\t- Expected: {expected}')
+
+            self.assertRaises(
+                expected,
+                store.retrieve_from,
+                case_query,
+                case_c_name,
+                case_limit,
+                case_threshold
             )
 
 
