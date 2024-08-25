@@ -7,6 +7,7 @@ import httpx
 import ollama
 import qdrant_client.http.exceptions
 from qdrant_client import QdrantClient, models
+from qdrant_client.http.exceptions import UnexpectedResponse
 
 from src.agent.llm.llm import ProviderError
 from src.agent.knowledge.collections import Collection, Document, Topic
@@ -87,13 +88,16 @@ class Store:
         if collection.title in self.collections:
             return None
 
-        done = self._connection.create_collection(
-            collection_name=collection.title,
-            vectors_config=models.VectorParams(
-                size=self._embedding_size,
-                distance=models.Distance.COSINE
+        try:
+            done = self._connection.create_collection(
+                collection_name=collection.title,
+                vectors_config=models.VectorParams(
+                    size=self._embedding_size,
+                    distance=models.Distance.COSINE
+                )
             )
-        )
+        except UnexpectedResponse as err:
+            raise RuntimeError(f"Can't upload collection: {err}")
 
         if done:
             self._collections[collection.title] = collection
@@ -135,6 +139,8 @@ class Store:
     def upload(self, document: Document, collection_name: str):
         """Performs chunking and embedding of a document
         and uploads it to the specified collection"""
+        if not isinstance(collection_name, str):
+            raise TypeError(f'Expected str for collection_name, found {type(collection_name)}')
         if collection_name not in self._collections:
             raise ValueError('Collection does not exist')
 
