@@ -11,6 +11,11 @@ from src.agent.knowledge.collections import Collection, Document, Topic
 
 class TestStore(unittest.TestCase):
 
+    DOCUMENT_MOCK = {
+        "mock": Document('mock_doc', "Hello World", Topic("nothing")),
+        "empty": Document('e_doc', "", Topic("nothing"))
+    }
+
     @classmethod
     def setUpClass(cls):
         load_dotenv()
@@ -68,13 +73,14 @@ class TestStore(unittest.TestCase):
                 pass
 
     def test_upload(self):
-        # TODO: make collection mocks
+        store = Store(embedding_url=os.environ.get('ENDPOINT'))
+
         CASES = {
             "type_collection_name":
                 {
                     "input":
                         {
-                            "collection": None,
+                            "document": self.DOCUMENT_MOCK['mock'],
                             "collection_name": 1
                         },
                     "expected": TypeError
@@ -83,7 +89,7 @@ class TestStore(unittest.TestCase):
                 {
                     "input":
                         {
-                            "collection": None,
+                            "document": self.DOCUMENT_MOCK['mock'],
                             "collection_name": ""
                         },
                     "expected": ValueError
@@ -92,23 +98,39 @@ class TestStore(unittest.TestCase):
                 {
                     "input":
                         {
-                            "collection": None,
+                            "document": self.DOCUMENT_MOCK['mock'],
                             "collection_name": "god"
                         },
                     "expected": ValueError
                 },
-            "empty_collection":
+            "empty_document":
                 {
                     "input": {
-                        "collection": None,
+                        "document": self.DOCUMENT_MOCK['empty'],
                         "collection_name": "test"
                     },
                     "expected": ValueError
-                }
+                },
         }
 
-        for case_name, case_input in CASES.items():
+        try:
+            store.create_collection(Collection(2, 'test', [], []))
+        except RuntimeError:
             pass
+
+        for case_name, case_input in CASES.items():
+            case_document = case_input['input']['document']
+            case_c_name = case_input['input']['collection_name']
+            expected = case_input['expected']
+
+            print(f'Running case {case_name}\n\t- Input: {case_input["input"]}\n\t- Expected: {expected}')
+
+            self.assertRaises(
+                expected,
+                store.upload,
+                case_document,
+                case_c_name
+            )
 
 
 if __name__ == '__main__':
