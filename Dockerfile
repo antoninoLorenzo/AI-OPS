@@ -4,6 +4,11 @@
 # Kali Setup
 FROM kalilinux/kali-rolling
 
+LABEL name="AI-OPS API"
+LABEL src="https://github.com/antoninoLorenzo/AI-OPS"
+LABEL creator="antoninoLorenzo"
+LABEL desc="Api for AI-OPS, a Penetration Testing AI assistant"
+
 ARG ollama_endpoint=http://localhost:11434
 ARG ollama_model=gemma2:9b
 
