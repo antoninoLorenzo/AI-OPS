@@ -6,7 +6,7 @@ from json import JSONDecodeError
 from tool_parse import ToolRegistry
 
 from src.agent.knowledge import Store
-from src.agent.llm import LLM, AVAILABLE_PROVIDERS
+from src.agent.llm import LLM, AVAILABLE_PROVIDERS, ProviderError
 from src.agent.memory import Memory, Message, Role
 from src.agent.plan import Plan, Task
 from src.agent.prompts import PROMPTS
@@ -65,12 +65,16 @@ class Agent:
     def query(self, sid: int, user_in: str):
         """Performs a query to the Large Language Model, will use RAG
         if provided with the necessary tool to perform rag search"""
-        prompt = self.user_plan_gen.format(user_input=user_in)
+
+        if not isinstance(user_in, str) or len(user_in) == 0:
+            raise ValueError(f'Invalid input: {user_in} [{type(user_in)}]')
 
         # ensure session is initialized (otherwise llm has no system prompt)
         if sid not in self.mem.sessions.keys():
             self.new_session(sid)
 
+        # get input for llm
+        prompt = self.user_plan_gen.format(user_input=user_in)
         self.mem.store_message(
             sid,
             Message(Role.USER, prompt)
@@ -83,19 +87,22 @@ class Agent:
                 messages,
                 tools=self.tools
             )
-            # TODO:
-            #   results are added in the current `messages`, but are not persisted in memory
+            # tool results aren't persisted
             if tool_response['message'].get('tool_calls'):
                 results = self.invoke_tools(tool_response)
                 messages.extend(results)
 
         # generate response
-        response = ''
-        response_tokens = 0
-        for chunk in self.llm.query(messages):
-            yield chunk
-            response += chunk
+        try:
+            response = ''
+            response_tokens = 0
+            for chunk in self.llm.query(messages):
+                yield chunk
+                response += chunk
+        except ProviderError as p_err:
+            raise RuntimeError(f'{p_err}')
 
+        # store response
         self.mem.store_message(
             sid,
             Message(Role.ASSISTANT, response, tokens=response_tokens)
