@@ -2,15 +2,11 @@
 Interfaces the AI Agent to the LLM Provider, model availability depends on
 implemented prompts, to use a new model the relative prompts should be written.
 """
-import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
 import httpx
-import requests.exceptions
-from requests import Session
 from ollama import Client, ResponseError
-from httpx import ConnectError
 
 from src.agent.memory.base import Role
 
@@ -69,15 +65,17 @@ class Provider(ABC):
         if not isinstance(messages, list) or \
                 len(messages) == 0 or \
                 False in message_types_dict:
-            raise TypeError(f'messages must be a list of dictionaries, found: \n {messages}')
+            raise TypeError(f'messages must be a list[dict]: \n {messages}')
 
         # check format
-        valid_roles = [str(role) for role in [Role.SYS, Role.USER, Role.ASSISTANT]]
-        err_message = f'messages must follow the format {{"role": "{valid_roles}", "content": "..."}}'
+        roles = [Role.SYS, Role.USER, Role.ASSISTANT]
+        valid_roles = [str(role) for role in roles]
+        err_message = f'expected format {{"role": "{valid_roles}", "content": "..."}}'
 
         # check format - keys
         message_keys = [list(msg.keys()) for msg in messages]
-        valid_keys = ['role' in keys and 'content' in keys and len(keys) == 2 for keys in message_keys]
+        valid_keys = ['role' in keys and 'content' in keys and len(keys) == 2
+                      for keys in message_keys]
         if False in valid_keys:
             raise ValueError(err_message + f'\nMessage Keys: {message_keys}')
 
@@ -104,7 +102,7 @@ class Ollama(Provider):
         try:
             self.client = Client(host=self.client_url)
         except Exception as err:
-            raise RuntimeError(f'Something went wrong: {err}')
+            raise RuntimeError(f'Initialization Failed') from err
 
     def query(self, messages: list):
         """Generator that returns response chunks."""
@@ -123,7 +121,7 @@ class Ollama(Provider):
             for chunk in stream:
                 yield chunk['message']['content']
         except (ResponseError, httpx.ConnectError) as err:
-            raise ProviderError(err)
+            raise ProviderError() from err
 
     def tool_query(self, messages: list, tools: list | None = None):
         """Implements LLM tool calling.
@@ -131,13 +129,13 @@ class Ollama(Provider):
             The current conversation provided as a list of messages in the
             format [{"role": "assistant/user/system", "content": "..."}, ...]
         :param tools:
-            A list tools in the format specified by `ollama-python`, the
+            A list of tools in the format specified by `ollama-python`, the
             conversion is managed by `ToolRegistry` from `tool-parse` library.
         :return
             Ollama response with "message" : {"tool_calls": ...} or None.
         """
         if not AVAILABLE_MODELS[self.model]['tools']:
-            raise NotImplementedError(f'Model {self.model} do not implement tool calling')
+            raise NotImplementedError(f'{self.model} not support tool calling')
 
         try:
             self.verify_messages_format(messages)
@@ -158,48 +156,6 @@ class Ollama(Provider):
 
 
 @dataclass
-class OpenRouter(Provider):
-    """OpenRouter Interface"""
-    session: Session | None = None
-
-    def __post_init__(self):
-        self.session = Session()
-        self.models = {
-            'gemma:7b': 'google/gemma-2-9b-it:free',
-            'mistral': 'mistralai/mistral-7b-instruct:free'
-        }
-
-    def query(self, messages: list):
-        """Generator that returns response chunks."""
-        response = self.session.post(
-            url=self.client_url,
-            headers={
-                "Authorization": f"Bearer {self.api_key}",
-                "HTTP-Referer": 'https://github.com/antoninoLorenzo/AI-OPS',
-                "X-Title": 'AI-OPS',
-            },
-            data=json.dumps({
-                "model": self.models[self.model],
-                "messages": messages,
-                # 'stream': True how the fuck works
-            })
-        )
-
-        try:
-            response.raise_for_status()
-            output = json.loads(response.text)['choices'][0]['message']['content']
-        except requests.exceptions.HTTPError or ConnectError as req_err:
-            raise RuntimeError(req_err)
-        except json.JSONDecodeError as js_err:
-            raise RuntimeError(f'Internal Error: {js_err}')
-
-        return output
-
-    def tool_query(self, messages: list, tools: list | None = None):
-        raise NotImplementedError("Tool Calling not available for OpenRouter")
-
-
-@dataclass
 class LLM:
     """LLM interface"""
     model: str
@@ -216,10 +172,19 @@ class LLM:
         )
 
     def query(self, messages: list):
-        """Generator that returns response chunks."""
+        """Generator that returns LLM response as a stream of string chunks.
+        :param messages:
+            The current conversation provided as a list of messages in the
+            format [{"role": "assistant/user/system", "content": "..."}, ...]"""
         for chunk in self.provider.query(messages):
             yield chunk
 
     def tool_query(self, messages: list, tools: list | None = None):
-        """"""
+        """
+        :param messages:
+            The current conversation provided as a list of messages in the
+            format [{"role": "assistant/user/system", "content": "..."}, ...]
+        :param tools:
+            A list of tools in the format specified by `ollama-python`,
+            the conversion is managed by `tool-parse` library."""
         return self.provider.tool_query(messages, tools)
