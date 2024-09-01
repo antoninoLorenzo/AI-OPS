@@ -24,7 +24,7 @@
 
 ## 💡 Overview
 
-**AI-OPS** is an AI-powered, open-source penetration testing suite that leverages large language models (LLMs) and AI agents to assist and automate tasks such as reconnaissance, exploitation, and report generation. It is <ins>designed to enhance, not replace, the capabilities of human penetration testers</ins>.
+**AI-OPS** is an AI-powered, open-source **Penetration Testing assistant** that leverages large language models (LLMs) with [Ollama](https://github.com/ollama/ollama) in order to be cost-free. It is <ins>designed to enhance, not replace, the capabilities of human penetration testers</ins>.
 
 > **Note:** AI-OPS is currently in development and some functionalities are not implemented. Any support or feedback is highly appreciated. For more details, please refer to [CONTRIBUTE.md](./CONTRIBUTE.md).
 
@@ -33,22 +33,23 @@
 - 🎁 **Full Open-Source**: No need for third-party LLM providers; use any model you prefer with [Ollama](https://github.com/ollama/ollama).
 - 🔧 **Tool Integration**: Execute common penetration testing tools or integrate new ones without needing to code in Python.
 - 📚 **Up-to-date Knowledge**: Use the `RAG` system to keep the agent informed with the latest documents and data. (*Under Development*)
-- ⚙️ **Scalability**: Independently deployable components allow you to utilize any hardware setup.
+<!-- ⚙️ **Scalability**: Independently deployable components allow you to utilize any hardware setup.-->
 
-<!--
-## Current Status
+<!-- ## ▶️ Demo
 
-A manual testing process is being done.
+### Write-Ups
 
-Issues:
-- Can't use `openvpn` in Docker container to interact with TryHackMe machines.
-- In `ai-ops-cli` multiline strings can't be pasted.
+- [Brute It — Try Hack Me Writeup](https://medium.com/@lorenzoantonino946/brute-it-walkthrough-try-hack-me-writeup-8b93c65213cb)
+
+
+TODO
 -->
+
 # 💻 Install
 **Requirements**
 - Python
-- [Ollama](https://github.com/ollama/ollama)
-- Docker (see [Docker Desktop](https://docs.docker.com/desktop/)) 
+- Ollama
+- Docker
 
 ### End-User
 1. **Setup**
@@ -78,10 +79,6 @@ Issues:
   ```
   ai-ops-cli --api AGENT_API_ADDRESS
   ```
-  
-### Development
-
-See [CONTRIBUTE.md](./CONTRIBUTE.md)
 
 ## 📝 Usage
 
@@ -130,14 +127,17 @@ To integrate a LLM see [LLM Integration](./CONTRIBUTE.md#llm-integration) in CON
 <!--| **LLama 3**  | &cross;               | -->
 
 ### Components
-| Component                                  | Description                                                             |
-|--------------------------------------------|-------------------------------------------------------------------------|
+| Component                                  | Description       |
+|--------------------------------------------|-------------------|
+| AI Agent                                   | `FastAPI` Backend |
+| [Qdrant](https://github.com/qdrant/qdrant) | Vector Database   |
+| [Ollama](https://github.com/ollama/ollama) | LLM Provider      | 
+
+<!--
 | Frontend                                   | Web interface for the AI Agent built in `React` (**not implemented***)  |
-| AI Agent                                   | The implementation of the AI Agent exposed to `Frontend` with `FastAPI` |
-| [Qdrant](https://github.com/qdrant/qdrant) | Vector Database                                                         |
-| [Ollama](https://github.com/ollama/ollama) | LLM Provider                                                            | 
 
 > **The frontend is prototyped in `frontend-prototype` branch, containing a `React` application, however it is not currently in development*
+-->
 
 ![Deployment Diagram](static/images/deployment_diagram.svg)
 
@@ -212,12 +212,6 @@ it as short as possible to maintain the context of a reasonable length.
 ### Add a Collection
 
 **TODO**
-
-## ▶️ Applications
-
-### Write-Ups
-
-- [Brute It — Try Hack Me Writeup](https://medium.com/@lorenzoantonino946/brute-it-walkthrough-try-hack-me-writeup-8b93c65213cb)
 
 ## ⚖️ Ethical and Legal Considerations
 
