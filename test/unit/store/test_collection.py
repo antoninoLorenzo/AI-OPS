@@ -11,7 +11,8 @@ class TestCollection(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        print('\n\n# Setup Resources')
+        print('\n\n# test_collection.py\n')
+        print('## Setup Resources')
         CASES = {
             "not_json_file":
                 {
@@ -36,7 +37,7 @@ class TestCollection(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        print('\n\n# Clean Resources')
+        print('\n\n## Clean Resources')
         try:
             for path in cls.CASES_PATH.iterdir():
                 os.remove(str(path))

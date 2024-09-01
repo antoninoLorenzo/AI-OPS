@@ -31,7 +31,8 @@ class TestBaseTool(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        print('\n\n# Setup Resources')
+        print('\n\n# test_base_tool.py\n')
+        print('## Setup Resources')
         WRONG_SCHEMAS = {
             "wrong_type": "",
             "empty_schema": {},
@@ -64,7 +65,7 @@ class TestBaseTool(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        print('\n\n# Clean Resources')
+        print('\n\n## Clean Resources')
         try:
             for path in cls.SCHEMA_PATH.iterdir():
                 os.remove(str(path))

@@ -18,6 +18,7 @@ class TestStore(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        print('\n\n# test_store.py\n')
         load_dotenv()
         endpoint = os.environ.get('ENDPOINT')
         if not endpoint:
@@ -42,7 +43,7 @@ class TestStore(unittest.TestCase):
                     "input":
                         {
                             "qdrant_url": "http://localhost:6333",
-                            "ollama_url": "http://localhost:12345",
+                            "ollama_url": "http://localhost:54321",
                             "model": "nomic-embed-text"
                         },
                     "expected": ProviderError

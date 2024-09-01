@@ -36,6 +36,7 @@ class TestOllamaProvider(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        print('\n\n# test_ollama_provider.py\n')
         load_dotenv()
         endpoint = os.environ.get('ENDPOINT')
         if not endpoint:
