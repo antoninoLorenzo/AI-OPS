@@ -22,9 +22,11 @@ class Tool:
             keys = ['name', 'tool_description', 'args_description']
 
             if not isinstance(tool_data, dict):
-                raise TypeError(f"Wrong format for tool schema at {path}: expected dict but got {type(tool_data)}.")
-            elif len(tool_data) != 3 or False in [key in keys for key in tool_data.keys()]:
-                raise ValueError(f"Wrong format for tool schema at {path}: invalid keys.")
+                raise TypeError(f"Wrong format at {path}: expected dict but got {type(tool_data)}.")
+
+            valid_keys = False in [key in keys for key in tool_data.keys()]
+            if len(tool_data) != 3 or valid_keys:
+                raise ValueError(f"Wrong format at {path}: invalid keys.")
 
             name = tool_data['name']
             tool_description = ''.join(tool_data['tool_description'])
@@ -42,8 +44,8 @@ class Tool:
         """Execute a tool"""
         if not isinstance(args[0], str):
             raise TypeError(f'Argument must be a string found {type(args[0])}.')
-        elif len(args[0]) == 0:
-            raise ValueError(f'String is empty.')
+        if len(args[0]) == 0:
+            raise ValueError('String is empty.')
 
         command = args[0].encode('utf-8').decode('utf-8')
         arguments = command.split()
