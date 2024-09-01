@@ -6,7 +6,7 @@ from pathlib import Path
 from src.agent.knowledge.collections import Collection, Document, Topic
 
 
-class CollectionTest(unittest.TestCase):
+class TestCollection(unittest.TestCase):
     CASES_PATH = Path(Path(__file__).parent / 'collection_schemas')
 
     @classmethod
