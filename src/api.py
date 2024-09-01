@@ -85,16 +85,16 @@ if agent_settings.USE_RAG:
     )
 
     initialize_knowledge(rag_settings.DOCS_BASE_PATH, store)
-    available = ''
+    available_documents = ''
     for name, coll in store.collections.items():
-        topics = ", ".join([topic.name for topic in coll.topics])
-        available += f"- '{name}': {topics}\n"
+        doc_topics = ", ".join([topic.name for topic in coll.topics])
+        available_documents += f"- '{name}': {doc_topics}\n"
 
 
     @TR.register(
-        description=f"""Search documents in a Retrieval Augmented Generation Vector Database.
+        description=f"""Search documents in the RAG Vector Database.
         Available collections are:
-        {available}
+        {available_documents}
         """
     )
     def search_rag(rag_query: str, collection: str) -> str:
@@ -128,6 +128,7 @@ app.add_middleware(
 
 @app.get('/')
 def ping():
+    """"""
     return ''
 
 
