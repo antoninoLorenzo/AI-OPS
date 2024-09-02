@@ -2,7 +2,11 @@ name: "Unit Test"
 
 on:
   schedule:
-    - cron: "* * * * *"
+    - cron: "0 9 * * *"
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/unit-test.yml'
 
 jobs:
   build:
