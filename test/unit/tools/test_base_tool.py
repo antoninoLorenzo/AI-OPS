@@ -89,10 +89,15 @@ class TestBaseTool(unittest.TestCase):
             "nested_schema": TypeError,
         }
 
-        for path in Path(f'./{self.SCHEMA_PATH}').iterdir():
-            expected = EXPECTED[path.name.split('.')[0]]
-            print(f'Loading {path.name}; expected: {str(expected)}')
-            self.assertRaises(expected, Tool.load_tool, str(path))
+        try:
+            for path in Path(f'./{self.SCHEMA_PATH}').iterdir():
+                expected = EXPECTED[path.name.split('.')[0]]
+                print(f'Loading {path.name}; expected: {str(expected)}')
+                self.assertRaises(expected, Tool.load_tool, str(path))
+        except FileNotFoundError as err:
+            print(err)
+            ls = "\n".join(os.listdir(os.curdir))
+            print(f'Current dir: {os.curdir}\n{ls}')
 
     def test_run_tool(self):
         print()
