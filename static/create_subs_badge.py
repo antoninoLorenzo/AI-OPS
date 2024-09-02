@@ -16,7 +16,7 @@ if not os.path.isfile(README_PATH):
 with open(README_PATH, "r", encoding="utf8") as f:
     content = f.read()
 
-query = f"{BADGE_TEXT}-{NUMERIC_SCORE}-{BADGE_COLOR}?logo=python&logoColor=white"
+query = f"{BADGE_TEXT}-{NUMERIC_SCORE}-{BADGE_COLOR}"  # ?logo=python&logoColor=white
 badge_url = f"https://img.shields.io/badge/{query}"
 
 patt = r"(?<=!\[pylint]\()(.*?)(?=\))"
