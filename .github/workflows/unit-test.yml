@@ -1,0 +1,71 @@
+name: "Unit Test"
+
+on:
+  schedule:
+    - cron: "* * * * *"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      ENDPOINT: "http://127.0.0.1:11434"
+      REQUIREMENTS_PATH: 'requirements.txt'
+    steps:
+      -
+        name: "Clone Repository"
+        uses: "actions/checkout@v4"
+        with:
+          repository: "antoninoLorenzo/AI-OPS"
+      -
+        name: "Set up Python 3.11"
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      -
+        name: "LLM Requirements - Ollama"
+        run: curl -fsSL https://ollama.com/install.sh | sh
+        shell: bash
+      -
+        name: "LLM Requirements - Qdrant"
+        run: docker pull qdrant/qdrant
+        shell: bash
+      -
+        name: "Python Requirements"
+        run: |
+          pip install --upgrade pip
+          pip install -r ${{env.REQUIREMENTS_PATH}} > /dev/null
+          python -m spacy download en_core_web_lg   > /dev/null
+        shell: bash
+      -
+        name: "Run Ollama + Pull Models + Run Unit Test"
+        run: |
+          # set environment
+          export PYTHONPATH=$PYTHONPATH:$(pwd)
+          export OLLAMA_ENDPOINT=${{env.ENDPOINT}}
+          echo ENDPOINT=${{env.ENDPOINT}} > .env
+          
+          # run services
+          docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant &
+          ollama serve &
+          
+          # wait ollama
+          for i in {1..3}; do
+            if curl -s -f -o /dev/null http://127.0.0.1:11434/v1/models; then
+              echo "[+] Ollama is running"
+              break
+            else
+              echo "[-] Waiting for Ollama to start ..."
+              sleep 5
+            fi
+          done
+          
+          # pull models
+          ollama pull nomic-embed-text 
+          ollama pull mistral 
+          
+          # run unit testing
+          echo "------------------------------------------------------------------------------------------------------"
+          echo "-----------------------------------------Unit Test----------------------------------------------------"
+          echo "------------------------------------------------------------------------------------------------------"
+          python ./test/unit/runner.py
+        shell: bash
