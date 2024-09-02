@@ -1,4 +1,14 @@
-![pylint](https://img.shields.io/badge/PyLint-8.75-yellow?logo=python&logoColor=white)
+
+<div style="display:flex; gap: 8px">
+
+[![unit test](https://img.shields.io/badge/Unit%20Test-passing-<COLOR>.svg)](https://shields.io/)
+
+![pylint](https://img.shields.io/badge/PyLint-8.75-yellow)
+
+[![license](https://img.shields.io/badge/LICENSE-MIT-<COLOR>.svg)](https://shields.io/)
+
+</div>
+
 
 🚧 *Under Development* 🚧
 
