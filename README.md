@@ -47,8 +47,8 @@ TODO
 
 # 💻 Install
 **Requirements**
-- Python
-- Ollama
+- Python (>= 3.11)
+- Ollama (>= 0.3.0)
 - Docker
 
 ### End-User
