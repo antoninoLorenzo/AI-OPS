@@ -3,7 +3,7 @@ CLI Client for the Agent API, is useful for development and
 when executing the frontend is not convenient.
 
 """
-import sys
+import sys, os
 import argparse
 from urllib.parse import urlparse
 
@@ -35,6 +35,7 @@ class AgentClient:
             'load': self.load_session,
             'exec': self.execute_plan,
             'plans': self.list_plans,
+            'clear': AgentClient.clear_terminal,
             'bye': ''
         }
 
@@ -235,6 +236,7 @@ class AgentClient:
         # Basic Commands
         self.console.print("[bold white]Basic Commands[/]")
         self.console.print("- [bold blue]help[/]   : Show available commands.")
+        self.console.print("- [bold blue]clear[/]  : Clears the terminal.")
         self.console.print("- [bold blue]bye[/]    : Exit the program")
 
         # Agent Related
@@ -251,6 +253,10 @@ class AgentClient:
         self.console.print("- [bold blue]delete[/] : Delete the current session from persistent sessions.")
         self.console.print("- [bold blue]list[/]   : Show the saved sessions.")
         self.console.print("- [bold blue]load[/]   : Opens a session.")
+
+    @staticmethod
+    def clear_terminal():
+        os.system('cls' if os.name == 'nt' else 'clear')
 
 
 class ValidateURLAction(argparse.Action):
