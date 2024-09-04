@@ -39,12 +39,14 @@ class AgentClient:
             'bye': ''
         }
 
-        # check API availability
+        self.console.print("[bold blue]ai-ops-cli[/] (beta) starting.")
         try:
             self.client.get(self.api_url, timeout=20)
+            self.console.print(f"Backend: [blue]online[/]")
         except ConnectionError:
-            self.console.print('backend not available', style='red')
+            self.console.print('Backend: [red]offline[/]')
             sys.exit(-1)
+        self.console.print()
 
     def run(self):
         """Runs the main loop of the client"""
@@ -52,7 +54,7 @@ class AgentClient:
             user_input = None
             try:
                 user_input = Prompt.ask(
-                    '> ',
+                    '[underline]ai-ops[/] >',
                     console=self.console,
                     choices=list(self.commands.keys()),
                     default='help',
@@ -267,7 +269,6 @@ class ValidateURLAction(argparse.Action):
     - the path is empty
     """
     def __call__(self, parser, namespace, values, option_string=None):
-        print(f'URL: {values}')
         parsed = urlparse(values)
         url_scheme = parsed.scheme
         url_path = parsed.path
