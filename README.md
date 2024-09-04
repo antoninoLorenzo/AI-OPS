@@ -50,7 +50,7 @@
 TODO
 -->
 
-# 💻 Install
+## 💻 Install
 **Requirements**
 - Python (>= 3.11)
 - Ollama (>= 0.3.0)
