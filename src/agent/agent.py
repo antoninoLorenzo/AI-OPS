@@ -99,8 +99,8 @@ class Agent:
             for chunk in self.llm.query(messages):
                 yield chunk
                 response += chunk
-        except ProviderError as p_err:
-            raise RuntimeError(f'{p_err}')
+        except ProviderError:
+            raise
 
         # store response
         self.mem.store_message(
