@@ -5,7 +5,6 @@ from json import JSONDecodeError
 
 from tool_parse import ToolRegistry
 
-from src.agent.knowledge import Store
 from src.agent.llm import AVAILABLE_PROVIDERS, LLM, ProviderError
 from src.agent.memory import Memory, Message, Role
 from src.agent.plan import Plan, Task
@@ -27,8 +26,8 @@ class Agent:
         :param tools_docs: documentation of penetration testing tools
         :param llm_endpoint: llm endpoint
         :param provider: llm provider
-        :param provider_key: if provider requires an api key it must be provided here
-        :param tool_registry: tools that can be executed automatically by the LLM use ToolRegistry
+        :param provider_key: provider api key (if required)
+        :param tool_registry: the available agent tools (ToolRegistry)
         """
         # Pre-conditions
         if provider not in AVAILABLE_PROVIDERS.keys():
@@ -213,12 +212,13 @@ class Agent:
         if not messages or len(messages) <= 1:
             return None
 
-        msg = messages[-1] if messages[-1].role == Role.ASSISTANT else messages[-2]
+        msg = messages[-1] if messages[-1].role == Role.ASSISTANT \
+            else messages[-2]
 
         try:
             plan = self.extract_plan(msg.content)
         except Exception as err:
-            raise RuntimeError(err)
+            raise RuntimeError from err
 
         yield from plan.execute()
 

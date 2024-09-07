@@ -86,9 +86,9 @@ if agent_settings.USE_RAG:
 
     initialize_knowledge(rag_settings.DOCS_BASE_PATH, store)
     available_documents = ''
-    for name, coll in store.collections.items():
+    for cname, coll in store.collections.items():
         doc_topics = ", ".join([topic.name for topic in coll.topics])
-        available_documents += f"- '{name}': {doc_topics}\n"
+        available_documents += f"- '{cname}': {doc_topics}\n"
 
 
     @TR.register(
@@ -128,7 +128,7 @@ app.add_middleware(
 
 @app.get('/')
 def ping():
-    """"""
+    """Used to check if API is online on CLI startup"""
     return ''
 
 
@@ -223,20 +223,23 @@ def delete_session(sid: int):
 # --- AGENT RELATED
 
 def query_generator(sid: int, q: str):
+    """Generator function for `/session/{sid}/query endpoint`;
+    yields Agent response chunks or error.
+    :param sid: session id
+    :param q: query string"""
     try:
         stream = agent.query(sid, q)
-        for chunk in stream:
-            yield chunk
+        yield from stream
     except ProviderError as err:
         yield json.dumps({'error': str(err)})
 
 
 @app.post('/session/{sid}/query/')
 def query(sid: int, body: dict = Body(...)):
-    """
-    Makes a query to the Agent.
-    Returns the stream for the response.
-    """
+    """Makes a query to the Agent in the current session context;
+    returns the stream for the response using `query_generator`.
+    :param sid: session id
+    :param body: the request body (contains the query string)"""
     q = body.get("query")
     if not q:
         raise HTTPException(status_code=400, detail="Query parameter required")
@@ -255,7 +258,7 @@ def list_plans(sid: int):
 
     if session is None:
         return {"error": "No session found"}
-    elif session.plans is None or len(session.plans) == 0:
+    if session.plans is None or len(session.plans) == 0:
         return {"error": "No plans available"}
 
     for i, plan in enumerate(session.plans):
