@@ -160,6 +160,7 @@ class AgentClient:
         self.current_session = {'sid': sid, 'name': name}
         self.console.print(f'({sid}) [bold blue]{name}[/]')
 
+        body['messages'] = body['messages'][1:]  # exclude system message
         for msg in body['messages']:
             self.console.print(f'[bold white]{msg["role"]}[/]: {msg["content"]}\n')
         self.chat(print_name=False)
@@ -235,7 +236,7 @@ class AgentClient:
             line = self.console.input("")
             if line == "":
                 break
-            input_text += line # + "\n"
+            input_text += line + "\n"
         return input_text
 
     def help(self):
