@@ -192,5 +192,8 @@ class Memory:
         """
         :return: last plan stored in session
         """
-        plans = self.sessions[sid].plans
+        try:
+            plans = self.sessions[sid].plans
+        except KeyError:
+            return None
         return plans[-1] if len(plans) > 0 else None

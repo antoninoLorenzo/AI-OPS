@@ -207,8 +207,10 @@ class Agent:
     def execute_plan(self, sid):
         """Extracts the plan from last message,
         stores it in memory and executes it."""
-        messages = self.mem.get_session(sid).messages
-        if len(messages) <= 1:
+        session = self.mem.get_session(sid)
+
+        messages = session.messages if session else None
+        if not messages or len(messages) <= 1:
             return None
 
         msg = messages[-1] if messages[-1].role == Role.ASSISTANT else messages[-2]

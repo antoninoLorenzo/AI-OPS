@@ -280,11 +280,14 @@ def execute_plan_stream(sid: int):
                 yield task_str
 
     plan = agent.mem.get_plan(sid)
-    eval_results = 'Task Results:\n'
-    for p in plan.plan_to_dict_list():
-        eval_results += f'{p["command"]}\n{p["output"]}\n\n'
+    if plan:
+        eval_results = 'Task Results:\n'
+        for p in plan.plan_to_dict_list():
+            eval_results += f'{p["command"]}\n{p["output"]}\n\n'
 
-    yield from query_generator(sid, eval_results)
+        yield from query_generator(sid, eval_results)
+    else:
+        yield "No plans available"
 
 
 @app.get('/session/{sid}/plan/execute')
