@@ -20,11 +20,11 @@ Knowledge Related:
 - /collections/list: Returns available Collections.
 - /collections/new: Creates a new Collection.
 """
-import os
 import json
+import os
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Body
+from fastapi import Body, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic_settings import BaseSettings
@@ -33,9 +33,9 @@ from tool_parse import ToolRegistry
 from src import initialize_knowledge
 from src.agent import Agent
 from src.agent.knowledge import Store
+from src.agent.llm import ProviderError
 from src.agent.plan import TaskStatus
 from src.agent.tools import TOOLS
-from src.agent.llm import ProviderError
 
 load_dotenv()
 TR = ToolRegistry()

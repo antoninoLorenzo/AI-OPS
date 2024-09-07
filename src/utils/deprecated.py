@@ -2,8 +2,8 @@
 Deprecated decorator from StackOverflow:
 https://stackoverflow.com/questions/2536307/decorators-in-the-python-standard-lib-deprecated-specifically
 """
-import warnings
 import functools
+import warnings
 
 
 def deprecated(reason: str = ""):

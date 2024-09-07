@@ -9,10 +9,10 @@ import qdrant_client.http.exceptions
 from qdrant_client import QdrantClient, models
 from qdrant_client.http.exceptions import UnexpectedResponse
 
-from src.agent.llm.llm import ProviderError
 from src.agent.knowledge.collections import Collection, Document, Topic
 from src.agent.knowledge.nlp import chunk
 from src.agent.knowledge.routing import Router
+from src.agent.llm.llm import ProviderError
 from src.utils.deprecated import deprecated
 
 

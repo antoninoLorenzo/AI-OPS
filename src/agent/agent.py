@@ -1,12 +1,12 @@
 """Contains the class `Agent`, the core of the system."""
-import re
 import json
+import re
 from json import JSONDecodeError
 
 from tool_parse import ToolRegistry
 
 from src.agent.knowledge import Store
-from src.agent.llm import LLM, AVAILABLE_PROVIDERS, ProviderError
+from src.agent.llm import AVAILABLE_PROVIDERS, LLM, ProviderError
 from src.agent.memory import Memory, Message, Role
 from src.agent.plan import Plan, Task
 from src.agent.prompts import PROMPTS

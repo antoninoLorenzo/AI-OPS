@@ -1,7 +1,6 @@
 """RAG related data"""
-import os
 import json
-
+import os
 from dataclasses import dataclass
 from typing import List, Optional
 

@@ -3,8 +3,9 @@ CLI Client for the Agent API, is useful for development and
 when executing the frontend is not convenient.
 
 """
-import sys, os
 import argparse
+import os
+import sys
 from urllib.parse import urlparse
 
 import requests
@@ -12,8 +13,8 @@ from requests.exceptions import ConnectionError
 from rich.console import Console
 from rich.live import Live
 from rich.markdown import Markdown
+from rich.prompt import InvalidResponse, Prompt
 from rich.tree import Tree
-from rich.prompt import Prompt, InvalidResponse
 
 
 class AgentClient:
