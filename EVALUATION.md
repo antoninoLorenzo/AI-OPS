@@ -1,11 +1,13 @@
+# 📈 Evaluation
+
+🚧 *Under Development* 🚧
+
+<!--
 **Table of Contents**
 1. [Agent Evaluation](#agent-evaluation)
 2. [RAG Evaluation](#rag-evaluation)
    - [Introduction](#introduction)
    - [Results](#results)
-
-
-# 📈Agent Evaluation
 
 **TODO**
 
@@ -30,3 +32,4 @@ judge. Here everything related to generation is done via Ollama with the same mo
 ## Results
 
 ![Context Precision Plot](data/rag_eval/results/plots/plot.png)
+-->
