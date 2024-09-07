@@ -174,12 +174,8 @@ class AgentClient:
             self.console.print(f'({sid}) [bold blue]{name}[/]')
 
         while True:
-            q = Prompt.ask(
-                '[bold white]User[/]',
-                console=self.console,
-                default='-1',
-                show_default=False
-            )
+            self.console.print("[bold white]User:[/] ", end='')
+            q = self.__input_multiline()
             if q == '-1':
                 break
 
@@ -232,6 +228,15 @@ class AgentClient:
 
                 self.console.print(f'[+] Plan {i}\n\n'
                                    f'{tasks}')
+
+    def __input_multiline(self) -> str:
+        input_text = ""
+        while True:
+            line = self.console.input("")
+            if line == "":
+                break
+            input_text += line # + "\n"
+        return input_text
 
     def help(self):
         """Print help message"""
