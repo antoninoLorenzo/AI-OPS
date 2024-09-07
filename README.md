@@ -19,7 +19,6 @@
 4. [Usage](#usage)
    - [Commands](#commands) 
    - [Supported Models](#supported-models)
-   - [Components](#components)
 5. [Tools](#tools)
    - [Available Tools](#available-tools)
    - [Add a Tool](#add-a-tool)
@@ -34,7 +33,7 @@
 
 > **Note:** AI-OPS is currently in development and some functionalities are not implemented. Any support or feedback is highly appreciated. For more details, please refer to [CONTRIBUTE.md](./CONTRIBUTE.md).
 
-## Key Features
+## 🚀 Key Features
 
 - 🎁 **Full Open-Source**: No need for third-party LLM providers; use any model you prefer with [Ollama](https://github.com/ollama/ollama).
 - 🔧 **Tool Integration**: Execute common penetration testing tools or integrate new ones without needing to code in Python.
@@ -51,13 +50,12 @@
 TODO
 -->
 
-# 💻 Install
+## 💻 Install
 **Requirements**
 - Python (>= 3.11)
 - Ollama (>= 0.3.0)
 - Docker
 
-### End-User
 1. **Setup**
 -  Clone Repository `git clone https://github.com/antoninoLorenzo/AI-OPS.git`
 
@@ -139,6 +137,7 @@ To integrate a LLM see [LLM Integration](./CONTRIBUTE.md#llm-integration) in CON
 
 <!--| **LLama 3**  | &cross;               | -->
 
+<!--
 ### Components
 | Component                                  | Description       |
 |--------------------------------------------|-------------------|
@@ -151,8 +150,9 @@ To integrate a LLM see [LLM Integration](./CONTRIBUTE.md#llm-integration) in CON
 
 > **The frontend is prototyped in `frontend-prototype` branch, containing a `React` application, however it is not currently in development*
 -->
-
+<!--
 ![Deployment Diagram](static/images/deployment_diagram.svg)
+-->
 
 ## 🛠️Tools
 
@@ -213,9 +213,11 @@ it as short as possible to maintain the context of a reasonable length.
 `Tool` at `src.agent.tools.base`; you're welcome to **open an issue** for a tool request/proposal.
 
 
-## 📚 Knowledge 
+## 📚 Knowledge (RAG)
 
-**TODO**
+🚧 *Under Development* 🚧
+
+<!--
 
 ### Available Collections
 
@@ -225,6 +227,7 @@ it as short as possible to maintain the context of a reasonable length.
 ### Add a Collection
 
 **TODO**
+-->
 
 ## ⚖️ Ethical and Legal Considerations
 
