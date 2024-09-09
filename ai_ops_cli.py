@@ -17,6 +17,9 @@ from rich.prompt import InvalidResponse, Prompt
 from rich.tree import Tree
 
 
+VERSION = "0.0.0"
+
+
 class AgentClient:
     """Client for Agent API"""
 
