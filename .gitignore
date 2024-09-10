@@ -1,10 +1,6 @@
-# PyCharm
+# IDEs
 .idea/
-
-# VS Code
-
-# Node
-frontend/node_modules
+.code/
 
 # Environments
 .env
@@ -14,6 +10,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+.pytest_cache/
 
 # Jupyter Checkpoints
 test/benchmarks/rag/.ipynb_checkpoints
@@ -38,10 +35,17 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+
+## __pycache__
+*/*/__pycache__
 src/__pycache__
 src/*/*/__pycache__
-*/*/__pycache__
+src/*/*/*/__pycache__
 test/__pycache__
+test/benchmarks/__pycache__
+test/unit/__pycache__
+test/integration/__pycache__
+test/test_acceptance/__pycache__
 static/__pycache__
 src/agent/__pycache__
 src/agent/*/__pycache__
@@ -63,3 +67,6 @@ pip-delete-this-directory.txt
 
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
 __pypackages__/
+
+# Node (old)
+frontend/node_modules
