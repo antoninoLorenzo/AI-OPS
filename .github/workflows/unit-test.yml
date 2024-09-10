@@ -38,7 +38,7 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements-api.txt > /dev/null
           pip install -r requirements-dev.txt > /dev/null
-          python -m spacy download en_core_web_lg   > /dev/null
+          python -m spacy download en_core_web_md   > /dev/null
         shell: bash
       -
         name: "Run Ollama + Pull Models + Run Unit Test"

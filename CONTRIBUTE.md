@@ -70,7 +70,7 @@ You can contribute in various ways:
 1. **Setup**
 - Clone Repository `git clone https://github.com/antoninoLorenzo/AI-OPS.git`
 - Install Python requirements `pip install -r requirements.txt`
-- Install spacy model `python -m spacy download en_core_web_lg`
+- Install spacy model `python -m spacy download en_core_web_md`
 
 
 2. **Ollama**
