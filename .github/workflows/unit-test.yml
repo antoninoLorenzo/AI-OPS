@@ -13,7 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ENDPOINT: "http://127.0.0.1:11434"
-      REQUIREMENTS_PATH: 'requirements.txt'
     steps:
       -
         name: "Clone Repository"
@@ -37,7 +36,8 @@ jobs:
         name: "Python Requirements"
         run: |
           pip install --upgrade pip
-          pip install -r ${{env.REQUIREMENTS_PATH}} > /dev/null
+          pip install -r requirements-api.txt > /dev/null
+          pip install -r requirements-dev.txt > /dev/null
           python -m spacy download en_core_web_lg   > /dev/null
         shell: bash
       -
