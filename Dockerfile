@@ -4,10 +4,10 @@
 # Kali Setup (~127 MB)
 FROM kalilinux/kali-rolling
 
-LABEL name="AI-OPS API"
-LABEL src="https://github.com/antoninoLorenzo/AI-OPS"
-LABEL creator="antoninoLorenzo"
-LABEL desc="Api for AI-OPS, a Penetration Testing AI assistant"
+LABEL name="AI-OPS API" \
+    src="https://github.com/antoninoLorenzo/AI-OPS" \
+    creator="antoninoLorenzo" \
+    desc="Api for AI-OPS, a Penetration Testing AI assistant"
 
 ARG ollama_endpoint=http://localhost:11434
 ARG ollama_model=gemma2:9b
@@ -19,7 +19,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     hashcat \
     exploitdb \
     sqlmap \
-    git
+    git && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/
 
 # Setup API
 RUN git clone --filter=blob:none --no-checkout https://github.com/antoninoLorenzo/AI-OPS.git && \
