@@ -1,0 +1,14 @@
+fastapi~=0.111.0
+ollama~=0.3.1
+qdrant-client~=1.9.0
+spacy~=3.7.5
+uvicorn
+python-dotenv~=1.0.1
+requests~=2.32.3
+yake~=0.4.8
+rich~=13.7.1
+numpy~=1.26.4
+pydantic_settings
+httpx
+tool-parse
+docker
