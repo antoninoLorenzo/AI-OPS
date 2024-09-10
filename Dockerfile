@@ -1,7 +1,7 @@
 # ----------- Agent API Docker File
 # TODO : Setup volume for persistent sessions
 
-# Kali Setup
+# Kali Setup (~127 MB)
 FROM kalilinux/kali-rolling
 
 LABEL name="AI-OPS API"
@@ -12,7 +12,7 @@ LABEL desc="Api for AI-OPS, a Penetration Testing AI assistant"
 ARG ollama_endpoint=http://localhost:11434
 ARG ollama_model=gemma2:9b
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-pip ca-certificates python3 python3-wheel \
     nmap \
     gobuster \
@@ -29,7 +29,7 @@ RUN git clone --filter=blob:none --no-checkout https://github.com/antoninoLorenz
     git checkout
 
 RUN cd AI-OPS/  && \
-    pip3 install --no-cache-dir -r requirements.txt && \
+    pip3 install --no-cache-dir -r requirements-api.txt && \
     python3 -m spacy download en_core_web_lg  && \
     mkdir -p $HOME/.aiops/tools && \
     mv tools_settings/* ~/.aiops/tools/
