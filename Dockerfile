@@ -25,7 +25,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN git clone --filter=blob:none --no-checkout https://github.com/antoninoLorenzo/AI-OPS.git && \
     cd AI-OPS/ && \
     git sparse-checkout init && \
-    git sparse-checkout set requirements.txt src/ tools_settings/ && \
+    git sparse-checkout set requirements-api.txt src/ tools_settings/ && \
     git checkout
 
 RUN cd AI-OPS/  && \
