@@ -23,6 +23,7 @@ class Role(StrEnum):
 
     @staticmethod
     def from_str(item):
+        """Convert a string role to Role"""
         if item == 'user':
             return Role.USER
         if item == 'assistant':
@@ -167,7 +168,8 @@ class Memory:
             raise ValueError(f'Session {sid} does not exist')
 
         for path in SESSIONS_PATH.iterdir():
-            if path.is_file() and path.suffix == '.json' and path.name.startswith(f'{sid}__'):
+            if path.is_file() and path.suffix == '.json' and \
+                    path.name.startswith(f'{sid}__'):
                 path.unlink()
 
     def rename_session(self, sid: int, session_name: str):

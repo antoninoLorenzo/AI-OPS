@@ -37,4 +37,3 @@ def deprecated(reason: str = ""):
         return decorator(f)
 
     return decorator
-

@@ -31,7 +31,7 @@ class Tool:
             name = tool_data['name']
             tool_description = ''.join(tool_data['tool_description'])
             # in case args_description is provided as string instead
-            # of a list of strings it still works: ''.join(string) returns string
+            # of string list it still works: ''.join(string) returns string
             args_description = ''.join(tool_data['args_description'])
 
             if not (name and tool_description and args_description):

@@ -70,7 +70,7 @@ class Provider(ABC):
         # check format
         roles = [Role.SYS, Role.USER, Role.ASSISTANT]
         valid_roles = [str(role) for role in roles]
-        err_message = f'expected format {{"role": "{valid_roles}", "content": "..."}}'
+        err_message = f'expected {{"role": "{valid_roles}", "content": "..."}}'
 
         # check format - keys
         message_keys = [list(msg.keys()) for msg in messages]
@@ -102,7 +102,7 @@ class Ollama(Provider):
         try:
             self.client = Client(host=self.client_url)
         except Exception as err:
-            raise RuntimeError(f'Initialization Failed') from err
+            raise RuntimeError('Initialization Failed') from err
 
     def query(self, messages: list):
         """Generator that returns response chunks."""
@@ -176,8 +176,7 @@ class LLM:
         :param messages:
             The current conversation provided as a list of messages in the
             format [{"role": "assistant/user/system", "content": "..."}, ...]"""
-        for chunk in self.provider.query(messages):
-            yield chunk
+        yield from self.provider.query(messages)
 
     def tool_query(self, messages: list, tools: list | None = None):
         """
