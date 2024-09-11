@@ -11,7 +11,6 @@ from qdrant_client.http.exceptions import UnexpectedResponse
 
 from src.agent.knowledge.collections import Collection, Document, Topic
 from src.agent.knowledge.nlp import chunk
-from src.agent.knowledge.routing import Router
 from src.agent.llm.llm import ProviderError
 from src.utils.deprecated import deprecated
 
@@ -25,7 +24,6 @@ class Store:
                  embedding_model: str = 'nomic-embed-text',
                  url: str = 'http://localhost:6333',
                  in_memory: bool = False,
-                 router: Router = None
                  ):
         """
         :param embedding_url:
@@ -43,7 +41,6 @@ class Store:
         :param in_memory:
             Specifies whether the Qdrant database is loaded in memory
             or it is deployed on a specific endpoint.
-        :param router: @deprecated
         """
         self._in_memory = in_memory
 
@@ -78,7 +75,6 @@ class Store:
                     prompt='init'
                 )['embedding']
             )
-            self._query_router: Router | None = router
         except (httpx.ConnectError, ollama._types.ResponseError) as err:
             raise ProviderError(f"Can't load embedding model: {err}")
 
@@ -171,17 +167,6 @@ class Store:
 
         # self._collections[collection_name].documents.append(document)
         self._collections[collection_name].size = current_len + len(emb_chunks)
-
-    @deprecated(reason="Query Routing is handled by LLM tool calling.")
-    def retrieve(self, query: str, limit: int = 3):
-        """Performs Query Routing and Retrieval of chunks"""
-        if not self._query_router:
-            raise RuntimeError('retrieve can be called only with a query router')
-        collection_name = self._query_router.find_route(
-            user_query=query,
-            collections=self._collections
-        )
-        return self.retrieve_from(query, collection_name, limit)
 
     def retrieve_from(self, query: str, collection_name: str,
                       limit: int = 3,

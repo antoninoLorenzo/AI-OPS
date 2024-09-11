@@ -5,7 +5,6 @@ spacy~=3.7.5
 uvicorn
 python-dotenv~=1.0.1
 requests~=2.32.3
-yake~=0.4.8
 rich~=13.7.1
 numpy~=1.26.4
 pydantic_settings
