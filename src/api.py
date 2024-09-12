@@ -222,13 +222,13 @@ def delete_session(sid: int):
 
 # --- AGENT RELATED
 
-def query_generator(sid: int, q: str):
+def query_generator(sid: int, usr_query: str):
     """Generator function for `/session/{sid}/query endpoint`;
     yields Agent response chunks or error.
     :param sid: session id
-    :param q: query string"""
+    :param usr_query: query string"""
     try:
-        stream = agent.query(sid, q)
+        stream = agent.query(sid, usr_query)
         yield from stream
     except ProviderError as err:
         yield json.dumps({'error': str(err)})
@@ -240,8 +240,8 @@ def query(sid: int, body: dict = Body(...)):
     returns the stream for the response using `query_generator`.
     :param sid: session id
     :param body: the request body (contains the query string)"""
-    q = body.get("query")
-    if not q:
+    usr_query = body.get("query")
+    if not usr_query:
         raise HTTPException(status_code=400, detail="Query parameter required")
     return StreamingResponse(query_generator(sid, q))
 
@@ -285,8 +285,8 @@ def execute_plan_stream(sid: int):
     plan = agent.mem.get_plan(sid)
     if plan:
         eval_results = 'Task Results:\n'
-        for p in plan.plan_to_dict_list():
-            eval_results += f'{p["command"]}\n{p["output"]}\n\n'
+        for task in plan.plan_to_dict_list():
+            eval_results += f'{task["command"]}\n{task["output"]}\n\n'
 
         yield from query_generator(sid, eval_results)
     else:

@@ -36,7 +36,9 @@ class Agent:
         provider_class = AVAILABLE_PROVIDERS[provider]['class']
         key_required = AVAILABLE_PROVIDERS[provider]['key_required']
         if key_required and len(provider_key) == 0:
-            raise RuntimeError(f'{provider} requires an api key, set PROVIDER_KEY environment variable.')
+            raise RuntimeError(
+                f'Missing PROVIDER_KEY environment variable for {provider}.'
+            )
 
         # Agent Components
         self.llm = LLM(
@@ -46,9 +48,9 @@ class Agent:
             api_key=provider_key
         )
         self.mem = Memory()
-        self.tr: ToolRegistry | None = tool_registry
+        self.tool_registry: ToolRegistry | None = tool_registry
         if tool_registry is not None and len(tool_registry) > 0:
-            self.tools = [tool for tool in self.tr.marshal('base')]
+            self.tools = list(self.tool_registry.marshal('base'))
         else:
             self.tools = []
 
@@ -121,7 +123,7 @@ class Agent:
             if tool_meta in call_stack:
                 continue
             try:
-                res = self.tr.compile(
+                res = self.tool_registry.compile(
                     name=tool_meta['name'],
                     arguments=tool_meta['args']
                 )
@@ -223,4 +225,3 @@ class Agent:
         yield from plan.execute()
 
         self.mem.store_plan(sid, plan)
-
