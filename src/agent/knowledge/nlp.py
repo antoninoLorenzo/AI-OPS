@@ -13,7 +13,10 @@ def chunk_str(document: str):
     NLP sentence extraction -> sentence grouping by similarity.
     """
     doc = nlp(document)
-    sentences = [sent for sent in list(doc.sents) if str(sent).strip() not in ['*']]
+    sentences = [
+        sent for sent in list(doc.sents)
+        if str(sent).strip() not in ['*']
+    ]
 
     similarities = []
     for i in range(1, len(sentences)):

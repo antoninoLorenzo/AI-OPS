@@ -64,9 +64,9 @@ class Collection:
         # path string validation
         if not path or not isinstance(path, str):
             raise ValueError("Invalid parameter for path.")
-        elif not os.path.exists(path):
+        if not os.path.exists(path):
             raise ValueError(f"Path {path} does not exist.")
-        elif not os.path.isfile(path) or \
+        if not os.path.isfile(path) or \
                 not os.path.basename(path).endswith(".json"):
             raise ValueError(f"Path {path} is not JSON file")
 
@@ -128,8 +128,9 @@ class Collection:
         docs = "| - Documents\n"
         for doc in self.documents:
             docs += f'    | - {doc.name}\n'
+        topics = ", ".join([topic.name for topic in self.topics])
         return (f'Title: {self.title} ({self.collection_id})\n'
-                f'| - Topics: {", ".join([topic.name for topic in self.topics])}\n'
+                f'| - Topics: {topics}\n'
                 f'{docs}')
 
 

@@ -12,7 +12,6 @@ from qdrant_client.http.exceptions import UnexpectedResponse
 from src.agent.knowledge.collections import Collection, Document, Topic
 from src.agent.knowledge.nlp import chunk
 from src.agent.llm.llm import ProviderError
-from src.utils.deprecated import deprecated
 
 
 class Store:
@@ -56,7 +55,7 @@ class Store:
             try:
                 available = self.get_available_collections()
             except qdrant_client.http.exceptions.ResponseHandlingException as err:
-                raise RuntimeError(f"Error: {err}")
+                raise RuntimeError("Can't get Qdrant collections") from err
 
             if available:
                 coll = {name: collection for name, collection in available}
@@ -93,7 +92,7 @@ class Store:
                 )
             )
         except UnexpectedResponse as err:
-            raise RuntimeError(f"Can't upload collection: {err}")
+            raise RuntimeError("Can't upload collection") from err
 
         if done:
             self._collections[collection.title] = collection
@@ -108,7 +107,9 @@ class Store:
         # update metadata in production
         # TODO: refactor
         if not self._in_memory:
-            file_name = collection.title if collection.title.endswith('.json') else collection.title + '.json'
+            file_name = collection.title \
+                if collection.title.endswith('.json') \
+                else collection.title + '.json'
             new_file = str(Path(self._metadata / file_name))
 
             docs = []
@@ -154,7 +155,11 @@ class Store:
             models.PointStruct(
                 id=current_len + i,
                 vector=item['embedding'],
-                payload={'text': item['text'], 'title': item['title'], 'topic': item['topic']}
+                payload={
+                    'text': item['text'],
+                    'title': item['title'],
+                    'topic': item['topic']
+                }
             )
             for i, item in enumerate(emb_chunks)
         ]
@@ -247,4 +252,3 @@ class Store:
         if name not in self.collections:
             return None
         return self._collections[name]
-
