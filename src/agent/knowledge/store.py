@@ -58,7 +58,7 @@ class Store:
                 raise RuntimeError("Can't get Qdrant collections") from err
 
             if available:
-                coll = {name: collection for name, collection in available}
+                coll = dict(available)
             else:
                 coll = {}
             self._collections: Dict[str: Collection] = coll
@@ -75,7 +75,7 @@ class Store:
                 )['embedding']
             )
         except (httpx.ConnectError, ollama._types.ResponseError) as err:
-            raise ProviderError(f"Can't load embedding model: {err}")
+            raise ProviderError("Can't load embedding model") from err
 
     def create_collection(self, collection: Collection):
         """Creates a new Qdrant collection, uploads the collection documents
@@ -189,7 +189,7 @@ class Store:
             results.
         :return: list of chunks or None
         """
-        if not len(query):
+        if not query:
             raise ValueError('Query cannot be empty')
         if collection_name not in self._collections.keys():
             raise ValueError(f'Collection {collection_name} does not exist')

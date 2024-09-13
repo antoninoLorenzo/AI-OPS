@@ -22,7 +22,11 @@ class Tool:
             keys = ['name', 'tool_description', 'args_description']
 
             if not isinstance(tool_data, dict):
-                raise TypeError(f"Wrong format at {path}: expected dict but got {type(tool_data)}.")
+                raise TypeError(
+                    f"Wrong format for {path}.\n"
+                    f"Expected: dict\n"
+                    f"Got: {type(tool_data)}."
+                )
 
             valid_keys = False in [key in keys for key in tool_data.keys()]
             if len(tool_data) != 3 or valid_keys:
@@ -35,7 +39,7 @@ class Tool:
             args_description = ''.join(tool_data['args_description'])
 
             if not (name and tool_description and args_description):
-                raise ValueError(f"Wrong format for tool schema at {path}: empty values.")
+                raise ValueError(f"Wrong format at {path}\nFound empty values")
 
             return Tool(name, tool_description, args_description)
 
