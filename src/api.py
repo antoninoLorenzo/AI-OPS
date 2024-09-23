@@ -22,6 +22,7 @@ Knowledge Related:
 """
 import json
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import Body, FastAPI, HTTPException
@@ -58,7 +59,6 @@ class RAGSettings(BaseSettings):
     EMBEDDING_MODEL: str = os.environ.get('EMBEDDING_MODEL', 'nomic-embed-text')
     # There the assumption that embedding url is the same of llm provider
     EMBEDDING_URL: str = os.environ.get('ENDPOINT', 'http://localhost:11434')
-    DOCS_BASE_PATH: str = os.environ.get('DOCS_BASE_PATH', './data/json/')
 
 
 class APISettings(BaseSettings):
@@ -78,13 +78,14 @@ if agent_settings.USE_RAG:
     rag_settings = RAGSettings()
 
     store = Store(
+        str(Path(Path.home() / '.aiops')),
         url=rag_settings.RAG_URL,
         embedding_url=rag_settings.EMBEDDING_URL,
         embedding_model=rag_settings.EMBEDDING_MODEL,
         in_memory=rag_settings.IN_MEMORY
     )
 
-    initialize_knowledge(rag_settings.DOCS_BASE_PATH, store)
+    initialize_knowledge(store)
     available_documents = ''
     for cname, coll in store.collections.items():
         doc_topics = ", ".join([topic.name for topic in coll.topics])

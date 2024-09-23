@@ -1,10 +1,11 @@
 """RAG Vector Database interface"""
 import json
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 
 import httpx
 import ollama
+import pandas as pd
 import qdrant_client.http.exceptions
 from qdrant_client import QdrantClient, models
 from qdrant_client.http.exceptions import UnexpectedResponse
@@ -19,6 +20,7 @@ class Store:
     Manages Collections and implements the Upload/Retrieve operations."""
 
     def __init__(self,
+                 base_path: str,
                  embedding_url: str = 'http://localhost:11434',
                  embedding_model: str = 'nomic-embed-text',
                  url: str = 'http://localhost:6333',
@@ -41,14 +43,14 @@ class Store:
             Specifies whether the Qdrant database is loaded in memory
             or it is deployed on a specific endpoint.
         """
-        self._in_memory = in_memory
+        self.in_memory = in_memory
 
         if in_memory:
             self._connection = QdrantClient(':memory:')
             self._collections: Dict[str: Collection] = {}
         else:
             self._connection = QdrantClient(url)
-            self._metadata: Path = Path(Path.home() / '.aiops' / 'knowledge')
+            self._metadata: Path = Path(base_path)
             if not self._metadata.exists():
                 self._metadata.mkdir(parents=True, exist_ok=True)
 
@@ -106,7 +108,7 @@ class Store:
 
         # update metadata in production
         # TODO: refactor
-        if not self._in_memory:
+        if not self.in_memory:
             file_name = collection.title \
                 if collection.title.endswith('.json') \
                 else collection.title + '.json'
@@ -203,21 +205,20 @@ class Store:
         results = [points.payload['text'] for points in hits]
         return results if results else None
 
-    def get_available_collections(self):
-        """Makes a query to Qdrant and uses collections metadata to get
-        existing collections."""
-        if self._in_memory:
+    def get_available_collections(self) -> Optional[dict[str, Collection]]:
+        """Query qdrant for available collections in the database, then loads
+        the metadata about the collections from USER/.aiops/knowledge."""
+        if self.in_memory:
             return None
 
         available = self._connection.get_collections()
         names = []
         for collection in available.collections:
             names.append(collection.name)
-
         collections = []
+
         for p in self._metadata.iterdir():
             if not (p.exists() and p.suffix == '.json' and p.name in names):
-                p.unlink()
                 continue
 
             with open(str(p), 'r', encoding='utf-8') as fp:
@@ -239,6 +240,47 @@ class Store:
                 ))
 
         return zip(names, collections)
+
+    @staticmethod
+    def get_available_datasets() -> list[Collection]:
+        """Searches in USER/.aiops/datasets/ directory for available collections"""
+        i = 0
+        collections = []
+        datasets_path = Path(Path.home() / '.aiops' / 'datasets')
+        if not datasets_path.exists():
+            return []
+
+        for p in datasets_path.iterdir():
+            # `i` is not incremented for each directory entry
+            if not (p.is_file() and p.suffix == '.json'):
+                p.unlink()
+                continue
+
+            df = pd.read_json(p)
+            topics = []
+            documents = []
+
+            for _, row in df.iterrows():
+                topic = Topic(row['category'])
+                document = Document(
+                    name=row['title'],
+                    content=row['content'],
+                    topic=topic
+                )
+                topics.append(topic)
+                documents.append(document)
+
+            collection = Collection(
+                collection_id=i,
+                title=p.name,
+                documents=documents,
+                topics=topics
+            )
+
+            collections.append(collection)
+            i += 1
+
+        return collections
 
     @property
     def collections(self):
