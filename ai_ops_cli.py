@@ -40,7 +40,7 @@ class AgentClient:
             'exec': self.execute_plan,
             'plans': self.list_plans,
             'clear': AgentClient.clear_terminal,
-            'bye': ''
+            'exit': ''
         }
 
         self.console.print("[bold blue]ai-ops-cli[/] (beta) starting.")
@@ -69,7 +69,7 @@ class AgentClient:
                 self.console.print('Invalid command', style='bold red')
                 self.commands['help']()
 
-            if user_input == 'bye':
+            if user_input == 'exit':
                 break
 
             self.commands[user_input]()

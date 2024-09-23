@@ -114,7 +114,7 @@ Once the CLI is running, you can interact with the agent using the following com
 | **Basic Commands**     |                                                     |
 | `help`                 | Display a list of available commands.               |
 | `clear`                | Clears the terminal.                                |
-| `bye`                  | Exit the program.                                   |
+| `exit`                 | Exit the program.                                   |
 | **Assistant Commands** |                                                     |
 | `chat`                 | Open a chat session with the agent.                 |
 | `-1`                   | Exit the chat session.                              |
