@@ -11,3 +11,4 @@ pydantic_settings
 httpx
 tool-parse
 docker
+pandas~=2.2.2
