@@ -55,33 +55,23 @@ TODO
 - Ollama (>= 0.3.0)
 - Docker
 
-1. **Setup**
--  Clone Repository `git clone https://github.com/antoninoLorenzo/AI-OPS.git`
+```
+# Clone Repository 
+git clone https://github.com/antoninoLorenzo/AI-OPS.git
 
-2. **Ollama**
-- Launch Ollama **Locally**
-  ```
-  ./scripts/ollama_serve.* -i OLLAMA_HOST -o OLLAMA_ORIGINS
-  ```
-  *Note: there is ollama_serve.sh for Linux and ollama_serve.bat for Windows*
-- As an alternative see my solution: [Ollama on Colab](https://github.com/antoninoLorenzo/Ollama-on-Colab-with-ngrok)
+# Launch Ollama Locally
+./scripts/ollama_serve.* -i OLLAMA_HOST -o OLLAMA_ORIGINS
+ 
+# Run `ai_ops_api.py` or build manually:
+docker build -t ai-ops:api-dev --build-arg ollama_endpoint=ENDPOINT ollama_model=MODEL .
+docker run -p 8000:8000 ai-ops:api-dev
 
-3. **Agent API**
-- Run `ai_ops_api.py` or build manually:
-  ```
-  docker build -t ai-ops:api-dev --build-arg ollama_endpoint=ENDPOINT ollama_model=MODEL .
-  docker run -p 8000:8000 ai-ops:api-dev
-  ```
+# Install Client
+pip install .
 
-4. **CLI Client**
-- Install Client
-  ```
-  pip install .
-  ```
-- Run Client
-  ```
-  ai-ops-cli --api AGENT_API_ADDRESS
-  ```
+# Run Client
+ai-ops-cli --api AGENT_API_ADDRESS
+```
   
 <!--
 qdrant
