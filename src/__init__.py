@@ -8,3 +8,4 @@ def initialize_knowledge(vdb: Store):
     print('[+] Initializing Knowledge with Available Datasets')
     for collection in Store.get_available_datasets():
         vdb.create_collection(collection)
+    print('[+] Done')
