@@ -1,12 +1,12 @@
 
 <div style="display:flex; gap: 8px">
 
-[![unit test](https://img.shields.io/badge/Unit%20Test-passing-<COLOR>.svg)](https://shields.io/) ![pylint](https://img.shields.io/badge/PyLint-9.21-green) [![license](https://img.shields.io/badge/LICENSE-MIT-<COLOR>.svg)](https://shields.io/)
+[![unit test](https://img.shields.io/badge/Unit%20Test-passing-<COLOR>.svg)](https://shields.io/) ![pylint](https://img.shields.io/badge/PyLint-9.26-green) [![license](https://img.shields.io/badge/LICENSE-MIT-<COLOR>.svg)](https://shields.io/)
 
 </div>
 
 
-🚧 *Under Development* 🚧
+🚧 **Under Development** 🚧
 
 # AI-OPS
 
@@ -31,7 +31,7 @@
 
 **AI-OPS** is an AI-powered, open-source **Penetration Testing assistant** that leverages large language models (LLMs) with [Ollama](https://github.com/ollama/ollama) in order to be cost-free. It is <ins>designed to enhance, not replace, the capabilities of human penetration testers</ins>.
 
-> **Note:** AI-OPS is currently in development and some functionalities are not implemented. Any support or feedback is highly appreciated. For more details, please refer to [CONTRIBUTE.md](./CONTRIBUTE.md).
+> **Note:** AI-OPS is currently in development and some functionalities are not implemented. Any support or feedback is highly appreciated. For more details refer to [CONTRIBUTE.md](./CONTRIBUTE.md).
 
 ## 🚀 Key Features
 
