@@ -243,7 +243,7 @@ def query(sid: int, body: dict = Body(...)):
     usr_query = body.get("query")
     if not usr_query:
         raise HTTPException(status_code=400, detail="Query parameter required")
-    return StreamingResponse(query_generator(sid, q))
+    return StreamingResponse(query_generator(sid, usr_query))
 
 
 # --- PLAN RELATED
