@@ -9,6 +9,7 @@ import pandas as pd
 import qdrant_client.http.exceptions
 from qdrant_client import QdrantClient, models
 from qdrant_client.http.exceptions import UnexpectedResponse
+from tqdm import tqdm
 
 from src.agent.knowledge.collections import Collection, Document, Topic
 from src.agent.knowledge.nlp import chunk
@@ -79,14 +80,15 @@ class Store:
         except (httpx.ConnectError, ollama._types.ResponseError) as err:
             raise ProviderError("Can't load embedding model") from err
 
-    def create_collection(self, collection: Collection):
+    def create_collection(self, collection: Collection,
+                          progress_bar: bool = False):
         """Creates a new Qdrant collection, uploads the collection documents
         using `upload` and creates a metadata file for collection."""
         if collection.title in self.collections:
             return None
 
         try:
-            done = self._connection.create_collection(
+            self._connection.create_collection(
                 collection_name=collection.title,
                 vectors_config=models.VectorParams(
                     size=self._embedding_size,
@@ -96,44 +98,26 @@ class Store:
         except UnexpectedResponse as err:
             raise RuntimeError("Can't upload collection") from err
 
-        if done:
-            self._collections[collection.title] = collection
-
-        # add documents if already added to Collection
-        if len(collection.documents) > 0:
+        # upload documents (if present)
+        self._collections[collection.title] = collection
+        if progress_bar:
+            for document in tqdm(
+                    collection.documents,
+                    total=len(collection.documents),
+                    desc=f"Uploading {collection.title}"
+            ):
+                self.upload(document, collection.title)
+        else:
             for document in collection.documents:
                 self.upload(document, collection.title)
-        print(f'Collection {collection.title}: '
-              f'initialized with {len(collection.documents)} documents')
 
-        # update metadata in production
-        # TODO: refactor
+        # should do logging
+        # print(f'Collection {collection.title}: '
+        #       f'initialized with {len(collection.documents)} documents')
+
+        # update metadata in production (i.e persistent qdrant)
         if not self.in_memory:
-            file_name = collection.title \
-                if collection.title.endswith('.json') \
-                else collection.title + '.json'
-            new_file = str(Path(self._metadata / file_name))
-
-            docs = []
-            if len(collection.documents) > 0:
-                for document in collection.documents:
-                    docs.append({
-                        'name': document.name,
-                        'content': '',  # document.content,
-                        'topic': document.topic.name
-                    })
-
-            collection_metadata = {
-                'id': collection.collection_id,
-                'title': collection.title,
-                'documents': docs,
-                'topics': [topic.name for topic in collection.topics]
-            }
-
-            with open(new_file, 'w+', encoding='utf-8') as fp:
-                json.dump(collection_metadata, fp)
-
-            print(f'Collection {collection.title}: saved to {new_file}')
+            self.save_metadata(collection)
 
     def upload(self, document: Document, collection_name: str):
         """Performs chunking and embedding of a document
@@ -205,19 +189,30 @@ class Store:
         results = [points.payload['text'] for points in hits]
         return results if results else None
 
+    def save_metadata(self, collection: Collection):
+        """Saves the collection metadata to the Store knowledge path.
+        See [Collection.to_json_metadata](./collections.py)"""
+        file_name = collection.title \
+            if collection.title.endswith('.json') \
+            else collection.title + '.json'
+        new_file = str(Path(self._metadata / 'knowledge' / file_name))
+        collection.to_json_metadata(new_file)
+
     def get_available_collections(self) -> Optional[dict[str, Collection]]:
         """Query qdrant for available collections in the database, then loads
         the metadata about the collections from USER/.aiops/knowledge."""
         if self.in_memory:
             return None
 
+        # get collection names from qdrant
         available = self._connection.get_collections()
         names = []
         for collection in available.collections:
             names.append(collection.name)
         collections = []
 
-        for p in self._metadata.iterdir():
+        # get collection metadata from knowledge folder
+        for p in Path(self._metadata / 'knowledge').iterdir():
             if not (p.exists() and p.suffix == '.json' and p.name in names):
                 continue
 

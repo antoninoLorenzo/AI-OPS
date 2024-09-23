@@ -119,6 +119,38 @@ class Collection:
             size=len(documents)
         )
 
+    def to_json_metadata(self, path: str):
+        """Saves the collection to the specified metadata file.
+        ex. USER/.aiops/knowledge/collection_name.json
+        {
+            'id'
+            'title'
+            'documents': [
+                {'name', 'topic'}
+                ...
+            ]
+            'topics': [...]
+        }"""
+        print(f'Saving to {path}')
+        docs = []
+        if len(self.documents) > 0:
+            for document in self.documents:
+                docs.append({
+                    'name': document.name,
+                    'content': '',  # document.content,
+                    'topic': document.topic.name
+                })
+
+        collection_metadata = {
+            'id': self.collection_id,
+            'title': self.title,
+            'documents': docs,
+            'topics': [topic.name for topic in self.topics]
+        }
+
+        with open(path, 'w+', encoding='utf-8') as fp:
+            json.dump(collection_metadata, fp)
+
     def document_names(self) -> list:
         """The document names are used to filter queries to the
         Knowledge Database"""
