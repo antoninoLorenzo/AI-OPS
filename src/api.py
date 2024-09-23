@@ -304,12 +304,14 @@ def execute_plan(sid: int):
 
 
 # --- KNOWLEDGE RELATED
-@app.get('collections/list')
+@app.get('/collections/list')
 def list_collections():
     """
     Returns available Collections.
     Returns a JSON list of available Collections.
     """
+    available_collections = [c.to_dict() for c in store.collections.values()]
+    return available_collections
 
 
 @app.post('collections/new')

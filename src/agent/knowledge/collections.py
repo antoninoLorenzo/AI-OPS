@@ -131,7 +131,14 @@ class Collection:
             ]
             'topics': [...]
         }"""
-        print(f'Saving to {path}')
+        print(f'[+] Saving {self.title} to {path}')
+        collection_metadata = self.to_dict()
+
+        with open(path, 'w+', encoding='utf-8') as fp:
+            json.dump(collection_metadata, fp)
+
+    def to_dict(self):
+        """Convert collection to dictionary (strips out content)"""
         docs = []
         if len(self.documents) > 0:
             for document in self.documents:
@@ -145,11 +152,9 @@ class Collection:
             'id': self.collection_id,
             'title': self.title,
             'documents': docs,
-            'topics': [topic.name for topic in self.topics]
+            'topics': set([topic.name for topic in self.topics])
         }
-
-        with open(path, 'w+', encoding='utf-8') as fp:
-            json.dump(collection_metadata, fp)
+        return collection_metadata
 
     def document_names(self) -> list:
         """The document names are used to filter queries to the
@@ -160,8 +165,8 @@ class Collection:
         docs = "| - Documents\n"
         for doc in self.documents:
             docs += f'    | - {doc.name}\n'
-        topics = ", ".join([topic.name for topic in self.topics])
-        return (f'Title: {self.title} ({self.collection_id})\n'
+        topics = ", ".join([topic.name for topic in set(self.topics)])
+        return (f'Title: {self.title} \nID: {self.collection_id})\n'
                 f'| - Topics: {topics}\n'
                 f'{docs}')
 
