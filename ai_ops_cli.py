@@ -35,7 +35,8 @@ class AgentClient:
             'save': self.save_session,
             'rename': self.rename_session,
             'delete': self.delete_session,
-            'list': self.list_sessions,
+            'list sessions': self.list_sessions,
+            'list collections': self.list_collections,
             'load': self.load_session,
             'exec': self.execute_plan,
             'plans': self.list_plans,
@@ -197,6 +198,31 @@ class AgentClient:
 
                 print()
 
+    def list_collections(self):
+        """Know what collections are available"""
+        response = self.client.get(
+            f'{self.api_url}/collections/list/'
+        )
+        response.raise_for_status()
+        body = response.json()
+        if len(body) == 0:
+            self.console.print('[+] No collections found')
+        else:
+            tree = Tree("[+] Available Collections:")
+            for collection in body:
+                c_doc = f"[bold blue]{collection['title']}[/]\n"
+
+                str_topics = ', '.join(collection['topics'])
+                c_doc += f"[bold white]Topics[/]: {str_topics}\n"
+
+                c_doc += "[bold white]Documents[/]:\n"
+                for document in collection['documents']:
+                    c_doc += f"- {document['name']}\n"
+
+                tree.add(c_doc)
+
+            self.console.print(tree)
+
     def execute_plan(self):
         """Plan execution"""
         with self.client.get(
@@ -260,11 +286,15 @@ class AgentClient:
 
         # Session Related
         self.console.print("\n[bold white]Session Related[/]")
-        self.console.print("- [bold blue]new[/]   : Create a new session.")
-        self.console.print("- [bold blue]save[/]   : Save the current session.")
-        self.console.print("- [bold blue]delete[/] : Delete the current session from persistent sessions.")
-        self.console.print("- [bold blue]list[/]   : Show the saved sessions.")
-        self.console.print("- [bold blue]load[/]   : Opens a session.")
+        self.console.print("- [bold blue]new[/]             : Create a new session.")
+        self.console.print("- [bold blue]save[/]            : Save the current session.")
+        self.console.print("- [bold blue]delete[/]          : Delete the current session from persistent sessions.")
+        self.console.print("- [bold blue]list sessions[/]   : Show the saved sessions.")
+        self.console.print("- [bold blue]load[/]            : Opens a session.")
+
+        # RAG Related
+        self.console.print("\n[bold white]RAG Related[/]")
+        self.console.print("- [bold blue]list collections[/]: Lists all collections in rag.")
 
     @staticmethod
     def clear_terminal():
