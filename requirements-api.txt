@@ -12,3 +12,4 @@ httpx
 tool-parse
 docker
 pandas~=2.2.2
+tqdm~=4.66.4
