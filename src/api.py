@@ -2,30 +2,31 @@
 API Interface for AI-OPS, here is provided the list of available endpoints.
 
 Session Related:
-- /session/list: Return all sessions.
-- /session/get/{sid}: Return a specific session by ID.
-- /session/new/{name}: Creates a new session.
-- /session/{sid}/rename/{new_name}: Rename a session.
-- /session/{sid}/save: Save a session.
-- /session/{sid}/delete: Delete a session.
+- /session/list                    : Return all sessions.
+- /session/get/{sid}               : Return a specific session by ID.
+- /session/new/{name}              : Creates a new session.
+- /session/{sid}/rename/{new_name} : Rename a session.
+- /session/{sid}/save              : Save a session.
+- /session/{sid}/delete            : Delete a session.
 
 Agent Related:
 - /session/{sid}/query/{q}: Makes a query to the Agent.
 
 Plan Related:
-- /session/{sid}/plan/list: Return all Plans in the current Session.
-- /session/{sid}/plan/execute: Executes the last plan.
+- /session/{sid}/plan/list    : Return all Plans in the current Session.
+- /session/{sid}/plan/execute : Executes the last plan.
 
-Knowledge Related:
-- /collections/list: Returns available Collections.
-- /collections/new: Creates a new Collection.
+RAG Related:
+- /collections/list    : Returns available Collections.
+- /collections/new     : Creates a new Collection.
+- /collections/upload/ : Upload document to an existing Collection
 """
 import json
 import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import Body, FastAPI, HTTPException
+from fastapi import Body, FastAPI, HTTPException, Form, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic_settings import BaseSettings
@@ -318,20 +319,23 @@ def list_collections():
         return {}
 
 
-@app.post('collections/new')
-def create_collection(title: str, base_path: str, topics: list):
+@app.post('/collections/new')
+async def create_collection(
+        file: UploadFile = File(...),
+        title: str = Form(...)
+):
     """
     Creates a new Collection.
+    :param file: uploaded file
     :param title: unique collection title
-    :param base_path: local path to collection json file
-    :param topics: a list of collection topics
 
-    Returns a stream to notify progress if input is valid.
+    TODO should also accept collection creation without file
+
+    (TODO) Returns a stream to notify progress if input is valid.
 
     Returns error message for any validation error.
     1. title should be unique
-    2. base_path should exist and be a json file
-    3. the json file should follow this format:
+    2. the file should follow this format:
     [
         {
             "title": "collection title",
@@ -341,6 +345,38 @@ def create_collection(title: str, base_path: str, topics: list):
         ...
     ]
     """
+    # validate input
+    if not store:
+        return {'error': "RAG is not available"}
+    if title in list(store.collections.keys()):
+        return {'error': f'A collection named "{title}" already exists.'}
+    if not file.filename.endswith('.json'):
+        return {'error': 'Invalid file'}
+
+    contents = await file.read()
+    try:
+        collection_data: list[dict] = json.loads(contents.decode('utf-8'))
+    except (json.decoder.JSONDecodeError, UnicodeDecodeError):
+        return {'error': 'Invalid file'}
+
+    # validate schema
+    print(collection_data)
+    if not isinstance(collection_data, list):
+        return {'error': 'Invalid JSON Schema'}
+    if not isinstance(collection_data[0], dict):
+        return {'error': 'Invalid JSON Schema'}
+
+    valid_keys = ('title', 'content', 'category')
+    correct_keys = [
+        all(k in valid_keys for k in doc.keys()) if len(doc.keys()) == 3 else False
+        for doc in collection_data
+    ]
+    if False in correct_keys:
+        return {'error': 'Invalid JSON Schema'}
+
+    # TODO upload
+    # ...
+
     # TODO:
     #  when a new collection is uploaded the search_rag tool
     #  should be re-registered and the agent should be updated
