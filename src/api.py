@@ -74,6 +74,7 @@ api_settings = APISettings()
 
 
 # --- Initialize RAG
+store = None
 if agent_settings.USE_RAG:
     rag_settings = RAGSettings()
 
@@ -310,8 +311,11 @@ def list_collections():
     Returns available Collections.
     Returns a JSON list of available Collections.
     """
-    available_collections = [c.to_dict() for c in store.collections.values()]
-    return available_collections
+    if store:
+        available_collections = [c.to_dict() for c in store.collections.values()]
+        return available_collections
+    else:
+        return {}
 
 
 @app.post('collections/new')
