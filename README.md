@@ -13,9 +13,7 @@
 ### Table of Contents
 1. [Overview](#-overview)
    - [Key Features](#key-features)
-3. [Installation](#-install)
-   - [End-User](#end-user)
-   - [Development](#development)
+3. [Install](#-install)
 4. [Usage](#usage)
    - [Commands](#commands) 
    - [Supported Models](#supported-models)
@@ -120,11 +118,13 @@ Once the CLI is running, you can interact with the agent using the following com
 ### Supported Models
 To integrate a LLM see [LLM Integration](./CONTRIBUTE.md#llm-integration) in CONTRIBUTE.md
 
-| Name          | Implemented   |
-|---------------|---------------|
-| **Gemma 7B**  | &check;       |
-| **Gemma2 9B** | &check;       |  
-| **Mistral**   | &check;       |
+| Name          | Implemented   | RAG Support  | 
+|---------------|---------------|--------------|
+| **Mistral**   | &check;       | &check;      |
+| **Gemma 7B**  | &check;       | ✖️           |
+| **Gemma2 9B** | &check;       | ✖️           |
+
+> RAG Support depends on Tool Support for Ollama models, see [Ollama Library](https://ollama.com/library).  
 
 <!--| **LLama 3**  | &cross;               | -->
 
