@@ -4,7 +4,7 @@
  The `web.json` dataset is a collection of documents related to Web Penetration Testing; it provides information on various web security topics.
 - **Format**: JSON
 - **Size**: 68 entries
-- **Version**: 0.0 
+- **Version**: 0.1 
 
 ## Structure
 
