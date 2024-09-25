@@ -152,7 +152,7 @@ class Collection:
             'id': self.collection_id,
             'title': self.title,
             'documents': docs,
-            'topics': set([topic.name for topic in self.topics])
+            'topics': list(set([topic.name for topic in self.topics]))
         }
         return collection_metadata
 
