@@ -317,7 +317,7 @@ class AgentClient:
         self.console.print("[bold white]Basic Commands[/]")
         self.console.print("- [bold blue]help[/]   : Show available commands.")
         self.console.print("- [bold blue]clear[/]  : Clears the terminal.")
-        self.console.print("- [bold blue]bye[/]    : Exit the program")
+        self.console.print("- [bold blue]exit[/]   : Exit the program")
 
         # Agent Related
         self.console.print("\n[bold white]Agent Related[/]")
@@ -330,13 +330,14 @@ class AgentClient:
         self.console.print("\n[bold white]Session Related[/]")
         self.console.print("- [bold blue]new[/]             : Create a new session.")
         self.console.print("- [bold blue]save[/]            : Save the current session.")
-        self.console.print("- [bold blue]delete[/]          : Delete the current session from persistent sessions.")
-        self.console.print("- [bold blue]list sessions[/]   : Show the saved sessions.")
         self.console.print("- [bold blue]load[/]            : Opens a session.")
+        self.console.print("- [bold blue]delete[/]          : Delete the current session from persistent sessions.")
+        self.console.print("- [bold blue]rename[/]          : Rename the current session.")
+        self.console.print("- [bold blue]list sessions[/]   : Show the saved sessions.")
 
         # RAG Related
         self.console.print("\n[bold white]RAG Related[/]")
-        self.console.print("- [bold blue]list collections[/]  : Lists all collections in rag.")
+        self.console.print("- [bold blue]list collections[/]  : Lists all collections in RAG.")
         self.console.print("- [bold blue]create collection[/] : Upload a collection to RAG.")
 
     @staticmethod
