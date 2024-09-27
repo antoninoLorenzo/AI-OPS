@@ -74,8 +74,14 @@ class Collection:
         with open(path, 'r', encoding='utf-8') as fp:
             data = json.load(fp)
 
+        title = os.path.basename(path).split('.')[0]
+
+        return Collection.from_dict(title, data)
+
+    @staticmethod
+    def from_dict(collection_title: str, data: list):
         # json scheme validation
-        format_err_msg = f"Invalid format for {os.path.basename(path)}. "
+        format_err_msg = f"Invalid format."
         if not isinstance(data, list):
             raise ValueError(format_err_msg + "Not a list.")
 
@@ -98,10 +104,10 @@ class Collection:
             content = item['content']
             category = item['category']
             if isinstance(category, list):
-                topics = ', '.join(category)
+                topics = [Topic(topic) for topic in category]
                 all_topics.extend([Topic(topic) for topic in category])
             else:
-                topics = category
+                topics = Topic(category)
                 all_topics.append(Topic(category))
 
             documents.append(Document(
@@ -110,10 +116,9 @@ class Collection:
                 topic=topics
             ))
 
-        title = os.path.basename(path).split('.')[0]
         return Collection(
             collection_id=-1,
-            title=title,
+            title=collection_title,
             documents=documents,
             topics=all_topics,
             size=len(documents)
@@ -132,6 +137,7 @@ class Collection:
             'topics': [...]
         }"""
         print(f'[+] Saving {self.title} to {path}')
+        print(self)
         collection_metadata = self.to_dict()
 
         with open(path, 'w+', encoding='utf-8') as fp:
@@ -142,6 +148,7 @@ class Collection:
         docs = []
         if len(self.documents) > 0:
             for document in self.documents:
+                print(document.topic, type(document.topic))
                 docs.append({
                     'name': document.name,
                     'content': '',  # document.content,
