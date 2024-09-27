@@ -30,18 +30,22 @@ class AgentClient:
         self.current_session = {'sid': 0, 'name': 'Undefined'}
         self.commands = {
             'help': self.help,
+            'clear': AgentClient.clear_terminal,
+            'exit': '',
+
             'chat': self.chat,
-            'new': self.new_session,
-            'save': self.save_session,
-            'rename': self.rename_session,
-            'delete': self.delete_session,
-            'list sessions': self.list_sessions,
-            'list collections': self.list_collections,
-            'load': self.load_session,
             'exec': self.execute_plan,
             'plans': self.list_plans,
-            'clear': AgentClient.clear_terminal,
-            'exit': ''
+
+            'new': self.new_session,
+            'save': self.save_session,
+            'delete': self.delete_session,
+            'rename': self.rename_session,
+            'list sessions': self.list_sessions,
+            'load': self.load_session,
+
+            'list collections': self.list_collections,
+            'create collection': self.create_collection
         }
 
         self.console.print("[bold blue]ai-ops-cli[/] (beta) starting.")
@@ -223,6 +227,44 @@ class AgentClient:
 
             self.console.print(tree)
 
+    def create_collection(self):
+        """Upload a collection to RAG"""
+        collection_title = Prompt.ask(
+            prompt='Title: ',
+            console=self.console
+        )
+        collection_path = Prompt.ask(
+            prompt='Path (leave blank for nothing): ',
+            console=self.console
+        )
+
+        try:
+            if collection_path:
+                with open(collection_path, 'rb') as collection_file:
+                    response = requests.post(
+                        url=f'{self.api_url}/collections/new',
+                        data={'title': collection_title},
+                        files={'file': collection_file}
+                    )
+            else:
+                response = requests.post(
+                    url=f'{self.api_url}/collections/new',
+                    data={'title': collection_title}
+                )
+
+            response.raise_for_status()
+            body: dict = response.json()
+
+            if 'error' in body:
+                self.console.print(f"[bold red][!] Failed: [/] {body['error']}")
+            else:
+                self.console.print(f"[bold blue][+] Success: [/] {body['success']}")
+
+        except OSError as err:
+            self.console.print(f"[bold red][!] Failed: [/] {err}")
+        except requests.exceptions.HTTPError as http_err:
+            self.console.print(f"[bold red][!] HTTP Error: [/] {http_err}")
+
     def execute_plan(self):
         """Plan execution"""
         with self.client.get(
@@ -294,7 +336,8 @@ class AgentClient:
 
         # RAG Related
         self.console.print("\n[bold white]RAG Related[/]")
-        self.console.print("- [bold blue]list collections[/]: Lists all collections in rag.")
+        self.console.print("- [bold blue]list collections[/]  : Lists all collections in rag.")
+        self.console.print("- [bold blue]create collection[/] : Upload a collection to RAG.")
 
     @staticmethod
     def clear_terminal():
