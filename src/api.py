@@ -74,7 +74,6 @@ class APISettings(BaseSettings):
 agent_settings = AgentSettings()
 api_settings = APISettings()
 
-
 # --- Initialize RAG
 store = None
 if agent_settings.USE_RAG:
@@ -107,7 +106,6 @@ if agent_settings.USE_RAG:
         :param collection: the collection name
         """
         return '\n\n'.join(store.retrieve_from(rag_query, collection))
-
 
 # --- Initialize Agent
 agent = Agent(
@@ -195,7 +193,7 @@ def new_session(name: str):
 @app.get('/session/{sid}/rename/')
 def rename_session(sid: int, new_name: str):
     """Rename a session."""
-    agent.rename_session(sid, new_name)  
+    agent.rename_session(sid, new_name)
 
 
 @app.get('/session/{sid}/save/')
@@ -330,8 +328,6 @@ async def create_collection(
     :param file: uploaded file
     :param title: unique collection title
 
-    (TODO) Returns a stream to notify progress if input is valid.
-
     Returns error message for any validation error.
     1. title should be unique
     2. the file should follow this format:
@@ -343,6 +339,11 @@ async def create_collection(
         },
         ...
     ]
+
+    (TODO) Returns a stream to notify progress if input is valid.
+    (TODO)
+      when a new collection is uploaded the search_rag tool
+      should be re-registered and the agent should be updated
     """
     if not store:
         return {'error': "RAG is not available"}
@@ -356,7 +357,7 @@ async def create_collection(
             else 0
         store.create_collection(
             Collection(
-                collection_id=last_id+1,
+                collection_id=last_id + 1,
                 title=title,
                 documents=[],
                 topics=[]
@@ -382,6 +383,10 @@ async def create_collection(
         except RuntimeError as create_err:
             return {'error': create_err}
 
-    # TODO:
-    #  when a new collection is uploaded the search_rag tool
-    #  should be re-registered and the agent should be updated
+    return {'success': f'{title} created successfully.'}
+
+
+@app.post('/collections/upload')
+async def upload_document():
+    """Uploads a document to an existing collection."""
+    # TODO: file vs ?
