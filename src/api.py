@@ -34,7 +34,7 @@ from tool_parse import ToolRegistry
 
 from src import initialize_knowledge
 from src.agent import Agent
-from src.agent.knowledge import Store
+from src.agent.knowledge import Store, Collection
 from src.agent.llm import ProviderError
 from src.agent.plan import TaskStatus
 from src.agent.tools import TOOLS
@@ -359,23 +359,15 @@ async def create_collection(
     except (json.decoder.JSONDecodeError, UnicodeDecodeError):
         return {'error': 'Invalid file'}
 
-    # validate schema
-    print(collection_data)
-    if not isinstance(collection_data, list):
-        return {'error': 'Invalid JSON Schema'}
-    if not isinstance(collection_data[0], dict):
-        return {'error': 'Invalid JSON Schema'}
+    try:
+        new_collection = Collection.from_dict(title, collection_data)
+    except ValueError as schema_err:
+        return {'error': schema_err}
 
-    valid_keys = ('title', 'content', 'category')
-    correct_keys = [
-        all(k in valid_keys for k in doc.keys()) if len(doc.keys()) == 3 else False
-        for doc in collection_data
-    ]
-    if False in correct_keys:
-        return {'error': 'Invalid JSON Schema'}
-
-    # TODO upload
-    # ...
+    try:
+        store.create_collection(new_collection)
+    except RuntimeError as create_err:
+        return {'error': create_err}
 
     # TODO:
     #  when a new collection is uploaded the search_rag tool
