@@ -24,6 +24,7 @@ RAG Related:
 import json
 import os
 from pathlib import Path
+from typing import Optional
 
 from dotenv import load_dotenv
 from fastapi import Body, FastAPI, HTTPException, Form, File, UploadFile
@@ -321,15 +322,13 @@ def list_collections():
 
 @app.post('/collections/new')
 async def create_collection(
-        file: UploadFile = File(...),
-        title: str = Form(...)
+        title: str = Form(...),
+        file: Optional[UploadFile] = File(None)
 ):
     """
     Creates a new Collection.
     :param file: uploaded file
     :param title: unique collection title
-
-    TODO should also accept collection creation without file
 
     (TODO) Returns a stream to notify progress if input is valid.
 
@@ -345,29 +344,43 @@ async def create_collection(
         ...
     ]
     """
-    # validate input
     if not store:
         return {'error': "RAG is not available"}
     if title in list(store.collections.keys()):
         return {'error': f'A collection named "{title}" already exists.'}
-    if not file.filename.endswith('.json'):
-        return {'error': 'Invalid file'}
 
-    contents = await file.read()
-    try:
-        collection_data: list[dict] = json.loads(contents.decode('utf-8'))
-    except (json.decoder.JSONDecodeError, UnicodeDecodeError):
-        return {'error': 'Invalid file'}
+    if not file:
+        available_collections = list(store.collections.values())
+        last_id = available_collections[-1].collection_id \
+            if available_collections \
+            else 0
+        store.create_collection(
+            Collection(
+                collection_id=last_id+1,
+                title=title,
+                documents=[],
+                topics=[]
+            )
+        )
+    else:
+        if not file.filename.endswith('.json'):
+            return {'error': 'Invalid file'}
 
-    try:
-        new_collection = Collection.from_dict(title, collection_data)
-    except ValueError as schema_err:
-        return {'error': schema_err}
+        contents = await file.read()
+        try:
+            collection_data: list[dict] = json.loads(contents.decode('utf-8'))
+        except (json.decoder.JSONDecodeError, UnicodeDecodeError):
+            return {'error': 'Invalid file'}
 
-    try:
-        store.create_collection(new_collection)
-    except RuntimeError as create_err:
-        return {'error': create_err}
+        try:
+            new_collection = Collection.from_dict(title, collection_data)
+        except ValueError as schema_err:
+            return {'error': schema_err}
+
+        try:
+            store.create_collection(new_collection)
+        except RuntimeError as create_err:
+            return {'error': create_err}
 
     # TODO:
     #  when a new collection is uploaded the search_rag tool
