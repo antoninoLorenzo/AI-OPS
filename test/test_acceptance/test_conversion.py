@@ -8,7 +8,6 @@ from dotenv import load_dotenv
 
 from src.agent import Agent
 
-
 load_dotenv()
 
 
@@ -28,7 +27,6 @@ class TestConversion(unittest.TestCase):
         with open('test_cases/conversion.json', 'r', encoding='utf-8') as fp:
             test_cases = json.load(fp)
 
-        inference_times = {model: {'times': [], 'mean': 0} for model in self.MODELS}
         for model in self.MODELS:
             agent = Agent(
                 model=model,
@@ -38,7 +36,6 @@ class TestConversion(unittest.TestCase):
                 plan_nl = test_case['content']
                 expected_commands = test_case['commands']
 
-                start = time.time()
                 plan = agent.extract_plan(plan_nl)
                 t = time.time() - start
 
@@ -57,14 +54,6 @@ class TestConversion(unittest.TestCase):
                         expected_commands,
                         f"\n[{model}] Commands:\n{commands}\nExpected:\n{expected_commands}"
                     )
-
-                inference_times[model]['times'].append(t)
-
-        with open('results/conversion_times_T4.json', 'w+', encoding='utf-8') as fp:
-            for model in self.MODELS:
-                mean_time = np.array(inference_times[model]['times']).mean()
-                inference_times[model]['mean'] = mean_time
-            json.dump(inference_times, fp)
 
 
 if __name__ == "__main__":

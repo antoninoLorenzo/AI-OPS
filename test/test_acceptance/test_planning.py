@@ -96,7 +96,6 @@ class TestPlanning(unittest.TestCase):
             test_cases = json.load(fp)
 
         # Evaluation
-        inference_times = {model: {'times': [], 'mean': 0} for model in self.MODELS}
         natural_language_plans = []
         for model in self.MODELS:
             agent = Agent(
@@ -108,7 +107,6 @@ class TestPlanning(unittest.TestCase):
                 query = test_case['query']
                 tools = test_case['tools']
 
-                start = time.time()
                 stream = agent.query(
                     sid=i,
                     user_in=query,
@@ -132,23 +130,6 @@ class TestPlanning(unittest.TestCase):
                         success,
                         msg=f'\n{model} failed to follow {inst.upper()} instruction:\nQuery: {query}\nResponse: {response}'
                     )
-
-                inference_times[model]['times'].append(t)
-
-        # Export Inference Times
-        with open('results/inference_times_T4.json', 'w+', encoding='utf-8') as fp:
-            for model in self.MODELS:
-                mean_time = np.array(inference_times[model]['times']).mean()
-                inference_times[model]['mean'] = mean_time
-            json.dump(inference_times, fp)
-
-        # Export natural language plans
-        # with open('test_cases/conversion.json', 'w+', encoding='utf-8') as fp:
-        #     cases_contents = [resp.split('\n') for resp in natural_language_plans]
-        #     json.dump(
-        #         [{'content': content, 'commands': []} for content in cases_contents],
-        #         fp
-        #     )
 
 
 if __name__ == "__main__":
