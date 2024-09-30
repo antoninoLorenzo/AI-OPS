@@ -37,7 +37,6 @@ class TestConversion(unittest.TestCase):
                 expected_commands = test_case['commands']
 
                 plan = agent.extract_plan(plan_nl)
-                t = time.time() - start
 
                 self.assertIsNotNone(plan, f"[{model}] Plan is None:")
                 commands = [task.command for task in plan.tasks]

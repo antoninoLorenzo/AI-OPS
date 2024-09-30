@@ -115,7 +115,6 @@ class TestPlanning(unittest.TestCase):
                 response = ''
                 for chunk in stream:
                     response += chunk
-                t = time.time() - start
                 natural_language_plans.append(response)
 
                 prompt = self.EVAL_PROMPT.format(
