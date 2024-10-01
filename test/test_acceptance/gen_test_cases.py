@@ -111,12 +111,10 @@ if __name__ == "__main__":
     # --- Query Generation
     queries = []
     n_scenarios = 10
-    expected_queries = 20
-    total = round(expected_queries/n_scenarios)
-    for i in tqdm(range(1, total+1), total=total, desc='Generating queries...'):
+    for i in tqdm(range(1, n_scenarios), total=n_scenarios, desc='Generating Scenarios'):
         try:
             # generate scenario
-            scenario_prompt = SCENARIO_PROMPT.format(num_scenarios=i*10)
+            scenario_prompt = SCENARIO_PROMPT.format(num_scenarios=n_scenarios)
             scenario_response = scenario_gen.generate_content(scenario_prompt, safety_settings=safety_settings)
             scenarios = json.loads(scenario_response.text)
 
@@ -139,11 +137,5 @@ if __name__ == "__main__":
             time.sleep(15)  # that way could potentially skip an iteration or part of it
 
     # Export Planning Test Cases
-    tools = [tool.name for tool in TOOLS]
-    tools = ', '.join(tools)
     with open('test_cases/acceptance.json', 'w+', encoding='utf-8') as fp:
-        json.dump(
-            [{'query': q, 'tools': tools} for q in queries],
-            fp
-        )
-
+        json.dump([{'query': q} for q in queries], fp)
