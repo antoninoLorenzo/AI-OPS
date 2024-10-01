@@ -18,44 +18,39 @@ You are tasked to design Scenarios for Penetration Testing. A Scenario is an hyp
 The user will require you to generate a certain number of scenarios, for example he will make a query "5" and you will generate 5 scenarios.
 
 **Scenario Structure**
-The overall structure of a Penetration Testing is made by the following components:
-- User Background: this describes the user technical knowledge and experience level (beginner, intermediate and advanced).
-- Objective: this specifies the user's goal within the penetration testing process.
-- Target System Information: this indicates wether the user has information about the target system, during the initiali interaction between the user and the agent the required information is IP or URL of the target system that should be provided by the user, hypotethically; however you should include Scenarios where the user do not have this kind of information.
-- Penetration Testing Phase: It could involve Reconnaissance (Network Scanning, Enumeration), Initial Access or Privilege Escalation. 
+The overall structure of a Penetration Testing Scenario is made by the following components:
+- Task: the context of the Penetration Testing situation
+- Type of Task (ToT)
+- Difficulty: experience level required to solve the task (beginner, intermediate and advanced).
+
+**Possible Type of Task (ToT)**
+- Attack Vector Suggestion
+- Tool Usage, for example "provide a command to do X" or "why command X gives output Y"
+- Exploit Development
 
 **Scenario Format**
 You will provide the Scenarios in the following format:
-{{"user_background": "level", "objective": "objective description", "target": "empty if not provided or IP/URL if provided", "phase": "penetration testing phase"}}
+{{"task": "...", "difficulty": "level", "ToT": "type of task"}}
 
 **Example**
-User: 4
+User: 3
 You:
 [
 {{
-  "user_background": "Beginner",
-  "objective": "Identify potential security weaknesses in a network",
-  "target": "",
-  "phase": "Reconnaissance"
+  "task": "The user needs a reverse shell and provides some specific constraints about the program used to get it.",
+  "ToT": "Attack Vector Suggestion",
+  "difficulty": "Intermediate",
 }},
 {{
-  "user_background": "Intermediate",
-  "objective": "Gain initial access to a system on a specific network segment",
-  "target": "192.168.1.0/24",
-  "phase": "Initial Access"
+  "task": "The user provides a hydra command that speifies how to perform a brute force attack on a http form using a user list and a password list; he needs to understand how the success of the attack is defined in the hydra command.",
+  "ToT": "Tool Usage",
+  "difficulty": "Beginner",
 }},
 {{
-  "user_background": "Intermediate",
-  "objective": "Plan a privilege escalation attack on a Linux system, focusing on exploiting buffer overflows",
-  "target": "",
-  "phase": "Privilege Escalation"
+  "task": "The user is writing the code to exploit a Linux server running a custom network service with no ASLR or stack canaries; the goal is to achieve root access via a heap overflow vulnerability.",
+  "ToT": "Exploit Development",
+  "difficulty": "Advanced",
 }},
-{{
-  "user_background": "Advanced",
-  "objective": "Identify potential web application vulnerabilities using a specific vulnerability scanner",
-  "target": "www.example.com",
-  "phase": "Reconnaissance"
-}}
 ]
 
 ----------------------------------------------------------------
@@ -64,36 +59,32 @@ Query: {num_scenarios}
 """
 
 QUERY_PROMPT = """
-You are tasked to generate a user query based on a Penetration Testing Scenario. A Scenario is an hypothetical situation that sets the stage for a user's request within th penetration testing process.
+You are tasked to generate a user query based on a Penetration Testing Scenario. 
+A Scenario is an hypothetical situation that sets the stage for a user's request within th penetration testing process.
 
 You will be provided with:
-- User Background: this describes the user technical knowledge and experience level (beginner, intermediate and advanced).
-- Objective: specifies the user goal within the penetration testing process
-- Target: a IP or URL of the target system, it can be not provided, if not provided it will be "NaN"
-- Phase: the penetration testing phase (Reconnaissance, Initial Access, Privilege Escalation)
+- Task
+- Type of Task (ToT)
+- Difficulty: experience level required to solve the task (beginner, intermediate and advanced).
 
 **Guidelines**
 1. The query should be phrased in a way that aligns with the user's technical knowledge level (Beginner, Intermediate or Advanced).
 2. The query should express the user objective, based on his experience level it can be more or less clear.
+3. The query should contain additional details that are not provided in the scenario, in order to make it even more specific.
 
 **Output Format**
 {{"query": "the user query generated from the scenario"}}
 
 **Examples**
-User: {{"user_background": "Beginner", "objective": "Learn the basics of network scanning and identify open ports on a target system.", "target": "NaN", "phase": "Reconnaissance"}}
+{{"task": "The user wants to use Nmap to scan a network for open ports and services. They need to understand the different scan types available and how to customize the scan for specific needs.", "ToT": "Tool Usage", "difficulty": "Beginner"}}
 You:
-{{"query": "Hi, I need to know what ports are opened on a target system, can you help me?"}}
-
-User: {{"user_background": "Intermediate", "objective": "Attempt to exploit a known vulnerability in a web application to gain unauthorized access to sensitive data", "target": "https://example.com", "phase": "Initial Access"}}
-You:
-{{"query": "I'm looking to exploit a known vulnerability in a web application to gain unauthorized access to sensitive data on https://example.com. Could you provide a detailed guide on identifying and exploiting vulnerabilities like SQL injection or Cross-Site Scripting (XSS)? Additionally, what are the best tools for this process, and how can these vulnerabilities be mitigated after exploitation?"}}
+{{"query": "Using nmap I need to scan the network 192.168.1.1 to gain information about exposed services, however I don't know how to adjust the scan to make it stealth."}}
 
 ----------------------------------------------------------------
 
-User Background: {user_background}
-Objective: {objective}
-Target: {target}
-Phase: {phase}
+Task: {task}
+ToT: {type_of_task}
+Difficulty: {difficulty}
 """
 
 
@@ -131,16 +122,14 @@ if __name__ == "__main__":
 
             # generate query
             for scenario in scenarios:
-                background = scenario['user_background']
-                objective = scenario['objective']
-                target = scenario['target']
-                phase = scenario['phase']
+                task = scenario['task']
+                type_of_task = scenario['ToT']
+                difficulty = scenario['difficulty']
 
                 query_prompt = QUERY_PROMPT.format(
-                    user_background=background,
-                    objective=objective,
-                    target=target,
-                    phase=phase
+                    task=task,
+                    type_of_task=type_of_task,
+                    difficulty=difficulty
                 )
                 user_query = query_gen.generate_content(query_prompt, safety_settings=safety_settings)
                 query = json.loads(user_query.text)
@@ -152,7 +141,7 @@ if __name__ == "__main__":
     # Export Planning Test Cases
     tools = [tool.name for tool in TOOLS]
     tools = ', '.join(tools)
-    with open('test_cases/planning.json', 'w+', encoding='utf-8') as fp:
+    with open('test_cases/acceptance.json', 'w+', encoding='utf-8') as fp:
         json.dump(
             [{'query': q, 'tools': tools} for q in queries],
             fp
