@@ -11,7 +11,7 @@ from ollama import Client, ResponseError
 from src.agent.memory.base import Role
 
 AVAILABLE_MODELS = {
-    'llama3': {
+    'mistral': {
         'options': {
             'temperature': 0.5,
             'num_ctx': 8192
@@ -31,13 +31,6 @@ AVAILABLE_MODELS = {
             'num_ctx': 8192
         },
         'tools': False
-    },
-    'mistral': {
-        'options': {
-            'temperature': 0.5,
-            'num_ctx': 8192
-        },
-        'tools': True
     },
 }
 
