@@ -66,8 +66,7 @@ class RAGSettings(BaseSettings):
 class APISettings(BaseSettings):
     """Setup for API"""
     ORIGINS: list = [
-        # '*',  # development only
-        'http://localhost:3000'  # default frontend port
+        # TODO
     ]
 
 
@@ -118,6 +117,7 @@ agent = Agent(
 )
 
 # --- Initialize API
+# TODO: implement proper CORS
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
