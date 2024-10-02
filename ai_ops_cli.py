@@ -186,7 +186,7 @@ class AgentClient:
         while True:
             self.console.print("[bold white]User:[/] ", end='')
             q = self.__input_multiline()
-            if q == 'back':
+            if q.startswith('back'):
                 break
 
             with self.client.post(query_url, json={'query': q}, headers=None, stream=True) as resp:
