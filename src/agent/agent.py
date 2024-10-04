@@ -8,7 +8,7 @@ from tool_parse import ToolRegistry
 from src.agent.llm import AVAILABLE_PROVIDERS, LLM, ProviderError
 from src.agent.memory import Memory, Message, Role
 from src.agent.plan import Plan, Task
-from src.agent.prompts import PROMPTS
+from src.agent.prompts import PROMPTS, PROMPT_VERSION
 from src.agent.tools import Tool
 
 
@@ -16,14 +16,14 @@ class Agent:
     """Penetration Testing Assistant"""
 
     def __init__(self, model: str,
-                 tools_docs: str = '',
+                 tools: str = '',
                  llm_endpoint: str = 'http://localhost:11434',
                  provider: str = 'ollama',
                  provider_key: str = '',
                  tool_registry: ToolRegistry | None = None):
         """
         :param model: llm model name
-        :param tools_docs: documentation of penetration testing tools
+        :param tools: documentation of penetration testing tools
         :param llm_endpoint: llm endpoint
         :param provider: llm provider
         :param provider_key: provider api key (if required)
@@ -55,13 +55,12 @@ class Agent:
             self.tools = []
 
         # Prompts
-        self._available_tools = tools_docs
-        self.system_plan_gen = PROMPTS[model]['plan']['system'].format(
-            tools=self._available_tools
-        )
-        self.user_plan_gen = PROMPTS[model]['plan']['user']
-        self.system_plan_con = PROMPTS[model]['plan_conversion']['system']
-        self.user_plan_con = PROMPTS[model]['plan_conversion']['user']
+        self._available_tools = tools
+        prompts = PROMPTS[model][PROMPT_VERSION]
+        self.system_plan_gen = prompts['plan']['system'].format(tools=tools)
+        self.user_plan_gen = prompts['plan']['user']
+        self.system_plan_con = prompts['conversion']['system']
+        self.user_plan_con = prompts['conversion']['user']
 
     def query(self, sid: int, user_in: str):
         """Performs a query to the Large Language Model, will use RAG
@@ -75,7 +74,7 @@ class Agent:
             self.new_session(sid)
 
         # get input for llm
-        prompt = self.user_plan_gen.format(user_input=user_in)
+        prompt = self.user_plan_gen.format(user=user_in)
         self.mem.store_message(
             sid,
             Message(Role.USER, prompt)
