@@ -3,6 +3,7 @@ Interfaces the AI Agent to the LLM Provider, model availability depends on
 implemented prompts, to use a new model the relative prompts should be written.
 """
 from abc import ABC, abstractmethod
+from typing import Tuple
 from dataclasses import dataclass, field
 
 import httpx
@@ -32,6 +33,13 @@ AVAILABLE_MODELS = {
         },
         'tools': False
     },
+    'llama3.1': {
+        'options': {
+            'temperature': 0.5,
+            'num_ctx': 8192
+        },
+        'tools': False
+    },
 }
 
 
@@ -43,7 +51,7 @@ class Provider(ABC):
     api_key: str | None = None
 
     @abstractmethod
-    def query(self, messages: list):
+    def query(self, messages: list) -> Tuple[str, Tuple]:
         """Implement to makes query to the LLM provider"""
 
     @abstractmethod
@@ -97,8 +105,9 @@ class Ollama(Provider):
         except Exception as err:
             raise RuntimeError('Initialization Failed') from err
 
-    def query(self, messages: list):
-        """Generator that returns response chunks."""
+    def query(self, messages: list) -> Tuple[str, Tuple]:
+        """Generator that returns a tuple containing:
+         (response_chunk, (request_tokens, response_tokens))"""
         try:
             self.verify_messages_format(messages)
         except (TypeError, ValueError) as input_err:
@@ -112,7 +121,10 @@ class Ollama(Provider):
                 options=AVAILABLE_MODELS[self.model]['options']
             )
             for chunk in stream:
-                yield chunk['message']['content']
+                if 'eval_count' and 'prompt_eval_count' in chunk:
+                    yield "", (chunk['prompt_eval_count'], chunk['eval_count'])
+
+                yield chunk['message']['content'], (None, None)
         except (ResponseError, httpx.ConnectError) as err:
             raise ProviderError() from err
 
@@ -164,8 +176,12 @@ class LLM:
             api_key=self.api_key
         )
 
-    def query(self, messages: list):
-        """Generator that returns LLM response as a stream of string chunks.
+    def query(self, messages: list) -> Tuple[str, Tuple]:
+        """Generator that returns LLM response in a tuple containing:
+        (chunk, (request_tokens, response_tokens)).
+
+        Note:request_tokens is prompt_eval_count, response_tokens is eval_count
+
         :param messages:
             The current conversation provided as a list of messages in the
             format [{"role": "assistant/user/system", "content": "..."}, ...]"""

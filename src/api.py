@@ -230,10 +230,9 @@ def query_generator(sid: int, usr_query: str):
     :param sid: session id
     :param usr_query: query string"""
     try:
-        stream = agent.query(sid, usr_query)
-        yield from stream
-    except ProviderError as err:
-        yield json.dumps({'error': str(err)})
+        yield from agent.query(sid, usr_query)
+    except Exception as err:
+        yield json.dumps({'error': f'query_generator: {err}'})
 
 
 @app.post('/session/{sid}/query/')

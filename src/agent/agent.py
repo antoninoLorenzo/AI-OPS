@@ -75,10 +75,8 @@ class Agent:
 
         # get input for llm
         prompt = self.user_plan_gen.format(user=user_in)
-        self.mem.store_message(
-            sid,
-            Message(Role.USER, prompt)
-        )
+        usr_msg = Message(Role.USER, prompt)
+        self.mem.store_message(sid, usr_msg)
         messages = self.mem.get_session(sid).messages_to_dict_list()
 
         # call tools
@@ -96,9 +94,12 @@ class Agent:
         try:
             response = ''
             response_tokens = 0
-            for chunk in self.llm.query(messages):
+            for chunk, tokens in self.llm.query(messages):
                 yield chunk
                 response += chunk
+
+                if tokens[0] is not None:
+                    pass  # store tokens count
         except ProviderError:
             raise
 
