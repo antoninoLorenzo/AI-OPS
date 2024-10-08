@@ -189,18 +189,24 @@ class AgentClient:
             if q.startswith('back'):
                 break
 
-            with self.client.post(query_url, json={'query': q}, headers=None, stream=True) as resp:
-                resp.raise_for_status()
+            try:
+                with self.client.post(query_url, json={'query': q}, headers=None, stream=True) as resp:
+                    resp.raise_for_status()
 
-                response_text = '**Assistant**: '
-                with Live(console=self.console, refresh_per_second=10) as live:
-                    live.update(Markdown(response_text))
-                    for chunk in resp.iter_content():
-                        if chunk:
-                            response_text += chunk.decode()
-                            live.update(Markdown(response_text))
+                    response_text = '**Assistant**: '
+                    with Live(console=self.console, refresh_per_second=10) as live:
+                        live.update(Markdown(response_text))
+                        for chunk in resp.iter_content():
+                            if chunk:
+                                response_text += chunk.decode()
+                                live.update(Markdown(response_text))
 
-                print()
+                    print()
+            except requests.exceptions.HTTPError:
+                if 400 <= resp.status_code < 500:
+                    self.console.print(f'[red]Client Error: {resp.status_code}[/]')
+                else:
+                    self.console.print(f'[red]Server Error: {resp.status_code}[/]')
 
     def list_collections(self):
         """Know what collections are available"""
