@@ -37,9 +37,9 @@ class TestBaseTool(unittest.TestCase):
             "wrong_type": "",
             "empty_schema": {},
             "missing_keys": {"name": "test"},
-            "more_keys": {"name": "test", "tool_description": "tool", "args_description": "", "sum_else": ""},
-            "wrong_schema": {"1": 1, "2": 2, "3": 3},
-            "empty_field": {"name": "test", "tool_description": "tool", "args_description": ""},
+            "more_keys": {"name": "test", "tool_description": "tool", "args_description": "", "use_case": "use_case","sum_else": ""},
+            "wrong_schema": {"1": 1, "2": 2, "3": 3, "4": 4},
+            "empty_field": {"name": "test", "tool_description": "tool", "args_description": "", "use_case": ""},
             "nested_schema": [{"name": "test"}],
         }
 
