@@ -21,5 +21,6 @@
         "--headers=<HEADERS>: Add additional headers to HTTP requests.",
         "--auth-type=<AUTH_TYPE>: Specify the authentication type (e.g., Basic, Digest, NTLM).",
         "--auth-cred=<AUTH_CRED>: Specify authentication credentials (e.g., username:password)."
-    ]
+    ],
+    "use_case": "SQL Injection"
 }

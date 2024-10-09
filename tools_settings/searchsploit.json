@@ -7,5 +7,6 @@
         "the Path to the exploit.\n",
         "The search can be performed also using a specific CVE code, for example:\n",
         "searchsploit --cve 2021-44228\n"
-    ]
+    ],
+    "use_case": "Search Exploits"
 }

@@ -37,5 +37,6 @@
         "**--privileged/--unprivileged:** Assume the user is fully privileged or lacks raw socket privileges.",
         "**-V:** Print version number.",
         "**-h:** Print this help summary page."
-    ]
+    ],
+    "use_case": "Reconnaissance/Network Scanning"
 }

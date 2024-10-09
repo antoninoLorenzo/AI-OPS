@@ -21,5 +21,6 @@
         "\nGuidelines:\n",
         "- When using hashcat with a wordlist remember to ALWAYS ask the path to the wordlist to the user.\n",
         "- When writing the output to a file, the next command should be `cat <output_file>`"
-    ]
+    ],
+    "use_case": "Password/Hash Cracking"
 }
