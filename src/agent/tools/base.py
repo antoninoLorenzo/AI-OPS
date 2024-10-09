@@ -8,18 +8,27 @@ class Tool:
     name: str
     tool_description: str
     args_description: str
+    use_case: str = ''
 
-    def __init__(self, name: str, tool_description: str, args_description: str):
+    def __init__(
+            self,
+            name: str,
+            tool_description: str,
+            args_description: str,
+            use_case: str
+    ):
         self.name = name
         self.tool_description = tool_description
         self.args_description = args_description
+        self.use_case = use_case
 
     @staticmethod
     def load_tool(path: str):
         """Get tool description from json file"""
+        # TODO: refactor schema validation in another method
         with open(path, 'r', encoding='utf-8') as fp:
             tool_data: dict = json.load(fp)
-            keys = ['name', 'tool_description', 'args_description']
+            keys = ['name', 'tool_description', 'args_description', 'use_case']
 
             if not isinstance(tool_data, dict):
                 raise TypeError(
@@ -29,7 +38,7 @@ class Tool:
                 )
 
             valid_keys = False in [key in keys for key in tool_data.keys()]
-            if len(tool_data) != 3 or valid_keys:
+            if len(tool_data) != 4 or valid_keys:
                 raise ValueError(f"Wrong format at {path}: invalid keys.")
 
             name = tool_data['name']
@@ -37,11 +46,12 @@ class Tool:
             # in case args_description is provided as string instead
             # of string list it still works: ''.join(string) returns string
             args_description = ''.join(tool_data['args_description'])
+            use_case = tool_data['use_case']
 
             if not (name and tool_description and args_description):
                 raise ValueError(f"Wrong format at {path}\nFound empty values")
 
-            return Tool(name, tool_description, args_description)
+            return Tool(name, tool_description, args_description, use_case)
 
     @staticmethod
     def run(*args):
