@@ -110,7 +110,7 @@ if agent_settings.USE_RAG:
 agent = Agent(
     model=agent_settings.MODEL,
     llm_endpoint=agent_settings.ENDPOINT,
-    tools='\n'.join([tool.name for tool in TOOLS]),
+    tools='\n'.join([f'- {tool.name} used for {tool.use_case}' for tool in TOOLS]),
     provider=agent_settings.PROVIDER,
     provider_key=agent_settings.PROVIDER_KEY,
     tool_registry=TR
