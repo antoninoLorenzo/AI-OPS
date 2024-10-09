@@ -22,14 +22,14 @@ I highly appreciate any contribution to the project, you can:
 ## Design Goals
 
 Our main design goals for the project are:
-- **Cost-Free Solution**: Penetration testing tools are free (most of them), so **there’s no reason to pay for inference** APIs or LLM-as-a-service. This is a challenge, but we hope you find it motivating rather than limiting.
+- **Cost-Free Solution**: Penetration Testing tools are free (most of them), so will be AI-OPS; this means that *no paid models will be integrated*.
 - **Flexibility**: Penetration testers have their own preferences and workflows, so flexibility is key to deliver a quality tool.
 - **Human In the Loop**: This solution is not meant to automate the entire penetration testing process. It’s designed to provide another perspective on a problem, acting on your instructions, but AI will never replace experience.
 
 ## General Contribution Process
 
 1. **Fork the Repository**: Create a personal fork of the repository on GitHub.
-2. **Make Your Changes**: Implement your changes in your fork.
+2. **Make Your Changes**: Implement your changes in your fork. (***Important**: For new features create a new branch.*)
 3. **Commit Changes**: Write clear and concise commit messages.
     ```bash
     git commit -m "Describe the changes made"
@@ -39,9 +39,6 @@ Our main design goals for the project are:
     git push origin branch-name
     ```
 5. **Open a Pull Request**
-
-> **Important**: For new features create a new branch.
-
 
 # Development Installation
 
