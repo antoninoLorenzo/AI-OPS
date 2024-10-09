@@ -1,44 +1,32 @@
 ### Table of Contents
 
-1. [Introduction](#introduction)
-2. [Design Goals](#design-goals)
-3. [How to Contribute](#how-to-contribute)
-   - [Submitting Changes](#submitting-changes)
-     - [General Contribution Process](#general-contribution-process)
-     - [For New Features](#for-new-features)
-4. [Install](#install)
+1. [How to Contribute](#how-to-contribute)
+   - [Design Goals](#design-goals)
+   - [General Contribution Process](#general-contribution-process)
+4. [Development Installation](#development-installation)
 5. [Testing](#testing)
    - [LLM Integration](#llm-integration)
    - [Tool Integration]()
    - [RAG (Retrieval-Augmented Generation)](#rag-retrieval-augmented-generation)
 6. [Code Style and Standards](#code-style-and-standards)
 
-# Introduction
+# How to Contribute
 
-AI-OPS aims to empower penetration testing enthusiasts and professionals with an LLM-based solution. 
-While this technology has demonstrated great capabilities, it’s important to recognize its limitations 
-and maintain realistic expectations.
+I highly appreciate any contribution to the project, you can:
+- Report Bugs
+- Request a feature
+- Request the integration of a model
+- Provide Feedback
+- etc.
 
 ## Design Goals
 
-Our main design goals for this project are:
+Our main design goals for the project are:
 - **Cost-Free Solution**: Penetration testing tools are free (most of them), so **there’s no reason to pay for inference** APIs or LLM-as-a-service. This is a challenge, but we hope you find it motivating rather than limiting.
 - **Flexibility**: Penetration testers have their own preferences and workflows, so flexibility is key to deliver a quality tool.
 - **Human In the Loop**: This solution is not meant to automate the entire penetration testing process. It’s designed to provide another perspective on a problem, acting on your instructions, but AI will never replace experience.
 
-# How to Contribute
-
-Use [GitHub Issues](https://github.com/antoninoLorenzo/AI-OPS/issues) to report bugs or request features. 
-Provide as much detail as possible to help reproduce the issue or understand the feature request.
-
-## Submitting Changes
-
-You can contribute in various ways:
-- **Documentation**: Improve or update documentation.
-- **Bug Fixes**: Address issues and bugs reported in the repository.
-- **New Features**: Add new features or enhancements.
-
-### General Contribution Process
+## General Contribution Process
 
 1. **Fork the Repository**: Create a personal fork of the repository on GitHub.
 2. **Make Your Changes**: Implement your changes in your fork.
@@ -52,20 +40,10 @@ You can contribute in various ways:
     ```
 5. **Open a Pull Request**
 
-### For New Features
+> **Important**: For new features create a new branch.
 
-1. **Create a Feature Branch**: Create a new branch for your feature.
-    ```bash
-    git checkout -b feature/your-feature-name
-    ```
-2. **Implement Your Feature**: Make the necessary changes in the feature branch.
-3. **Push to GitHub**: Push your feature branch to your fork.
-    ```bash
-    git push origin feature/your-feature-name
-    ```
-4. **Create a Pull Request**: Open a pull request against the `main` branch of the original repository.
 
-## Install
+# Development Installation
 
 1. **Setup**
 - Clone Repository `git clone https://github.com/antoninoLorenzo/AI-OPS.git`
