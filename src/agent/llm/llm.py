@@ -105,9 +105,9 @@ class Ollama(Provider):
         except Exception as err:
             raise RuntimeError('Initialization Failed') from err
 
-    def query(self, messages: list) -> Tuple[str, Tuple]:
+    def query(self, messages: list) -> Tuple[str, int]:
         """Generator that returns a tuple containing:
-         (response_chunk, (request_tokens, response_tokens))"""
+         (response_chunk, token_usage)"""
         try:
             self.verify_messages_format(messages)
         except (TypeError, ValueError) as input_err:
@@ -122,9 +122,9 @@ class Ollama(Provider):
             )
             for chunk in stream:
                 if 'eval_count' and 'prompt_eval_count' in chunk:
-                    yield "", (chunk['prompt_eval_count'], chunk['eval_count'])
+                    yield "", chunk['prompt_eval_count']
 
-                yield chunk['message']['content'], (None, None)
+                yield chunk['message']['content'], None
         except (ResponseError, httpx.ConnectError) as err:
             raise ProviderError() from err
 
@@ -176,11 +176,9 @@ class LLM:
             api_key=self.api_key
         )
 
-    def query(self, messages: list) -> Tuple[str, Tuple]:
+    def query(self, messages: list) -> Tuple[str, int]:
         """Generator that returns LLM response in a tuple containing:
-        (chunk, (request_tokens, response_tokens)).
-
-        Note:request_tokens is prompt_eval_count, response_tokens is eval_count
+        (chunk, token_usage).
 
         :param messages:
             The current conversation provided as a list of messages in the
