@@ -77,7 +77,7 @@ class Agent:
         prompt = self.user_plan_gen.format(user=user_in)
         usr_msg = Message(Role.USER, prompt)
         self.mem.store_message(sid, usr_msg)
-        messages = self.mem.get_session(sid).messages_to_dict_list()
+        messages = self.mem.get_session(sid).message_dict
 
         # call tools
         if self.tools:
@@ -93,21 +93,20 @@ class Agent:
         # generate response
         try:
             response = ''
-            response_tokens = 0
+            token_usage = 0
             for chunk, tokens in self.llm.query(messages):
                 yield chunk
                 response += chunk
 
-                if tokens[0] is not None:
-                    pass  # store tokens count
+                if tokens is not None:
+                    token_usage = tokens
         except ProviderError:
             raise
 
-        # store response
-        self.mem.store_message(
-            sid,
-            Message(Role.ASSISTANT, response, tokens=response_tokens)
-        )
+        # update memory
+        sys_msg = Message(Role.ASSISTANT, response)
+        self.mem.get_session(sid).tokens = token_usage
+        self.mem.store_message(sid, sys_msg)
 
     def invoke_tools(self, tool_response):
         """Execute tools (ex. RAG) from llm response"""

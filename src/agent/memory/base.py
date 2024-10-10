@@ -38,7 +38,6 @@ class Message:
     """Message object"""
     role: Role
     content: str
-    tokens: int = 0
 
 
 @dataclass
@@ -46,25 +45,35 @@ class Session:
     """Represents a conversation"""
     name: str
     messages: List[Message]
+    _tokens: int = 0
     __plans: List[Plan] = None  # mutable not allowed here
 
+    def add_message(self, message: Message):
+        """Append a message"""
+        if not isinstance(message, Message):
+            raise ValueError(f'Not a message: {message}')
+        self.messages.append(message)
+
     @property
-    def plans(self):
-        """Interface to private plan property"""
-        return self.__plans
+    def message_dict(self):
+        return [
+            {'role': str(msg.role), 'content': msg.content}
+            for msg in self.messages
+        ]
+
+    @property
+    def tokens(self):
+        return self._tokens
+
+    @tokens.setter
+    def tokens(self, val):
+        self._tokens = val
 
     def add_plan(self, plan: Plan):
         """Initialize plan list and add a Plan"""
         if not self.__plans:
             self.__plans = []
         self.__plans.append(plan)
-
-    def messages_to_dict_list(self):
-        """Converts the message list into a format compatible with Ollama"""
-        return [
-            {'role': str(msg.role), 'content': msg.content}
-            for msg in self.messages
-        ]
 
     def plans_to_dict_list(self):
         """Converts the plans list into a format writable in JSON"""
@@ -73,12 +82,10 @@ class Session:
             for plan in self.plans
         ]
 
-    def token_length(self):
-        """Get the number of tokens used until now"""
-        tok_len = 0
-        for msg in self.messages:
-            tok_len += msg.tokens
-        return tok_len
+    @property
+    def plans(self):
+        """Interface to private plan property"""
+        return self.__plans
 
     @staticmethod
     def from_json(path: str):
@@ -126,12 +133,9 @@ class Memory:
     def store_message(self, sid: int, message: Message):
         """Add a message to a session identified by session id.
         Creates a new session if the specified do not exist."""
-        if not isinstance(message, Message):
-            raise ValueError(f'Not a message: {message}')
         if sid not in self.sessions:
             self.sessions[sid] = Session(name='New Session', messages=[])
-
-        self.sessions[sid].messages.append(message)
+        self.sessions[sid].add_message(message)
 
     def get_session(self, sid: int) -> Session:
         """

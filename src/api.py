@@ -147,7 +147,7 @@ def list_sessions():
         json_sessions.append({
             'sid': sid,
             'name': session.name,
-            'messages': session.messages_to_dict_list(),
+            'messages': session.messages,
             # '': session.plans
         })
     return json_sessions
@@ -168,7 +168,7 @@ def get_session(sid: int):
     return {
         'sid': sid,
         'name': session.name,
-        'messages': session.messages_to_dict_list()
+        'messages': session.message_dict
     }
 
 
