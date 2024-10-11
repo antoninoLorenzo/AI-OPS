@@ -150,6 +150,10 @@ To integrate a LLM see [LLM Integration](./CONTRIBUTE.md#llm-integration) in CON
 
 ## 🛠️Tools
 
+🚧 *Under Development* 🚧
+
+<!--
+
 ### Available Tools
 
 | Name                                                    | Use Case                         | Implemented         |
@@ -159,7 +163,6 @@ To integrate a LLM see [LLM Integration](./CONTRIBUTE.md#llm-integration) in CON
 | [hashcat](https://github.com/hashcat/hashcat)           | Password Cracking                | &check;             |
 | [thc-hydra](https://github.com/vanhauser-thc/thc-hydra) | Brute Force                      | &check;             |
 | [SQLmap](https://github.com/sqlmapproject/sqlmap)       | SQL Injection                    | &check;             | 
-| [searchsploit](https://www.kali.org/tools/exploitdb/)   | Research Vulnerabilities         | &check;             |
 
 *Note: virtually any tools that do not require additional code (such as Metasploit) can be executed*
 
@@ -205,6 +208,8 @@ it as short as possible to maintain the context of a reasonable length.
 
 2. **Custom Class**: tools that require more advanced usage can be implemented extending the class
 `Tool` at `src.agent.tools.base`; you're welcome to **open an issue** for a tool request/proposal.
+
+-->
 
 
 ## 📚 Knowledge (RAG)
