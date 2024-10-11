@@ -34,8 +34,13 @@
 ## 🚀 Key Features
 
 - 🎁 **Full Open-Source**: No need for third-party LLM providers; use any model you prefer with [Ollama](https://github.com/ollama/ollama).
+
+<!--
+
 - 🔧 **Tool Integration**: Execute common penetration testing tools or integrate new ones without needing to code in Python.
 - 📚 **Up-to-date Knowledge**: Use Online Search and RAG to keep the agent informed with the latest documents and data. (*Under Development*)
+
+-->
 
 <!-- ## ▶️ Demo
 
