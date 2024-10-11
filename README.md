@@ -122,13 +122,13 @@ Once the CLI is running, you can interact with the agent using the following com
 ### Supported Models
 To integrate a LLM see [LLM Integration](./CONTRIBUTE.md#llm-integration) in CONTRIBUTE.md
 
-| Name          | Implemented   | RAG Support  | 
+| Name          | Implemented   | Tool Support  | 
 |---------------|---------------|--------------|
 | **Mistral**   | &check;       | &check;      |
 | **Gemma 7B**  | &check;       | ✖️           |
 | **Gemma2 9B** | &check;       | ✖️           |
 
-> RAG Support depends on Tool Support for Ollama models, see [Ollama Library](https://ollama.com/library).  
+> Tool Support depends on Ollama models, see [Ollama Library](https://ollama.com/library).  
 
 <!--| **LLama 3**  | &cross;               | -->
 
