@@ -17,7 +17,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     nmap \
     gobuster \
     hashcat \
-    exploitdb \
     sqlmap \
     git && \
     apt-get clean && \
