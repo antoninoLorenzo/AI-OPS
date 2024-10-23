@@ -23,6 +23,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/
 
 # Setup API
+# TODO: remove GitHub and use COPY 
+# .dockerignore makes sure only needed data is copied 
 RUN git clone --filter=blob:none --no-checkout https://github.com/antoninoLorenzo/AI-OPS.git && \
     cd AI-OPS/ && \
     git sparse-checkout init && \
