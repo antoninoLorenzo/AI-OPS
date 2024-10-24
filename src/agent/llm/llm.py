@@ -19,13 +19,13 @@ AVAILABLE_MODELS = {
         },
         'tools': True
     },
-    'gemma:7b': {
-        'options': {
-            'temperature': 0.5,
-            'num_ctx': 8192
-        },
-        'tools': False
-    },
+    # 'gemma:7b': {
+    #     'options': {
+    #         'temperature': 0.5,
+    #         'num_ctx': 8192
+    #     },
+    #     'tools': False
+    # },
     'gemma2:9b': {
         'options': {
             'temperature': 0.5,
