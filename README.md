@@ -130,7 +130,6 @@ To integrate a LLM see [LLM Integration](./CONTRIBUTE.md#llm-integration) in CON
 | Name          | Implemented   | Tool Support  | 
 |---------------|---------------|--------------|
 | **Mistral**   | &check;       | &check;      |
-| **Gemma 7B**  | &check;       | ✖️           |
 | **Gemma2 9B** | &check;       | ✖️           |
 
 > Tool Support depends on Ollama models, see [Ollama Library](https://ollama.com/library).  
