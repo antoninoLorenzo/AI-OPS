@@ -8,6 +8,8 @@
 
 🚧 **Under Development** 🚧
 
+> **Note:** AI-OPS is currently an experimental project. Some functionalities are not implemented. Any support or feedback is highly appreciated.
+
 # AI-OPS
 
 ### Table of Contents
@@ -28,8 +30,6 @@
 ## 💡 Overview
 
 **AI-OPS** is an AI-powered, open-source **Penetration Testing assistant** that leverages large language models (LLMs) with [Ollama](https://github.com/ollama/ollama) in order to be cost-free. It is <ins>designed to enhance, not replace, the capabilities of human penetration testers</ins>.
-
-> **Note:** AI-OPS is currently in development and some functionalities are not implemented. Any support or feedback is highly appreciated. For more details refer to [CONTRIBUTE.md](./CONTRIBUTE.md).
 
 ## 🚀 Key Features
 
