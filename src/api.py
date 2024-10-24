@@ -36,7 +36,7 @@ from tool_parse import ToolRegistry
 from src import initialize_knowledge
 from src.agent import Agent
 from src.agent.knowledge import Store, Collection
-from src.agent.llm import ProviderError
+from src.agent.llm import LLM, AVAILABLE_PROVIDERS
 from src.agent.plan import TaskStatus
 from src.agent.tools import TOOLS
 
@@ -107,12 +107,28 @@ if agent_settings.USE_RAG:
         return '\n\n'.join(store.retrieve_from(rag_query, collection))
 
 # --- Initialize Agent
-agent = Agent(
+
+# initialize LLM to inject in Agent
+if agent_settings.PROVIDER not in AVAILABLE_PROVIDERS.keys():
+    raise RuntimeError(f'{agent_settings.PROVIDER} not supported.')
+llm_provider = AVAILABLE_PROVIDERS[agent_settings.PROVIDER]['class']
+key_required = AVAILABLE_PROVIDERS[agent_settings.PROVIDER]['key_required']
+if key_required and len(agent_settings.PROVIDER_KEY) == 0:
+    raise RuntimeError(
+        f'Missing PROVIDER_KEY environment variable for {agent_settings.PROVIDER}.'
+    )
+
+llm = LLM(
     model=agent_settings.MODEL,
-    llm_endpoint=agent_settings.ENDPOINT,
+    inference_endpoint=agent_settings.ENDPOINT,
+    provider=llm_provider,
+    api_key=agent_settings.PROVIDER_KEY
+)
+
+# create Agent
+agent = Agent(
+    llm=llm,
     tools='\n'.join([f'- {tool.name} used for {tool.use_case}' for tool in TOOLS]),
-    provider=agent_settings.PROVIDER,
-    provider_key=agent_settings.PROVIDER_KEY,
     tool_registry=TR
 )
 

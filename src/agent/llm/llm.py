@@ -47,7 +47,7 @@ AVAILABLE_MODELS = {
 class Provider(ABC):
     """Represents a LLM Provider"""
     model: str
-    client_url: str = 'http://localhost:11434'
+    inference_endpoint: str = 'http://localhost:11434'
     api_key: str | None = None
 
     @abstractmethod
@@ -101,7 +101,7 @@ class Ollama(Provider):
         if self.model not in AVAILABLE_MODELS.keys():
             raise ValueError(f'Model {self.model} is not available')
         try:
-            self.client = Client(host=self.client_url)
+            self.client = Client(host=self.inference_endpoint)
         except Exception as err:
             raise RuntimeError('Initialization Failed') from err
 
@@ -164,7 +164,7 @@ class Ollama(Provider):
 class LLM:
     """LLM interface"""
     model: str
-    client_url: str = 'http://localhost:11434'
+    inference_endpoint: str = 'http://localhost:11434'
     provider: Provider = None
     provider_class: Provider = Ollama
     api_key: str | None = None
@@ -172,7 +172,7 @@ class LLM:
     def __post_init__(self):
         self.provider = self.provider_class(
             model=self.model,
-            client_url=self.client_url,
+            client_url=self.inference_endpoint,
             api_key=self.api_key
         )
 

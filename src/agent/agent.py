@@ -5,7 +5,7 @@ from json import JSONDecodeError
 
 from tool_parse import ToolRegistry
 
-from src.agent.llm import AVAILABLE_PROVIDERS, LLM, ProviderError
+from src.agent.llm import LLM, ProviderError
 from src.agent.memory import Memory, Message, Role
 from src.agent.plan import Plan, Task
 from src.agent.prompts import PROMPTS, PROMPT_VERSION
@@ -15,38 +15,19 @@ from src.agent.tools import Tool
 class Agent:
     """Penetration Testing Assistant"""
 
-    def __init__(self, model: str,
-                 tools: str = '',
-                 llm_endpoint: str = 'http://localhost:11434',
-                 provider: str = 'ollama',
-                 provider_key: str = '',
-                 tool_registry: ToolRegistry | None = None):
+    def __init__(
+            self,
+            llm: LLM,
+            tools: str = '',
+            tool_registry: ToolRegistry | None = None
+    ):
         """
-        :param model: llm model name
+        :param llm: Large Language Model instance
         :param tools: documentation of penetration testing tools
-        :param llm_endpoint: llm endpoint
-        :param provider: llm provider
-        :param provider_key: provider api key (if required)
         :param tool_registry: the available agent tools (ToolRegistry)
         """
-        # Pre-conditions
-        if provider not in AVAILABLE_PROVIDERS.keys():
-            raise RuntimeError(f'{provider} not supported.')
-
-        provider_class = AVAILABLE_PROVIDERS[provider]['class']
-        key_required = AVAILABLE_PROVIDERS[provider]['key_required']
-        if key_required and len(provider_key) == 0:
-            raise RuntimeError(
-                f'Missing PROVIDER_KEY environment variable for {provider}.'
-            )
-
         # Agent Components
-        self.llm = LLM(
-            model=model,
-            client_url=llm_endpoint,
-            provider_class=provider_class,
-            api_key=provider_key
-        )
+        self.llm = llm
         self.mem = Memory()
         self.tool_registry: ToolRegistry | None = tool_registry
         if tool_registry is not None and len(tool_registry) > 0:
@@ -55,8 +36,8 @@ class Agent:
             self.tools = []
 
         # Prompts
-        self._available_tools = tools
-        prompts = PROMPTS[model][PROMPT_VERSION]
+        self.model = self.llm.model
+        prompts = PROMPTS[self.model][PROMPT_VERSION]
         self.system_plan_gen = prompts['plan']['system'].format(tools=tools)
         self.user_plan_gen = prompts['plan']['user']
         self.system_plan_con = prompts['conversion']['system']
@@ -65,7 +46,6 @@ class Agent:
     def query(self, sid: int, user_in: str):
         """Performs a query to the Large Language Model, will use RAG
         if provided with the necessary tool to perform rag search"""
-
         if not isinstance(user_in, str) or len(user_in) == 0:
             raise ValueError(f'Invalid input: {user_in} [{type(user_in)}]')
 
