@@ -19,21 +19,14 @@ AVAILABLE_MODELS = {
         },
         'tools': True
     },
-    # 'gemma:7b': {
-    #     'options': {
-    #         'temperature': 0.5,
-    #         'num_ctx': 8192
-    #     },
-    #     'tools': False
-    # },
-    'gemma2:9b': {
+    'llama3.1': {
         'options': {
             'temperature': 0.5,
             'num_ctx': 8192
         },
         'tools': False
     },
-    'llama3.1': {
+    'gemma2:9b': {
         'options': {
             'temperature': 0.5,
             'num_ctx': 8192
@@ -69,7 +62,7 @@ class Provider(ABC):
             raise TypeError(f'messages must be a list[dict]: \n {messages}')
 
         # check format
-        roles = [Role.SYS, Role.USER, Role.ASSISTANT]
+        roles = [Role.SYS, Role.USER, Role.ASSISTANT, Role.TOOL]
         valid_roles = [str(role) for role in roles]
         err_message = f'expected {{"role": "{valid_roles}", "content": "..."}}'
 
@@ -98,8 +91,8 @@ class Ollama(Provider):
     client: Client | None = field(init=False, default=None)
 
     def __post_init__(self):
-        if self.model not in AVAILABLE_MODELS.keys():
-            raise ValueError(f'Model {self.model} is not available')
+        if self.__match_model() is None:
+            raise ValueError(f'Model {self.model} is not supported.')
         try:
             self.client = Client(host=self.inference_endpoint)
         except Exception as err:
@@ -114,11 +107,12 @@ class Ollama(Provider):
             raise input_err from input_err
 
         try:
+            options = AVAILABLE_MODELS[self.__match_model()]['options']
             stream = self.client.chat(
                 model=self.model,
                 messages=messages,
                 stream=True,
-                options=AVAILABLE_MODELS[self.model]['options']
+                options=options
             )
             for chunk in stream:
                 if 'eval_count' and 'prompt_eval_count' in chunk:
@@ -126,7 +120,7 @@ class Ollama(Provider):
 
                 yield chunk['message']['content'], None
         except (ResponseError, httpx.ConnectError) as err:
-            raise ProviderError() from err
+            raise ProviderError(err) from err
 
     def tool_query(self, messages: list, tools: list | None = None):
         """Implements LLM tool calling.
@@ -158,6 +152,14 @@ class Ollama(Provider):
 
         return tool_response if tool_response['message'].get('tool_calls') \
             else None
+
+    def __match_model(self) -> str | None:
+        """Check if a model is supported, the model availability on Ollama
+        is upon the user; ProviderError is raised if not available."""
+        for model in list(AVAILABLE_MODELS.keys()):
+            if self.model.startswith(model):
+                return model
+        return None
 
 
 @dataclass
@@ -194,3 +196,10 @@ class LLM:
             A list of tools in the format specified by `ollama-python`,
             the conversion is managed by `tool-parse` library."""
         return self.provider.tool_query(messages, tools)
+
+
+if __name__ == "__main__":
+
+    Ollama(model='mistral', inference_endpoint='some')
+    Ollama(model='mistral:7b-instruct-v0.3-q8_0', inference_endpoint='some')
+    Ollama(model='gpt', inference_endpoint='some')
