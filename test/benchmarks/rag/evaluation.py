@@ -106,7 +106,7 @@ def generate_evaluation_dataset(vdb: Store, qa_paths: list, client_url: str,
 
         return context_list, answer
 
-    generator = LLM(model=model, client_url=client_url)
+    generator = LLM(model=model, inference_endpoint=client_url)
     eval_data = []
     for i, items in tqdm(qa.iterrows(), total=len(qa), desc='Retrieving context and generating answers.'):
         ctx, ans = gen_context_answer(items.question, generator)
@@ -137,7 +137,7 @@ def evaluate(vdb: Store, qa_paths: list, endpoint: str, metrics: list,
         raise ValueError('No metrics specified.')
 
     # Setup evaluation metrics
-    llm = LLM(model='gemma2:9b', client_url=endpoint)
+    llm = LLM(model='gemma2:9b', inference_endpoint=endpoint)
     eval_metrics: dict[Metric] = {}
     for metric in metrics:
         if metric not in METRICS.keys():

@@ -1,0 +1,40 @@
+digraph "packages" {
+rankdir=BT
+charset="utf-8"
+"src.agent" [color="black", label=<src.agent>, shape="box", style="solid"];
+"src.agent.agent" [color="black", label=<src.agent.agent>, shape="box", style="solid"];
+"src.agent.knowledge" [color="black", label=<src.agent.knowledge>, shape="box", style="solid"];
+"src.agent.knowledge.collections" [color="black", label=<src.agent.knowledge.collections>, shape="box", style="solid"];
+"src.agent.knowledge.nlp" [color="black", label=<src.agent.knowledge.nlp>, shape="box", style="solid"];
+"src.agent.knowledge.store" [color="black", label=<src.agent.knowledge.store>, shape="box", style="solid"];
+"src.agent.llm" [color="black", label=<src.agent.llm>, shape="box", style="solid"];
+"src.agent.llm.llm" [color="black", label=<src.agent.llm.llm>, shape="box", style="solid"];
+"src.agent.memory" [color="black", label=<src.agent.memory>, shape="box", style="solid"];
+"src.agent.memory.base" [color="black", label=<src.agent.memory.base>, shape="box", style="solid"];
+"src.agent.plan" [color="black", label=<src.agent.plan>, shape="box", style="solid"];
+"src.agent.prompts" [color="black", label=<src.agent.prompts>, shape="box", style="solid"];
+"src.agent.tools" [color="black", label=<src.agent.tools>, shape="box", style="solid"];
+"src.agent.tools.base" [color="black", label=<src.agent.tools.base>, shape="box", style="solid"];
+"src.agent.tools.search" [color="black", label=<src.agent.tools.search>, shape="box", style="solid"];
+"src.agent.tools.search.exploit_db" [color="black", label=<src.agent.tools.search.exploit_db>, shape="box", style="solid"];
+"src.agent" -> "src.agent.agent" [arrowhead="open", arrowtail="none"];
+"src.agent.agent" -> "src.agent.llm" [arrowhead="open", arrowtail="none"];
+"src.agent.agent" -> "src.agent.memory" [arrowhead="open", arrowtail="none"];
+"src.agent.agent" -> "src.agent.plan" [arrowhead="open", arrowtail="none"];
+"src.agent.agent" -> "src.agent.prompts" [arrowhead="open", arrowtail="none"];
+"src.agent.agent" -> "src.agent.tools" [arrowhead="open", arrowtail="none"];
+"src.agent.knowledge" -> "src.agent.knowledge.collections" [arrowhead="open", arrowtail="none"];
+"src.agent.knowledge" -> "src.agent.knowledge.nlp" [arrowhead="open", arrowtail="none"];
+"src.agent.knowledge" -> "src.agent.knowledge.store" [arrowhead="open", arrowtail="none"];
+"src.agent.knowledge.nlp" -> "src.agent.knowledge.collections" [arrowhead="open", arrowtail="none"];
+"src.agent.knowledge.store" -> "src.agent.knowledge.collections" [arrowhead="open", arrowtail="none"];
+"src.agent.knowledge.store" -> "src.agent.knowledge.nlp" [arrowhead="open", arrowtail="none"];
+"src.agent.knowledge.store" -> "src.agent.llm.llm" [arrowhead="open", arrowtail="none"];
+"src.agent.llm" -> "src.agent.llm.llm" [arrowhead="open", arrowtail="none"];
+"src.agent.llm.llm" -> "src.agent.memory.base" [arrowhead="open", arrowtail="none"];
+"src.agent.memory" -> "src.agent.memory.base" [arrowhead="open", arrowtail="none"];
+"src.agent.memory.base" -> "src.agent.plan" [arrowhead="open", arrowtail="none"];
+"src.agent.memory.base" -> "src.agent.tools" [arrowhead="open", arrowtail="none"];
+"src.agent.plan" -> "src.agent.tools" [arrowhead="open", arrowtail="none"];
+"src.agent.tools" -> "src.agent.tools.base" [arrowhead="open", arrowtail="none"];
+}

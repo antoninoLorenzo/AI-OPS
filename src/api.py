@@ -12,10 +12,6 @@ Session Related:
 Agent Related:
 - /session/{sid}/query/{q}: Makes a query to the Agent.
 
-Plan Related:
-- /session/{sid}/plan/list    : Return all Plans in the current Session.
-- /session/{sid}/plan/execute : Executes the last plan.
-
 RAG Related:
 - /collections/list    : Returns available Collections.
 - /collections/new     : Creates a new Collection.
@@ -38,7 +34,6 @@ from src.agent import Agent
 from src.agent.knowledge import Store, Collection
 from src.agent.llm import LLM, AVAILABLE_PROVIDERS
 from src.agent.plan import TaskStatus
-from src.agent.tools import TOOLS
 
 load_dotenv()
 TR = ToolRegistry()
@@ -128,7 +123,6 @@ llm = LLM(
 # create Agent
 agent = Agent(
     llm=llm,
-    tools='\n'.join([f'- {tool.name} used for {tool.use_case}' for tool in TOOLS]),
     tool_registry=TR
 )
 
@@ -261,62 +255,6 @@ def query(sid: int, body: dict = Body(...)):
     if not usr_query:
         raise HTTPException(status_code=400, detail="Query parameter required")
     return StreamingResponse(query_generator(sid, usr_query))
-
-
-# --- PLAN RELATED
-@app.get('/session/{sid}/plan/list')
-def list_plans(sid: int):
-    """
-    Return all Plans.
-    Returns the JSON representation of all Plans in the current Session.
-    """
-    session = agent.get_session(sid)
-    plans = {}
-
-    if session is None:
-        return {"error": "No session found"}
-    if session.plans is None or len(session.plans) == 0:
-        return {"error": "No plans available"}
-
-    for i, plan in enumerate(session.plans):
-        tasks = []
-        for task in plan.tasks:
-            tasks.append({
-                'thought': task.thought,
-                'command': task.command,
-                'output': task.output
-            })
-        plans[i] = tasks
-    return plans
-
-
-def execute_plan_stream(sid: int):
-    """Generator for plan execution and status updates"""
-    execution = agent.execute_plan(sid)
-    for iteration in execution:
-        for task in iteration:
-            if task.status == TaskStatus.DONE:
-                task_str = f'ai-ops:~$ {task.command}\n{task.output}\n'
-                yield task_str
-
-    plan = agent.mem.get_plan(sid)
-    if plan:
-        eval_results = 'Task Results:\n'
-        for task in plan.plan_to_dict_list():
-            eval_results += f'{task["command"]}\n{task["output"]}\n\n'
-
-        yield from query_generator(sid, eval_results)
-    else:
-        yield "No plans available"
-
-
-@app.get('/session/{sid}/plan/execute')
-def execute_plan(sid: int):
-    """
-    Executes last plan.
-    Returns a stream that provide status for plan tasks execution.
-    """
-    return StreamingResponse(execute_plan_stream(sid))
 
 
 # --- KNOWLEDGE RELATED

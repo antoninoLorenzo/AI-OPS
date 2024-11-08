@@ -34,8 +34,6 @@ class AgentClient:
             'exit': '',
 
             'chat': self.chat,
-            'exec': self.execute_plan,
-            'plans': self.list_plans,
 
             'new': self.new_session,
             'save': self.save_session,
@@ -271,42 +269,6 @@ class AgentClient:
         except requests.exceptions.HTTPError as http_err:
             self.console.print(f"[bold red][!] HTTP Error: [/] {http_err}")
 
-    def execute_plan(self):
-        """Plan execution"""
-        with self.client.get(
-                f'{self.api_url}/session/{self.current_session["sid"]}/plan/execute',
-                headers=None,
-                stream=True
-        ) as resp:
-            self.console.print(f'[+] Tasks\n')
-            for task_str in resp.iter_content():
-                if task_str:
-                    self.console.print(task_str.decode(), end='')
-            print()
-        self.chat()
-
-    def list_plans(self):
-        """Retrieve the plans in the current session and
-        prints the last execution status."""
-        response = self.client.get(
-            f'{self.api_url}/session/{self.current_session["sid"]}/plan/list'
-        )
-        response.raise_for_status()
-
-        body: dict = response.json()
-
-        if 'error' in body:
-            self.console.print(f'[bold red][!][/] {body["error"]}')
-        else:
-            for i, plan in body.items():
-                tasks = ''
-                for task in plan:
-                    tasks += f'ai-ops:~$ {task["command"]}\n'
-                    if len(task['output']) > 0:
-                        tasks += f'\n{task["output"]}\n'
-
-                self.console.print(f'[+] Plan {i}\n\n'
-                                   f'{tasks}')
 
     def __input_multiline(self) -> str:
         input_text = ""

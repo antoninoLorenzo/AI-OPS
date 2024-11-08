@@ -167,14 +167,13 @@ class LLM:
     """LLM interface"""
     model: str
     inference_endpoint: str = 'http://localhost:11434'
-    provider: Provider = None
-    provider_class: Provider = Ollama
+    provider: Provider = Ollama
     api_key: str | None = None
 
     def __post_init__(self):
-        self.provider = self.provider_class(
+        self.provider = self.provider(
             model=self.model,
-            client_url=self.inference_endpoint,
+            inference_endpoint=self.inference_endpoint,
             api_key=self.api_key
         )
 

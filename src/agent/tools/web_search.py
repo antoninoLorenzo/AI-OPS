@@ -166,7 +166,7 @@ class Search:
         return available[random.randint(0, len(available) - 1)]
 
 
-if __name__ == "__main__":
+def main():
     # --- EXAMPLE
     TR = ToolRegistry()
     SEARCH = Search()
@@ -176,4 +176,8 @@ if __name__ == "__main__":
         return SEARCH.run(search_query)
 
     result = search('browser passwords Windows DPAPI python')
-    print(result)
+    # print(result)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,15 +1,10 @@
 """Contains the class `Agent`, the core of the system."""
-import json
-import re
-from json import JSONDecodeError
 
 from tool_parse import ToolRegistry
 
 from src.agent.llm import LLM, ProviderError
 from src.agent.memory import Memory, Message, Role
-from src.agent.plan import Plan, Task
 from src.agent.prompts import PROMPTS, PROMPT_VERSION
-from src.agent.tools import Tool
 
 
 class Agent:
@@ -136,71 +131,3 @@ class Agent:
     def rename_session(self, sid: int, session_name: str):
         """Rename the specified session"""
         self.mem.rename_session(sid, session_name)
-
-    def extract_plan(self, plan_nl):
-        """Converts a structured LLM response in a Plan object"""
-        prompt = self.user_plan_con.format(query=plan_nl)
-        messages = [
-            {'role': 'system', 'content': self.system_plan_con},
-            {'role': 'user', 'content': prompt}
-        ]
-        stream = self.llm.query(messages=messages)
-        response = ''
-        for chunk in stream:
-            response += chunk
-
-        try:
-            plan_data = json.loads(response)
-        except JSONDecodeError:
-            # try extracting json from response
-            json_regex = re.compile(r'\[.*?\]', re.DOTALL)
-            json_match = json_regex.search(response)
-            if json_match:
-                plan_data = json.loads(json_match.group())
-            else:
-                print(f'PlanError:\n{response}')
-                return None
-
-        if not plan_data:
-            raise RuntimeError(f'Error extracting plan: data not found.'
-                               f'\nResponse: {response}')
-
-        tasks = []
-        for task in plan_data:
-            if 'command' not in task.keys() or len(task['command']) == 0:
-                continue
-            if task['command'] == 'N/A':
-                continue
-            if task['command'].startswith('`'):
-                cmd = task['command'][1:-1]
-            else:
-                cmd = task['command']
-
-            tasks.append(Task(
-                command=cmd,
-                thought=task['thought'] if 'thought' in task else None,
-                tool=Tool
-            ))
-
-        return Plan(tasks)
-
-    def execute_plan(self, sid):
-        """Extracts the plan from last message,
-        stores it in memory and executes it."""
-        session = self.mem.get_session(sid)
-
-        messages = session.messages if session else None
-        if not messages or len(messages) <= 1:
-            return None
-
-        msg = messages[-1] if messages[-1].role == Role.ASSISTANT \
-            else messages[-2]
-
-        try:
-            plan = self.extract_plan(msg.content)
-        except Exception as err:
-            raise RuntimeError from err
-
-        yield from plan.execute()
-
-        self.mem.store_plan(sid, plan)
