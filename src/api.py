@@ -1,7 +1,9 @@
 """
 API Interface for AI-OPS, here is provided the list of available endpoints.
+# TODO: dependency injection of Agent
+# TODO: separate routes
 
-Session Related:
+Session routes:
 - /session/list                    : Return all sessions.
 - /session/get/{sid}               : Return a specific session by ID.
 - /session/new/{name}              : Creates a new session.
@@ -12,7 +14,7 @@ Session Related:
 Agent Related:
 - /session/{sid}/query/{q}: Makes a query to the Agent.
 
-RAG Related:
+RAG Routes:
 - /collections/list    : Returns available Collections.
 - /collections/new     : Creates a new Collection.
 - /collections/upload/ : Upload document to an existing Collection
@@ -33,7 +35,6 @@ from src import initialize_knowledge
 from src.agent import Agent
 from src.agent.knowledge import Store, Collection
 from src.agent.llm import LLM, AVAILABLE_PROVIDERS
-from src.agent.plan import TaskStatus
 
 load_dotenv()
 TR = ToolRegistry()
