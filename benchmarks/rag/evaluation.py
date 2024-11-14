@@ -5,7 +5,6 @@ as plots in `rag_evaluation_out`; the plots are then added to the relevant EVALU
 """
 import os
 import json
-import textwrap
 from pathlib import Path
 from tqdm import tqdm
 
@@ -16,7 +15,7 @@ from dotenv import load_dotenv
 
 from src.agent.llm import LLM
 from src.agent.knowledge import Store, Collection, Document, Topic
-from test.benchmarks.rag.metrics import (
+from benchmarks.rag.metrics import (
     ContextRecall,
     ContextPrecision,
     ContextRelevancy,
