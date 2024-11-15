@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 import httpx
 from ollama import Client, ResponseError
 
-from src.agent.memory.base import Role
+from src.core.memory import Role
 
 AVAILABLE_MODELS = {
     'mistral': {
@@ -75,7 +75,10 @@ class Provider(ABC):
 
         # check format = values
         message_roles = [msg['role'] in valid_roles for msg in messages]
-        message_content = [len(msg['content']) != 0 for msg in messages]
+        message_content = [
+            len(msg['content']) != 0 and isinstance(msg['content'], str)
+            for msg in messages
+        ]
         if False in message_roles or False in message_content:
             raise ValueError(err_message)
 
@@ -98,7 +101,10 @@ class Ollama(Provider):
         except Exception as err:
             raise RuntimeError('Initialization Failed') from err
 
-    def query(self, messages: list) -> Tuple[str, int]:
+    def query(
+        self,
+        messages: list
+    ) -> Tuple[str, int]:
         """Generator that returns a tuple containing:
          (response_chunk, token_usage)"""
         try:
@@ -122,7 +128,11 @@ class Ollama(Provider):
         except (ResponseError, httpx.ConnectError) as err:
             raise ProviderError(err) from err
 
-    def tool_query(self, messages: list, tools: list | None = None):
+    def tool_query(
+        self,
+        messages: list,
+        tools: list | None = None
+    ):
         """Implements LLM tool calling.
         :param messages:
             The current conversation provided as a list of messages in the
@@ -133,7 +143,10 @@ class Ollama(Provider):
         :return
             Ollama response with "message" : {"tool_calls": ...} or None.
         """
-        if not AVAILABLE_MODELS[self.model]['tools']:
+        base_model = self.__match_model()
+        if base_model is None:
+            raise ValueError(f'Model {self.model} is not supported.')
+        if not AVAILABLE_MODELS[base_model]['tools']:
             raise NotImplementedError(f'{self.model} not support tool calling')
 
         try:
@@ -177,7 +190,10 @@ class LLM:
             api_key=self.api_key
         )
 
-    def query(self, messages: list) -> Tuple[str, int]:
+    def query(
+        self,
+        messages: list
+    ) -> Tuple[str, int]:
         """Generator that returns LLM response in a tuple containing:
         (chunk, token_usage).
 
@@ -186,7 +202,11 @@ class LLM:
             format [{"role": "assistant/user/system", "content": "..."}, ...]"""
         yield from self.provider.query(messages)
 
-    def tool_query(self, messages: list, tools: list | None = None):
+    def tool_query(
+        self,
+        messages: list,
+        tools: list | None = None
+    ):
         """
         :param messages:
             The current conversation provided as a list of messages in the

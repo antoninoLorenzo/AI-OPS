@@ -4,15 +4,25 @@ API Interface for AI-OPS, here is provided the list of available endpoints.
 # TODO: separate routes
 
 Session routes:
-- /session/list                    : Return all sessions.
-- /session/get/{sid}               : Return a specific session by ID.
-- /session/new/{name}              : Creates a new session.
-- /session/{sid}/rename/{new_name} : Rename a session.
-- /session/{sid}/save              : Save a session.
-- /session/{sid}/delete            : Delete a session.
+- Agent
+    - /session/{sid}/query/{q}         : Makes a query to the Agent.
+- Memory Management
+    - /session/list                    : Return all sessions.
+    - /session/get/{sid}               : Return a specific session by ID.
+    - /session/new/{name}              : Creates a new session.
+    - /session/{sid}/rename/{new_name} : Rename a session.
+    - /session/{sid}/save              : Save a session.
+    - /session/{sid}/delete            : Delete a session.
 
-Agent Related:
-- /session/{sid}/query/{q}: Makes a query to the Agent.
+# TODO: refactor session routes to be REST compliant
+    **Session Management**
+    - GET    /sessions                    # (list) List all conversations
+    - POST   /sessions                    # (new) Create new conversation
+    - PUT    /sessions/{sid}              # (rename) Change session name
+    - DELETE /sessions/{sid}              # (delete) Delete conversation
+    - GET    /sessions/{sid}/chat         # Get the conversation with the agent
+    **Agent**
+    - POST   /sessions/{sid}/chat         # Make a query to the agent
 
 RAG Routes:
 - /collections/list    : Returns available Collections.
@@ -21,7 +31,6 @@ RAG Routes:
 """
 import json
 import os
-from pathlib import Path
 from typing import Optional
 
 from dotenv import load_dotenv
@@ -29,21 +38,18 @@ from fastapi import Body, FastAPI, HTTPException, Form, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic_settings import BaseSettings
-from tool_parse import ToolRegistry
 
-from src import initialize_knowledge
-from src.agent import Agent
-from src.agent.knowledge import Store, Collection
-from src.agent.llm import LLM, AVAILABLE_PROVIDERS
+from src.agent import Agent, build_agent
+from src.core.knowledge import Collection
 
 load_dotenv()
-TR = ToolRegistry()
 
 
 # --- Get AI-OPS Settings
+# TODO: put settings in config.py
 class AgentSettings(BaseSettings):
     """Setup for AI Agent"""
-    MODEL: str = os.environ.get('MODEL', 'gemma2:9b')
+    MODEL: str = os.environ.get('MODEL', 'mistral')
     ENDPOINT: str = os.environ.get('ENDPOINT', 'http://localhost:11434')
     PROVIDER: str = os.environ.get('PROVIDER', 'ollama')
     PROVIDER_KEY: str = os.environ.get('PROVIDER_KEY', '')
@@ -69,62 +75,18 @@ class APISettings(BaseSettings):
 agent_settings = AgentSettings()
 api_settings = APISettings()
 
-# --- Initialize RAG
+# TODO: re-integrate RAG
+# temporarily make store variable
 store = None
-if agent_settings.USE_RAG:
-    rag_settings = RAGSettings()
-
-    store = Store(
-        str(Path(Path.home() / '.aiops')),
-        url=rag_settings.RAG_URL,
-        embedding_url=rag_settings.EMBEDDING_URL,
-        embedding_model=rag_settings.EMBEDDING_MODEL,
-        in_memory=rag_settings.IN_MEMORY
-    )
-
-    initialize_knowledge(store)
-    available_documents = ''
-    for cname, coll in store.collections.items():
-        doc_topics = ", ".join([topic.name for topic in coll.topics])
-        available_documents += f"- '{cname}': {doc_topics}\n"
-
-
-    @TR.register(
-        description=f"""Search documents in the RAG Vector Database.
-        Available collections are:
-        {available_documents}
-        """
-    )
-    def search_rag(rag_query: str, collection: str) -> str:
-        """
-        :param rag_query: what should be searched
-        :param collection: the collection name
-        """
-        return '\n\n'.join(store.retrieve_from(rag_query, collection))
 
 # --- Initialize Agent
 
-# initialize LLM to inject in Agent
-if agent_settings.PROVIDER not in AVAILABLE_PROVIDERS.keys():
-    raise RuntimeError(f'{agent_settings.PROVIDER} not supported.')
-llm_provider = AVAILABLE_PROVIDERS[agent_settings.PROVIDER]['class']
-key_required = AVAILABLE_PROVIDERS[agent_settings.PROVIDER]['key_required']
-if key_required and len(agent_settings.PROVIDER_KEY) == 0:
-    raise RuntimeError(
-        f'Missing PROVIDER_KEY environment variable for {agent_settings.PROVIDER}.'
-    )
-
-llm = LLM(
+# create Agent
+agent: Agent = build_agent(
     model=agent_settings.MODEL,
     inference_endpoint=agent_settings.ENDPOINT,
-    provider=llm_provider,
-    api_key=agent_settings.PROVIDER_KEY
-)
-
-# create Agent
-agent = Agent(
-    llm=llm,
-    tool_registry=TR
+    provider=agent_settings.PROVIDER,
+    provider_key=agent_settings.PROVIDER_KEY
 )
 
 # --- Initialize API
@@ -142,6 +104,8 @@ app.add_middleware(
 @app.get('/')
 def ping():
     """Used to check if API is online on CLI startup"""
+    # TODO: use /ping an return Status.OK
+    # could also consider using /health and adding more functionality
     return ''
 
 
@@ -258,7 +222,7 @@ def query(sid: int, body: dict = Body(...)):
     return StreamingResponse(query_generator(sid, usr_query))
 
 
-# --- KNOWLEDGE RELATED
+# --- RAG RELATED
 @app.get('/collections/list')
 def list_collections():
     """

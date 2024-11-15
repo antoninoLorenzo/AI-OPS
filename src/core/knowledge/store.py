@@ -12,8 +12,8 @@ from qdrant_client import QdrantClient, models
 from qdrant_client.http.exceptions import UnexpectedResponse
 from tqdm import tqdm
 
-from src.agent.llm.llm import ProviderError
-from src.agent.knowledge.collections import Collection, Document, Topic
+from src.core.llm.llm import ProviderError
+from src.core.knowledge.collections import Collection, Document, Topic
 
 
 nlp = spacy.load("en_core_web_md")

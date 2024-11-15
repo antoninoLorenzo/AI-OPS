@@ -49,7 +49,8 @@ class Search:
             }
 
         self.__exclusions = [
-            'youtube.com'
+            'youtube.com',
+            'github.com'
         ]
 
     def run(self, search_query: str) -> str:
