@@ -1,4 +1,6 @@
 benchmarks/rag/*
+test/strategies/*
+
 # IDEs
 .idea/
 .code/
