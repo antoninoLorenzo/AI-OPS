@@ -30,50 +30,24 @@ RAG Routes:
 - /collections/upload/ : Upload document to an existing Collection
 """
 import json
-import os
 from typing import Optional
 
 from dotenv import load_dotenv
 from fastapi import Body, FastAPI, HTTPException, Form, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pydantic_settings import BaseSettings
 
+from src.config import AgentSettings, RAGSettings, APISettings
 from src.agent import Agent, build_agent
 from src.core.knowledge import Collection
 
 load_dotenv()
 
 
-# --- Get AI-OPS Settings
-# TODO: put settings in config.py
-class AgentSettings(BaseSettings):
-    """Setup for AI Agent"""
-    MODEL: str = os.environ.get('MODEL', 'mistral')
-    ENDPOINT: str = os.environ.get('ENDPOINT', 'http://localhost:11434')
-    PROVIDER: str = os.environ.get('PROVIDER', 'ollama')
-    PROVIDER_KEY: str = os.environ.get('PROVIDER_KEY', '')
-    USE_RAG: bool = os.environ.get('USE_RAG', False)
+AGENT_SETTINGS = AgentSettings()
+RAG_SETTINGS = RAGSettings()
+API_SETTINGS = APISettings()
 
-
-class RAGSettings(BaseSettings):
-    """Settings for Qdrant vector database"""
-    RAG_URL: str = os.environ.get('RAG_URL', 'http://localhost:6333')
-    IN_MEMORY: bool = os.environ.get('IN_MEMORY', True)
-    EMBEDDING_MODEL: str = os.environ.get('EMBEDDING_MODEL', 'nomic-embed-text')
-    # There the assumption that embedding url is the same of llm provider
-    EMBEDDING_URL: str = os.environ.get('ENDPOINT', 'http://localhost:11434')
-
-
-class APISettings(BaseSettings):
-    """Setup for API"""
-    ORIGINS: list = [
-        # TODO
-    ]
-
-
-agent_settings = AgentSettings()
-api_settings = APISettings()
 
 # TODO: re-integrate RAG
 # temporarily make store variable
@@ -83,10 +57,10 @@ store = None
 
 # create Agent
 agent: Agent = build_agent(
-    model=agent_settings.MODEL,
-    inference_endpoint=agent_settings.ENDPOINT,
-    provider=agent_settings.PROVIDER,
-    provider_key=agent_settings.PROVIDER_KEY
+    model=AGENT_SETTINGS.MODEL,
+    inference_endpoint=AGENT_SETTINGS.ENDPOINT,
+    provider=AGENT_SETTINGS.PROVIDER,
+    provider_key=AGENT_SETTINGS.PROVIDER_KEY
 )
 
 # --- Initialize API
@@ -94,7 +68,7 @@ agent: Agent = build_agent(
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=api_settings.ORIGINS,
+    allow_origins=API_SETTINGS.ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
