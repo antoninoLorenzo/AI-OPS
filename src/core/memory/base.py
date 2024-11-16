@@ -2,26 +2,19 @@
 Contains the classes that represent Memory.
 """
 import json
-import logging
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 from typing import Dict, List
+from src.utils import get_logger
+
+
+logger = get_logger(__name__)
 
 SESSIONS_PATH = Path(Path.home() / '.aiops' / 'sessions')
 if not SESSIONS_PATH.exists():
     SESSIONS_PATH.mkdir(parents=True, exist_ok=True)
-
-logger = logging.getLogger(__name__)
-
-formatter = logging.Formatter('%(levelname)s: %(name)s: %(message)s')
-
-logger_handler = logging.StreamHandler()
-logger_handler.setLevel(logging.DEBUG)
-logger_handler.setFormatter(formatter)
-
-logger.setLevel(logging.DEBUG)
-logger.addHandler(logger_handler)
+    logger.info(f"Created {str(SESSIONS_PATH)}")
 
 
 class Role(StrEnum):

@@ -1,6 +1,5 @@
 import re
 import json
-import logging
 from typing import Generator, Dict, Tuple
 
 from tool_parse import ToolRegistry
@@ -8,17 +7,9 @@ from tool_parse import ToolRegistry
 from src.agent import AgentArchitecture
 from src.core.llm import LLM
 from src.core.memory import Message, Role
+from src.utils import get_logger
 
-logger = logging.getLogger(__name__)
-
-formatter = logging.Formatter('%(levelname)s: %(name)s: %(message)s')
-
-logger_handler = logging.StreamHandler()
-logger_handler.setLevel(logging.DEBUG)
-logger_handler.setFormatter(formatter)
-
-logger.setLevel(logging.DEBUG)
-logger.addHandler(logger_handler)
+logger = get_logger(__name__)
 
 
 class State:
@@ -92,11 +83,9 @@ class DefaultArchitecture(AgentArchitecture):
 
         self.__thought_parser: State = State()
         self.__tool_pattern = r"\s*({[^}]*(?:{[^}]*})*[^}]*}|\[[^\]]*(?:\[[^\]]*\])*[^\]]*\])\s*$"
-
-        logger.debug(
-            '\nInitialized DefaultArchitecture'
-            f'\nModel: {llm.model}'
-            f'\nTools: {self.__tools}'
+        tool_names = ', '.join([tool["function"]["name"] for tool in self.__tools])
+        logger.info(
+            f'Initialized DefaultArchitecture with model {llm.model} and tools {tool_names}'
         )
 
     def query(
@@ -190,8 +179,7 @@ class DefaultArchitecture(AgentArchitecture):
             return int(assistant_index_buffer.strip()[:1])
         except ValueError:
             logger.error(
-                f'\nWrong assistant index: {assistant_index_buffer}'
-                '\nWill use default index: 1'
+                f'Wrong assistant index: {assistant_index_buffer}'
             )
             return 1
 
@@ -242,8 +230,7 @@ class DefaultArchitecture(AgentArchitecture):
         tool_call_match = re.search(self.__tool_pattern, tool_call_response)
         if not tool_call_match:
             logger.error(
-                '\nTool call failed: not found in LLM response.'
-                f'\nResponse: {tool_call_response}'
+                f'Tool call failed: not found in LLM response: {tool_call_response}'
             )
             return None, {}
         try:
@@ -258,8 +245,7 @@ class DefaultArchitecture(AgentArchitecture):
             name, parameters = tool_call_dict['name'], tool_call_dict['parameters']
         except json.JSONDecodeError as json_extract_err:
             logger.error(
-                '\nTool call failed: not found in LLM response.'
-                f'\nResponse: {tool_call_response}'
+                f'Tool call failed: not found in LLM response: {tool_call_response}'
                 f'\nError: {json_extract_err}'
             )
             return None, {}
