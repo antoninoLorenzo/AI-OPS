@@ -25,3 +25,8 @@ class APISettings(BaseSettings):
     ORIGINS: list = [
         # TODO
     ]
+
+
+AGENT_SETTINGS = AgentSettings()
+RAG_SETTINGS = RAGSettings()
+API_SETTINGS = APISettings()

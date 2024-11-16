@@ -33,35 +33,20 @@ import json
 from typing import Optional
 
 from dotenv import load_dotenv
-from fastapi import Body, FastAPI, HTTPException, Form, File, UploadFile
+from fastapi import Body, FastAPI, HTTPException, Form, File, UploadFile, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
-from src.config import AgentSettings, RAGSettings, APISettings
-from src.agent import Agent, build_agent
+from src.config import API_SETTINGS
+from src.dependencies import get_agent
+from src.agent import Agent
 from src.core.knowledge import Collection
 
 load_dotenv()
 
-
-AGENT_SETTINGS = AgentSettings()
-RAG_SETTINGS = RAGSettings()
-API_SETTINGS = APISettings()
-
-
 # TODO: re-integrate RAG
 # temporarily make store variable
 store = None
-
-# --- Initialize Agent
-
-# create Agent
-agent: Agent = build_agent(
-    model=AGENT_SETTINGS.MODEL,
-    inference_endpoint=AGENT_SETTINGS.ENDPOINT,
-    provider=AGENT_SETTINGS.PROVIDER,
-    provider_key=AGENT_SETTINGS.PROVIDER_KEY
-)
 
 # --- Initialize API
 # TODO: implement proper CORS
@@ -85,7 +70,7 @@ def ping():
 
 # --- SESSION RELATED
 @app.get('/session/list')
-def list_sessions():
+def list_sessions(agent: Agent = Depends(get_agent)):
     """
     Return all sessions.
     Returns a JSON list of Session objects.
@@ -103,7 +88,7 @@ def list_sessions():
 
 
 @app.get('/session/get/')
-def get_session(sid: int):
+def get_session(sid: int, agent: Agent = Depends(get_agent)):
     """
     Return a specific session by id.
     Returns JSON representation for a Session object.
@@ -122,7 +107,7 @@ def get_session(sid: int):
 
 
 @app.get('/session/new/')
-def new_session(name: str):
+def new_session(name: str, agent: Agent = Depends(get_agent)):
     """
     Creates a new session.
     Returns the new session id.
@@ -140,13 +125,13 @@ def new_session(name: str):
 
 
 @app.get('/session/{sid}/rename/')
-def rename_session(sid: int, new_name: str):
+def rename_session(sid: int, new_name: str, agent: Agent = Depends(get_agent)):
     """Rename a session."""
     agent.rename_session(sid, new_name)
 
 
 @app.get('/session/{sid}/save/')
-def save_session(sid: int):
+def save_session(sid: int, agent: Agent = Depends(get_agent)):
     """
     Save a session.
     Returns JSON response with 'success' (True or False) and 'message'.
@@ -159,7 +144,7 @@ def save_session(sid: int):
 
 
 @app.get('/session/{sid}/delete/')
-def delete_session(sid: int):
+def delete_session(sid: int, agent: Agent = Depends(get_agent)):
     """
     Delete a session.
     Returns JSON response with 'success' (True or False) and 'message'.
@@ -173,9 +158,10 @@ def delete_session(sid: int):
 
 # --- AGENT RELATED
 
-def query_generator(sid: int, usr_query: str):
+def query_generator(agent: Agent, sid: int, usr_query: str):
     """Generator function for `/session/{sid}/query endpoint`;
     yields Agent response chunks or error.
+    :param agent:
     :param sid: session id
     :param usr_query: query string"""
     try:
@@ -185,15 +171,16 @@ def query_generator(sid: int, usr_query: str):
 
 
 @app.post('/session/{sid}/query/')
-def query(sid: int, body: dict = Body(...)):
+def query(sid: int, body: dict = Body(...), agent: Agent = Depends(get_agent)):
     """Makes a query to the Agent in the current session context;
     returns the stream for the response using `query_generator`.
+    :param agent:
     :param sid: session id
     :param body: the request body (contains the query string)"""
     usr_query = body.get("query")
     if not usr_query:
         raise HTTPException(status_code=400, detail="Query parameter required")
-    return StreamingResponse(query_generator(sid, usr_query))
+    return StreamingResponse(query_generator(agent, sid, usr_query))
 
 
 # --- RAG RELATED
