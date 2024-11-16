@@ -2,6 +2,7 @@
 Contains the classes that represent Memory.
 """
 import json
+import logging
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -10,6 +11,17 @@ from typing import Dict, List
 SESSIONS_PATH = Path(Path.home() / '.aiops' / 'sessions')
 if not SESSIONS_PATH.exists():
     SESSIONS_PATH.mkdir(parents=True, exist_ok=True)
+
+logger = logging.getLogger(__name__)
+
+formatter = logging.Formatter('%(levelname)s: %(name)s: %(message)s')
+
+logger_handler = logging.StreamHandler()
+logger_handler.setLevel(logging.DEBUG)
+logger_handler.setFormatter(formatter)
+
+logger.setLevel(logging.DEBUG)
+logger.addHandler(logger_handler)
 
 
 class Role(StrEnum):
@@ -68,27 +80,24 @@ class Session:
     def tokens(self, val):
         self._tokens = val
 
-    @property
-    def plans(self):
-        """Interface to private plan property"""
-        return self.__plans
-
     @staticmethod
     def from_json(path: str):
         """Get a session from a JSON file"""
-        with open(str(path), 'r', encoding='utf-8') as fp:
-            data = json.load(fp)
+        try:
+            with open(str(path), 'r', encoding='utf-8') as fp:
+                data = json.load(fp)
+        except json.decoder.JSONDecodeError:
+            return -1, None
 
+        session = Session(
+            name=data['name'],
+            messages=[
+                Message(Role.from_str(msg['role']), msg['content'])
+                for msg in data['messages']
+            ],
+        )
 
-            session = Session(
-                name=data['name'],
-                messages=[
-                    Message(Role.from_str(msg['role']), msg['content'])
-                    for msg in data['messages']
-                ],
-            )
-
-            return data['id'], session
+        return data['id'], session
 
 
 class Memory:
@@ -126,17 +135,15 @@ class Memory:
         if sid not in self.sessions:
             raise ValueError(f'Session {sid} does not exist')
 
-        session = self.sessions[sid]
+        session: Session = self.sessions[sid]
         self.delete_session(sid)
 
         path = f'{SESSIONS_PATH}/{sid}__{session.name}.json'
-        plans = session.plans_to_dict_list() if session.plans else None
         with open(path, 'w+', encoding='utf-8') as fp:
             data = {
                 'id': sid,
                 'name': session.name,
-                'messages': session.messages_to_dict_list(),
-                'plans': plans
+                'messages': session.message_dict,
             }
             json.dump(data, fp)
 
@@ -162,4 +169,7 @@ class Memory:
         for path in SESSIONS_PATH.iterdir():
             if path.is_file() and path.suffix == '.json':
                 sid, session = Session.from_json(str(path))
+                if sid == -1:
+                    logger.error(f"Failed loading session {path}")
+                logger.info(f"Loaded session {path}")
                 self.sessions[sid] = session
