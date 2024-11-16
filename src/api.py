@@ -1,31 +1,11 @@
 """
-API Interface for AI-OPS, here is provided the list of available endpoints.
-# TODO: dependency injection of Agent
-# TODO: separate routes
+API Interface for AI-OPS, includes Sessions routes and Collections routes:
 
-Session routes:
-- Agent
-    - /session/{sid}/query/{q}         : Makes a query to the Agent.
-- Memory Management
-    - /session/list                    : Return all sessions.
-    - /session/get/{sid}               : Return a specific session by ID.
-    - /session/new/{name}              : Creates a new session.
-    - /session/{sid}/rename/{new_name} : Rename a session.
-    - /session/{sid}/save              : Save a session.
-    - /session/{sid}/delete            : Delete a session.
+- **Sessions**: Agent related operations including chat and conversation management.
 
-# TODO: refactor session routes to be REST compliant
-    **Session Management**
-    - [x] GET    /sessions                    # (list) List all conversations
-    - [x] POST   /sessions                    # (new) Create new conversation
-    - [x] PUT    /sessions/{sid}              # (rename) Change session name
-    - [x] DELETE /sessions/{sid}              # (delete) Delete conversation
-    - [x] GET    /sessions/{sid}/chat         # Get the conversation with the agent
-    - [x] PUT    /sessions/{sid}/chat         # save the conversation
-    **Agent**
-    - [x] POST   /sessions/{sid}/chat         # Make a query to the agent
+- **Collections**: RAG related operations (...)
 
-RAG Routes:
+### RAG Routes
 - /collections/list    : Returns available Collections.
 - /collections/new     : Creates a new Collection.
 - /collections/upload/ : Upload document to an existing Collection
@@ -34,14 +14,12 @@ import json
 from typing import Optional
 
 from dotenv import load_dotenv
-from fastapi import Body, FastAPI, HTTPException, Form, File, UploadFile, Depends
+from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
 
 from src.config import API_SETTINGS
-from src.dependencies import get_agent
-from src.agent import Agent
 from src.core.knowledge import Collection
+from src.routers import session_router
 
 load_dotenv()
 
@@ -52,6 +30,7 @@ store = None
 # --- Initialize API
 # TODO: implement proper CORS
 app = FastAPI()
+app.include_router(session_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=API_SETTINGS.ORIGINS,
@@ -67,121 +46,6 @@ def ping():
     # TODO: use /ping an return Status.OK
     # could also consider using /health and adding more functionality
     return ''
-
-
-# --- SESSION RELATED
-@app.get('/sessions')
-def list_sessions(agent: Agent = Depends(get_agent)):
-    """
-    Return all sessions.
-    Returns a JSON list of Session objects.
-    """
-    sessions = agent.get_sessions()
-    json_sessions = []
-    for sid, session in sessions.items():
-        json_sessions.append({
-            'sid': sid,
-            'name': session.name,
-            'messages': session.messages,
-            # '': session.plans
-        })
-    return json_sessions
-
-
-@app.get('/sessions/{sid}/chat')
-def get_session(sid: int, agent: Agent = Depends(get_agent)):
-    """
-    Return a specific session by id.
-    Returns JSON representation for a Session object.
-
-    If session do not exist returns JSON response:
-        {'success': False, 'message': 'error message'}
-    """
-    session = agent.get_session(sid)
-    if not session:
-        return {'success': False, 'message': 'Invalid session id'}
-    return {
-        'sid': sid,
-        'name': session.name,
-        'messages': session.message_dict
-    }
-
-
-@app.post('/sessions')
-def new_session(name: str, agent: Agent = Depends(get_agent)):
-    """
-    Creates a new session.
-    Returns the new session id.
-    """
-    sessions = agent.get_sessions()
-
-    if len(sessions) == 0:
-        new_id = 1
-    else:
-        new_id = max(sorted(sessions.keys())) + 1
-    agent.new_session(new_id)
-    agent.get_session(new_id).name = name
-
-    return {'sid': new_id}
-
-
-@app.put('/sessions/{sid}')
-def rename_session(sid: int, new_name: str, agent: Agent = Depends(get_agent)):
-    """Rename a session."""
-    agent.rename_session(sid, new_name)
-
-
-@app.put('/sessions/{sid}/chat')
-def save_session(sid: int, agent: Agent = Depends(get_agent)):
-    """
-    Save a session.
-    Returns JSON response with 'success' (True or False) and 'message'.
-    """
-    try:
-        agent.save_session(sid)
-        return {'success': True, 'message': f'Saved session {sid}'}
-    except ValueError as err:
-        return {'success': False, 'message': err}
-
-
-@app.delete('/sessions/{sid}')
-def delete_session(sid: int, agent: Agent = Depends(get_agent)):
-    """
-    Delete a session.
-    Returns JSON response with 'success' (True or False) and 'message'.
-    """
-    try:
-        agent.delete_session(sid)
-        return {'success': True, 'message': f'Deleted session {sid}'}
-    except ValueError as err:
-        return {'success': False, 'message': err}
-
-
-# --- AGENT RELATED
-
-def query_generator(agent: Agent, sid: int, usr_query: str):
-    """Generator function for `/session/{sid}/query endpoint`;
-    yields Agent response chunks or error.
-    :param agent:
-    :param sid: session id
-    :param usr_query: query string"""
-    try:
-        yield from agent.query(sid, usr_query)
-    except Exception as err:
-        yield json.dumps({'error': f'query_generator: {err}'})
-
-
-@app.post('/sessions/{sid}/chat')
-def query(sid: int, body: dict = Body(...), agent: Agent = Depends(get_agent)):
-    """Makes a query to the Agent in the current session context;
-    returns the stream for the response using `query_generator`.
-    :param agent:
-    :param sid: session id
-    :param body: the request body (contains the query string)"""
-    usr_query = body.get("query")
-    if not usr_query:
-        raise HTTPException(status_code=400, detail="Query parameter required")
-    return StreamingResponse(query_generator(agent, sid, usr_query))
 
 
 # --- RAG RELATED
