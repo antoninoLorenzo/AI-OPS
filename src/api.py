@@ -16,13 +16,14 @@ Session routes:
 
 # TODO: refactor session routes to be REST compliant
     **Session Management**
-    - GET    /sessions                    # (list) List all conversations
-    - POST   /sessions                    # (new) Create new conversation
-    - PUT    /sessions/{sid}              # (rename) Change session name
-    - DELETE /sessions/{sid}              # (delete) Delete conversation
-    - GET    /sessions/{sid}/chat         # Get the conversation with the agent
+    - [x] GET    /sessions                    # (list) List all conversations
+    - [x] POST   /sessions                    # (new) Create new conversation
+    - [x] PUT    /sessions/{sid}              # (rename) Change session name
+    - [x] DELETE /sessions/{sid}              # (delete) Delete conversation
+    - [x] GET    /sessions/{sid}/chat         # Get the conversation with the agent
+    - [x] PUT    /sessions/{sid}/chat         # save the conversation
     **Agent**
-    - POST   /sessions/{sid}/chat         # Make a query to the agent
+    - [x] POST   /sessions/{sid}/chat         # Make a query to the agent
 
 RAG Routes:
 - /collections/list    : Returns available Collections.
@@ -69,7 +70,7 @@ def ping():
 
 
 # --- SESSION RELATED
-@app.get('/session/list')
+@app.get('/sessions')
 def list_sessions(agent: Agent = Depends(get_agent)):
     """
     Return all sessions.
@@ -87,7 +88,7 @@ def list_sessions(agent: Agent = Depends(get_agent)):
     return json_sessions
 
 
-@app.get('/session/get/')
+@app.get('/sessions/{sid}/chat')
 def get_session(sid: int, agent: Agent = Depends(get_agent)):
     """
     Return a specific session by id.
@@ -106,7 +107,7 @@ def get_session(sid: int, agent: Agent = Depends(get_agent)):
     }
 
 
-@app.get('/session/new/')
+@app.post('/sessions')
 def new_session(name: str, agent: Agent = Depends(get_agent)):
     """
     Creates a new session.
@@ -124,13 +125,13 @@ def new_session(name: str, agent: Agent = Depends(get_agent)):
     return {'sid': new_id}
 
 
-@app.get('/session/{sid}/rename/')
+@app.put('/sessions/{sid}')
 def rename_session(sid: int, new_name: str, agent: Agent = Depends(get_agent)):
     """Rename a session."""
     agent.rename_session(sid, new_name)
 
 
-@app.get('/session/{sid}/save/')
+@app.put('/sessions/{sid}/chat')
 def save_session(sid: int, agent: Agent = Depends(get_agent)):
     """
     Save a session.
@@ -143,7 +144,7 @@ def save_session(sid: int, agent: Agent = Depends(get_agent)):
         return {'success': False, 'message': err}
 
 
-@app.get('/session/{sid}/delete/')
+@app.delete('/sessions/{sid}')
 def delete_session(sid: int, agent: Agent = Depends(get_agent)):
     """
     Delete a session.
@@ -170,7 +171,7 @@ def query_generator(agent: Agent, sid: int, usr_query: str):
         yield json.dumps({'error': f'query_generator: {err}'})
 
 
-@app.post('/session/{sid}/query/')
+@app.post('/sessions/{sid}/chat')
 def query(sid: int, body: dict = Body(...), agent: Agent = Depends(get_agent)):
     """Makes a query to the Agent in the current session context;
     returns the stream for the response using `query_generator`.
