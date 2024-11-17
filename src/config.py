@@ -1,4 +1,5 @@
 import os
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
 
 
@@ -25,8 +26,10 @@ class APISettings(BaseSettings):
     ORIGINS: list = [
         # TODO
     ]
+    PROFILE: bool = os.environ.get('PROFILE', False)
 
 
+load_dotenv()
 AGENT_SETTINGS = AgentSettings()
 RAG_SETTINGS = RAGSettings()
 API_SETTINGS = APISettings()

@@ -13,24 +13,26 @@ API Interface for AI-OPS, includes Sessions routes and Collections routes:
 import json
 from typing import Optional
 
-from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import FastAPI, File, Form, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.config import API_SETTINGS
 from src.core.knowledge import Collection
 from src.routers import session_router
+from src.utils import get_logger
 
-load_dotenv()
+logger = get_logger(__name__)
+
 
 # TODO: re-integrate RAG
 # temporarily make store variable
 store = None
 
 # --- Initialize API
-# TODO: implement proper CORS
 app = FastAPI()
 app.include_router(session_router)
+
+# TODO: implement proper CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=API_SETTINGS.ORIGINS,
@@ -39,13 +41,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+if API_SETTINGS.PROFILE:
+    try:
+        from src.routers.monitoring import monitor_router
+        app.mount('/monitor', monitor_router)
+    except RuntimeError as monitor_startup_err:
+        logger.error("Monitoring disabled: ", str(monitor_startup_err))
 
-@app.get('/')
+
+@app.get('/ping')
 def ping():
-    """Used to check if API is online on CLI startup"""
-    # TODO: use /ping an return Status.OK
-    # could also consider using /health and adding more functionality
-    return ''
+    """Used to check if API is on"""
+    return status.HTTP_200_OK
 
 
 # --- RAG RELATED
