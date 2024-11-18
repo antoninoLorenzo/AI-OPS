@@ -9,15 +9,38 @@ import sys
 from urllib.parse import urlparse
 
 import requests
-from requests.exceptions import ConnectionError
+from requests.exceptions import ConnectionError, HTTPError
 from rich.console import Console
 from rich.live import Live
 from rich.markdown import Markdown
 from rich.prompt import InvalidResponse, Prompt
 from rich.tree import Tree
-
+from prompt_toolkit import PromptSession
+from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.lexers import PygmentsLexer
+from pygments.lexers import MarkdownLexer
+from prompt_toolkit.keys import Keys
 
 VERSION = "0.0.0"
+
+
+def build_input_multiline():
+    """Creates an input prompt that can handle:
+    - Multiline input
+    - Copy-Paste
+    - Press Enter to complete input
+    - Press Ctrl+DownArrow to go next line"""
+    bindings = KeyBindings()
+
+    @bindings.add(Keys.ControlDown, eager=True)
+    def _(event):
+        event.current_buffer.newline()
+
+    return PromptSession(
+        "> ",
+        key_bindings=bindings,
+        lexer=PygmentsLexer(MarkdownLexer)
+    )
 
 
 class AgentClient:
@@ -45,12 +68,18 @@ class AgentClient:
             'list collections': self.list_collections,
             'create collection': self.create_collection
         }
+        self.multiline_input = build_input_multiline()
 
         self.console.print("[bold blue]ai-ops-cli[/] (beta) starting.")
         try:
-            self.client.get(self.api_url, timeout=20)
+            response = self.client.get(f'{self.api_url}/ping', timeout=20)
+            response.raise_for_status()
             self.console.print(f"Backend: [blue]online[/]")
-        except ConnectionError:
+            self.console.print(
+                "[bold cyan]ℹ️  Tip:[/bold cyan] Press [bold green]Ctrl + ↓ (Down Arrow)[/bold green] to move to the next line while typing.",
+                style="italic"
+            )
+        except (ConnectionError, HTTPError):
             self.console.print('Backend: [red]offline[/]')
             sys.exit(-1)
         self.console.print()
@@ -182,8 +211,7 @@ class AgentClient:
             self.console.print(f'({sid}) [bold blue]{name}[/]')
 
         while True:
-            self.console.print("[bold white]User:[/] ", end='')
-            q = self.__input_multiline()
+            q = self.multiline_input.prompt()
             if q.startswith('back'):
                 break
 
@@ -272,16 +300,6 @@ class AgentClient:
         except requests.exceptions.HTTPError as http_err:
             self.console.print(f"[bold red][!] HTTP Error: [/] {http_err}")
 
-    def __input_multiline(self) -> str:
-        # TODO: fix, nobody wants to press Enter two times
-        input_text = ""
-        while True:
-            line = self.console.input("")
-            if line == "":
-                break
-            input_text += line + "\n"
-        return input_text
-
     def help(self):
         """Print help message"""
         # Basic Commands
@@ -321,6 +339,7 @@ class ValidateURLAction(argparse.Action):
     - http/https scheme
     - the path is empty
     """
+
     def __call__(self, parser, namespace, values, option_string=None):
         parsed = urlparse(values)
         url_scheme = parsed.scheme
