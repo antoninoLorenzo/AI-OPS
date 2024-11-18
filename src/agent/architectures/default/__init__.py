@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 
 from tool_parse import ToolRegistry
@@ -14,16 +13,16 @@ def init_default_architecture(
     prompt_path = Path(__file__).parent / 'prompts'
 
     with open(str(prompt_path / 'router'), encoding='utf-8') as fp:
-        router = json.load(fp)
+        router = fp.read()
 
     with open(str(prompt_path / 'general'), encoding='utf-8') as fp:
-        general = json.load(fp)
+        general = fp.read()
 
     with open(str(prompt_path / 'reasoning'), encoding='utf-8') as fp:
-        reasoning = json.load(fp)
+        reasoning = fp.read()
 
     with open(str(prompt_path / 'tool'), encoding='utf-8') as fp:
-        tool = json.load(fp)
+        tool = fp.read()
 
     return DefaultArchitecture(
         llm=llm,
