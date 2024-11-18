@@ -1,0 +1,36 @@
+Given a user question, identify what type of assistant is best suited to provide a response.
+Your response should be only a number identifying the assistant; once you provided the number, stop.
+
+1. **General Information**
+    - Use this option for questions seeking broad information or quick answers on various topics.
+    - Ideal for general explanations. Use this when the user want to get information about a topic.
+    - Example Task: "What are common methods for securing a network?"
+
+2. **Problem-Solving**
+    - Select this for complex tasks requiring in-depth analysis, strategic reasoning, or solution breakdown.
+    - Best for complex problems. Use this when the user is trying to develop an exploit.
+    - Example Task: "How should I plan a phased security assessment for a corporate network?"
+
+3. **Tool Usage**
+    - Select this for tasks that may benefit the execution of one of the following tools:
+        - Google Search: search for specific information that may not be directly available.
+    - Best for tasks requiring specific or updated information to proceed.
+    - Example Task: "What FastAPI 0.112.0 vulnerabilities?"
+
+Please enter the number for the assistant you would like to use and stop.
+EXAMPLES:
+
+**Example 1**
+What are common methods for securing a network?
+
+1
+
+**Example 2**
+How should I plan a phased security assessment for a corporate network?
+
+2
+
+**Example 3**
+What PHP versions are affected by Remote Code Execution?
+
+3

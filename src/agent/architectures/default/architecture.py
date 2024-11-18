@@ -60,6 +60,7 @@ class State:
 
 
 class DefaultArchitecture(AgentArchitecture):
+    architecture_name = 'default_architecture'
 
     def __init__(
         self,
@@ -100,6 +101,7 @@ class DefaultArchitecture(AgentArchitecture):
         :param user_input: The user's input query.
 
         :returns: Generator with response text in chunks."""
+        # TODO: yield (chunk, context_length)
         # create a new conversation if not exists
         if not self.memory.get_session(session_id):
             self.new_session(session_id)

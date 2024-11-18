@@ -11,18 +11,25 @@ def init_default_architecture(
     llm: LLM,
     tool_registry: ToolRegistry
 ) -> DefaultArchitecture:
+    prompt_path = Path(__file__).parent / 'prompts'
 
-    with open(
-        str(Path(__file__).parent / 'prompts.json'),
-        encoding='utf-8'
-    ) as fp:
-        prompts = json.load(fp)
+    with open(str(prompt_path / 'router'), encoding='utf-8') as fp:
+        router = json.load(fp)
+
+    with open(str(prompt_path / 'general'), encoding='utf-8') as fp:
+        general = json.load(fp)
+
+    with open(str(prompt_path / 'reasoning'), encoding='utf-8') as fp:
+        reasoning = json.load(fp)
+
+    with open(str(prompt_path / 'tool'), encoding='utf-8') as fp:
+        tool = json.load(fp)
 
     return DefaultArchitecture(
         llm=llm,
         tools=tool_registry,
-        router_prompt=prompts['router']['content'],
-        general_prompt=prompts['general']['content'],
-        reasoning_prompt=prompts['reasoning']['content'],
-        tool_prompt=prompts['tool']['content']
+        router_prompt=router,
+        general_prompt=general,
+        reasoning_prompt=reasoning,
+        tool_prompt=tool
     )
