@@ -60,6 +60,7 @@ class State:
 
 
 class DefaultArchitecture(AgentArchitecture):
+    model: str
     architecture_name = 'default_architecture'
 
     def __init__(
@@ -73,6 +74,7 @@ class DefaultArchitecture(AgentArchitecture):
     ):
         super().__init__()
         self.llm: LLM = llm
+        self.model = llm.model
         self.__tool_registry: ToolRegistry = tools
         self.__tools: tuple = tuple(self.__tool_registry.marshal('base'))
         self.__prompts: Dict[str, str] = {

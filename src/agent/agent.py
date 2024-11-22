@@ -17,7 +17,7 @@ Classes:
 """
 from abc import ABC, abstractmethod
 from typing import Generator
-from src.core import Memory, Message, Role
+from src.core import Memory
 
 
 class AgentArchitecture(ABC):
@@ -26,6 +26,8 @@ class AgentArchitecture(ABC):
     This interface abstracts the underlying generation strategies used by
     the `Agent` class, allowing the implementation of multiple architectures
     that can be easily swapped or extended."""
+    model: str
+    architecture_name: str
 
     def __init__(self):
         self.memory = Memory()
@@ -79,7 +81,8 @@ class Agent:
         :returns: Generator with response text in chunks."""
         if not isinstance(user_input, str) or len(user_input) == 0:
             raise ValueError(f'Invalid input: {user_input} [{type(user_input)}]')
-
+        # TODO: if Prometheus Metric is injected update it with token
+        #  consumption (arch_name, sid, context_length)
         yield from self.agent.query(session_id, user_input)
 
     def new_session(self, sid: int):
