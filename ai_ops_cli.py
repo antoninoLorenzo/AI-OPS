@@ -148,9 +148,16 @@ class AgentClient:
         self.chat(print_name=True)
 
     def delete_session(self):
-        """Deletes the current session"""
+        """Deletes a session"""
+        session_id = Prompt.ask(
+            'Enter session ID',
+            console=self.console
+        )
+        if not session_id.isdigit():
+            self.console.print('[-] Not a number', style='bold red')
+
         response = self.client.delete(
-            f'{self.api_url}/sessions/{self.current_session["sid"]}'
+            f'{self.api_url}/sessions/{session_id}'
         )
         response.raise_for_status()
         body = response.json()
@@ -182,8 +189,7 @@ class AgentClient:
             self.load_session()
 
         response = self.client.get(
-            f'{self.api_url}/sessions/{self.current_session["sid"]}/chat',
-            params={'sid': int(session_id)}
+            f'{self.api_url}/sessions/{int(session_id)}/chat',
         )
         response.raise_for_status()
 
