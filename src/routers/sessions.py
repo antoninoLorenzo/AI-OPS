@@ -10,7 +10,6 @@
 **Agent**
 - [x] POST   /sessions/{sid}/chat         # Make a query to the agent
 """
-
 import json
 
 from fastapi import APIRouter, Body, Depends, HTTPException
@@ -23,7 +22,7 @@ session_router = APIRouter()
 
 
 @session_router.get('/sessions')
-def list_sessions(agent: Agent = Depends(get_agent)):
+async def list_sessions(agent: Agent = Depends(get_agent)):
     """
     Return all sessions.
     Returns a JSON list of Session objects.
@@ -41,7 +40,7 @@ def list_sessions(agent: Agent = Depends(get_agent)):
 
 
 @session_router.get('/sessions/{sid}/chat')
-def get_session(sid: int, agent: Agent = Depends(get_agent)):
+async def get_session(sid: int, agent: Agent = Depends(get_agent)):
     """
     Return a specific session by id.
     Returns JSON representation for a Session object.
@@ -60,7 +59,7 @@ def get_session(sid: int, agent: Agent = Depends(get_agent)):
 
 
 @session_router.post('/sessions')
-def new_session(name: str, agent: Agent = Depends(get_agent)):
+async def new_session(name: str, agent: Agent = Depends(get_agent)):
     """
     Creates a new session.
     Returns the new session id.
@@ -78,13 +77,13 @@ def new_session(name: str, agent: Agent = Depends(get_agent)):
 
 
 @session_router.put('/sessions/{sid}')
-def rename_session(sid: int, new_name: str, agent: Agent = Depends(get_agent)):
+async def rename_session(sid: int, new_name: str, agent: Agent = Depends(get_agent)):
     """Rename a session."""
     agent.rename_session(sid, new_name)
 
 
 @session_router.put('/sessions/{sid}/chat')
-def save_session(sid: int, agent: Agent = Depends(get_agent)):
+async def save_session(sid: int, agent: Agent = Depends(get_agent)):
     """
     Save a session.
     Returns JSON response with 'success' (True or False) and 'message'.
@@ -97,7 +96,7 @@ def save_session(sid: int, agent: Agent = Depends(get_agent)):
 
 
 @session_router.delete('/sessions/{sid}')
-def delete_session(sid: int, agent: Agent = Depends(get_agent)):
+async def delete_session(sid: int, agent: Agent = Depends(get_agent)):
     """
     Delete a session.
     Returns JSON response with 'success' (True or False) and 'message'.
@@ -118,13 +117,14 @@ def query_generator(agent: Agent, sid: int, usr_query: str):
     :param sid: session id
     :param usr_query: query string"""
     try:
+        # TODO: inject Prometheus Metric to measure token consumption
         yield from agent.query(sid, usr_query)
     except Exception as err:
         yield json.dumps({'error': f'query_generator: {err}'})
 
 
 @session_router.post('/sessions/{sid}/chat')
-def query(sid: int, body: dict = Body(...), agent: Agent = Depends(get_agent)):
+async def query(sid: int, body: dict = Body(...), agent: Agent = Depends(get_agent)):
     """Makes a query to the Agent in the current session context;
     returns the stream for the response using `query_generator`.
     :param agent:
