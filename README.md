@@ -38,9 +38,11 @@ TODO
 
 ### Supported Models
 
-| Name                    | Implemented   |
-|-------------------------|---------------|
-| **Mistral 7B Instruct** | &check;       | 
+| Name        | Implemented |
+|-------------|-------------|
+| **Mistral** | &check;     | 
+> Other models can be used, but the in the current experimentation process I'm using Mistral, so
+> other models may yield unexpected behaviour.
 
 ## Quickstart
 
