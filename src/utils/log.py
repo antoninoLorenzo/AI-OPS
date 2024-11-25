@@ -1,4 +1,9 @@
 import logging
+from pathlib import Path
+
+LOGS_PATH = Path(Path.home() / '.aiops' / 'logs')
+if not LOGS_PATH.exists():
+    LOGS_PATH.mkdir(parents=True, exist_ok=True)
 
 
 def get_logger(module_name: str) -> logging.Logger:

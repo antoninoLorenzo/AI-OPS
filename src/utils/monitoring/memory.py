@@ -3,7 +3,7 @@ import threading
 import logging
 import psutil
 
-from src.utils import get_logger
+from src.utils.log import get_logger, LOGS_PATH
 
 logger = get_logger(__name__)
 
@@ -31,7 +31,7 @@ class MemoryUsageLogger(threading.Thread):
         formatter = logging.Formatter('%(asctime)s: %(name)s: %(message)s')
 
         logger_handler = logging.FileHandler(
-            filename='./logs/memory_usage.log',
+            filename=f'{str(LOGS_PATH)}/memory_usage.log',
             mode='a',
             encoding='utf-8'
         )
