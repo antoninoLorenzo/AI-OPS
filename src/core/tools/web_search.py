@@ -12,6 +12,10 @@ import newspaper
 from bs4 import BeautifulSoup
 from tool_parse import ToolRegistry
 
+from src.utils import get_logger
+
+logger = get_logger(__name__)
+
 
 class Search:
     """Class to perform an online search."""
@@ -63,7 +67,8 @@ class Search:
 
         results = []
         if not links:
-            print('[!] No links found')
+            logger.error('No links found')
+            return ''
         elif len(links) == 1:
             title, content, _ = self.__parse(links[0])
             results = [f"# {title}\n{content}"]
@@ -104,6 +109,7 @@ class Search:
                     "num": results,
                     "start": 0,
                     "safe": "active",
+                    "hl": "en"
                 },
                 timeout=timeout,
             )
