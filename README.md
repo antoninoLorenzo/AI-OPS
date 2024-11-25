@@ -16,9 +16,10 @@
 1. [Overview](#-overview)
    - [Key Features](#key-features)
    - [Supported Models](#supported-models)
-2. [Documentation](#documentation)
-   - [User](#user-)
+2. [Quickstart](#quickstart)
 3. [Ethical and Legal Considerations](#-ethical-and-legal-considerations)
+
+---
 
 ## 💡 Overview
 
@@ -41,15 +42,40 @@ TODO
 |-------------------------|---------------|
 | **Mistral 7B Instruct** | &check;       | 
 
-## Documentation
+## Quickstart
 
-### User 
+**Requirements**
+- Python (>= 3.11)
+- Ollama (>= 0.3.0)
+- Docker
 
-- [Quickstart](./docs/1_user/1.%20Quickstart.md): Installation and Basic Usage
+```
+# Clone Repository 
+git clone https://github.com/antoninoLorenzo/AI-OPS.git
 
-<!--
-### Development 
--->
+# Launch Ollama (...)
+ 
+# Run `ai_ops_api.py` or build manually:
+docker build -t ai-ops:api-dev --build-arg ollama_endpoint=ENDPOINT ollama_model=MODEL .
+docker run -p 8000:8000 ai-ops:api-dev
+
+# Install Client
+pip install .
+
+# Run Client
+ai-ops-cli --api AI-OPS_API_ADDRESS
+```
+
+---
+
+**User Documentation**
+1. [Usage](./docs/user/1.Usage.md)
+2. [Configuration](./docs/user/2.Configuration.md)
+
+**Developer Documentation**
+1. [Project Structure](./docs/development/1.Project%20Structure.md)
+
+---
 
 ## ⚖️ Ethical and Legal Considerations
 
