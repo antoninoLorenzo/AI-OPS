@@ -126,6 +126,7 @@ class Memory:
     def save_session(self, sid: int):
         """Saves the current session state to a JSON file at SESSION_PATH"""
         if sid not in self.sessions:
+            logger.error(f'Error in {self.__name__}: session not exists.')
             raise ValueError(f'Session {sid} does not exist')
 
         session: Session = self.sessions[sid]
@@ -133,22 +134,36 @@ class Memory:
 
         path = f'{SESSIONS_PATH}/{sid}__{session.name}.json'
         with open(path, 'w+', encoding='utf-8') as fp:
-            data = {
-                'id': sid,
-                'name': session.name,
-                'messages': session.message_dict,
-            }
-            json.dump(data, fp)
+            try:
+                data = {
+                    'id': sid,
+                    'name': session.name,
+                    'messages': session.message_dict,
+                }
+                json.dump(data, fp)
+            except (
+                UnicodeDecodeError,
+                json.JSONDecodeError,
+                OverflowError
+            ) as save_error:
+                logger.error(
+                    f'Failed saving session {sid}. {save_error}'
+                )
 
     def delete_session(self, sid: int):
         """Deletes a session from SESSION_PATH"""
+        # TODO: should also delete session from sessions dictionary
         if sid not in self.sessions:
             raise ValueError(f'Session {sid} does not exist')
 
+        # delete file from ~/.aiops/sessions
         for path in SESSIONS_PATH.iterdir():
             if path.is_file() and path.suffix == '.json' and \
                     path.name.startswith(f'{sid}__'):
                 path.unlink()
+
+        # delete session from memory
+        self.sessions.pop(sid, None)
 
     def rename_session(self, sid: int, session_name: str):
         """Renames a session identified by session id or creates a new one"""
