@@ -113,9 +113,13 @@ class DefaultArchitecture(AgentArchitecture):
 
         # RESPONSE
         prompt = self.__prompts['general']
+        user_input_with_tool_call = f'{user_input}'
         if assistant_index == 2:
             prompt = self.__prompts['reasoning']
         elif assistant_index == 3:
+            # Execute tool call and temporarily concatenate output to user
+            # message, but the tool call result is thrown away (for simplicity)
+            # in order to avoid display the result when load_session is called.
             tool_call_result = self.__tool_call(
                 user_input,
                 self.memory.get_session(session_id).message_dict,
@@ -123,15 +127,16 @@ class DefaultArchitecture(AgentArchitecture):
             if len(tool_call_result) == 0:
                 logger.error('Tool call failed, will answer without tool results.')
 
-            user_input += f'Web Search Result:\n{tool_call_result}'
+            user_input_with_tool_call += f'\nWeb Search Result:\n{tool_call_result}'
             assistant_index = 1
 
+        # Replace system prompt with the one built for specific assistant type
         history = self.memory.get_session(session_id)
         history.messages[0] = Message(role=Role.SYS, content=prompt)
         history.add_message(
             Message(
                 role=Role.USER,
-                content=user_input
+                content=user_input_with_tool_call
             )
         )
 
@@ -149,6 +154,15 @@ class DefaultArchitecture(AgentArchitecture):
                 generation_state = self.__thought_parser.state(c)
                 if generation_state == State.SPEAKING:
                     yield c
+
+        # remove tool call result from user input and add response to history
+        history.messages[-1].content = user_input
+        history.add_message(
+            Message(
+                Role.ASSISTANT,
+                content=response
+            )
+        )
 
     def new_session(self, session_id: int):
         """Create a new conversation if not exists"""
