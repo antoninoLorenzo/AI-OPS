@@ -1,3 +1,6 @@
+"""
+Initializes all the necessary dependencies for the API.
+"""
 from src.config import AGENT_SETTINGS
 from src.agent import Agent, build_agent
 
@@ -11,5 +14,6 @@ agent: Agent = build_agent(
 
 
 def get_agent():
+    """Expose agent for Dependency Injection"""
     return agent
 
