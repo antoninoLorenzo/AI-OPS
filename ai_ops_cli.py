@@ -65,8 +65,8 @@ class AgentClient:
             'list sessions': self.list_sessions,
             'load': self.load_session,
 
-            'list collections': self.list_collections,
-            'create collection': self.create_collection
+            # 'list collections': self.list_collections,
+            # 'create collection': self.create_collection
         }
         self.multiline_input = build_input_multiline()
 
@@ -243,7 +243,8 @@ class AgentClient:
                 else:
                     self.console.print(f'[red]Server Error: {resp.status_code}[/]')
 
-    def list_collections(self):
+    # RAG is disabled in the current version
+    def __list_collections(self):
         """Know what collections are available"""
         response = self.client.get(
             f'{self.api_url}/collections/list/'
@@ -268,7 +269,7 @@ class AgentClient:
 
             self.console.print(tree)
 
-    def create_collection(self):
+    def __create_collection(self):
         """Upload a collection to RAG"""
         collection_title = Prompt.ask(
             prompt='Title: ',
@@ -329,9 +330,9 @@ class AgentClient:
         self.console.print("- [bold blue]list sessions[/]   : Show the saved sessions.")
 
         # RAG Related
-        self.console.print("\n[bold white]RAG Related[/]")
-        self.console.print("- [bold blue]list collections[/]  : Lists all collections in RAG.")
-        self.console.print("- [bold blue]create collection[/] : Upload a collection to RAG.")
+        # self.console.print("\n[bold white]RAG Related[/]")
+        # self.console.print("- [bold blue]list collections[/]  : Lists all collections in RAG.")
+        # self.console.print("- [bold blue]create collection[/] : Upload a collection to RAG.")
 
     @staticmethod
     def clear_terminal():
