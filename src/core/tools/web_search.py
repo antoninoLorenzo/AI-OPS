@@ -69,7 +69,8 @@ class Search:
         if not links:
             logger.error('No links found')
             return ''
-        elif len(links) == 1:
+
+        if len(links) == 1:
             title, content, _ = self.__parse(links[0])
             results = [f"# {title}\n{content}"]
         else:
@@ -172,19 +173,3 @@ class Search:
         )
         return available[random.randint(0, len(available) - 1)]
 
-
-def main():
-    # --- EXAMPLE
-    TR = ToolRegistry()
-    SEARCH = Search()
-
-    @TR.register(description=Search.usage)
-    def search(search_query: str):
-        return SEARCH.run(search_query)
-
-    result = search('browser passwords Windows DPAPI python')
-    # print(result)
-
-
-if __name__ == "__main__":
-    main()

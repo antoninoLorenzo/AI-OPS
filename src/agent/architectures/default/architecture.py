@@ -18,8 +18,8 @@ class State:
     A class to manage the state of the LLM response stream.
 
     Attributes:
-        SPEAKING (int): Indicates the assistant is currently generating a response.
-        THINKING (int): Indicates the assistant is processing thoughts.
+        SPEAKING (int): The assistant is currently generating a response.
+        THINKING (int): The assistant is processing thoughts.
         IDLE (int): Indicates a transition between SPEAKING-THINKING.
     """
     SPEAKING = 1
@@ -31,6 +31,7 @@ class State:
         self.__count = 0
 
     def state(self, c: str):
+        """:returns the state of the generation stream"""
         match self.__state:
             case State.SPEAKING:
                 if c == '@':
@@ -87,7 +88,10 @@ class DefaultArchitecture(AgentArchitecture):
 
         self.__thought_parser: State = State()
         self.__tool_pattern = r"\s*({[^}]*(?:{[^}]*})*[^}]*}|\[[^\]]*(?:\[[^\]]*\])*[^\]]*\])\s*$"
-        tool_names = ', '.join([tool["function"]["name"] for tool in self.__tools])
+        tool_names = ', '.join([
+            tool["function"]["name"]
+            for tool in self.__tools
+        ])
         logger.info(
             f'Initialized DefaultArchitecture with model {llm.model} and tools {tool_names}'
         )
@@ -140,7 +144,7 @@ class DefaultArchitecture(AgentArchitecture):
                 self.memory.get_session(session_id).message_dict,
             )
             if len(tool_call_result) == 0:
-                logger.error('Tool call failed, will answer without tool results.')
+                logger.error('Tool call failed, will exclude tool results.')
 
             user_input_with_tool_call += f'\nWeb Search Result:\n{tool_call_result}'
             assistant_index = 1
@@ -159,7 +163,9 @@ class DefaultArchitecture(AgentArchitecture):
         response = ''
         for chunk, ctx_length in self.llm.query(history.message_dict):
             if ctx_length:
-                self.token_logger.info(f'Session: {session_id}; Tokens: {ctx_length}')
+                self.token_logger.info(
+                    f'Session: {session_id}; Tokens: {ctx_length}'
+                )
                 break
             if assistant_index == 1:
                 response += chunk
@@ -229,8 +235,14 @@ class DefaultArchitecture(AgentArchitecture):
         :param message_history: The conversation history.
 
         :returns: Result of the tool execution."""
-        message_history[0] = {'role': 'system', 'content': self.__prompts['tool']}
-        message_history.append({'role': 'user', 'content': user_input})
+        message_history[0] = {
+            'role': 'system',
+            'content': self.__prompts['tool']
+        }
+        message_history.append({
+            'role': 'user',
+            'content': user_input}
+        )
 
         tool_call_response = ''
         for chunk, _ in self.llm.query(message_history):
@@ -294,4 +306,3 @@ class DefaultArchitecture(AgentArchitecture):
             logger.error(f'Tool call failed: {name} is not a tool.')
             return None, {}
         return name, parameters
-
