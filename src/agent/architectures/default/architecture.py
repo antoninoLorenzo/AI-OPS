@@ -1,5 +1,6 @@
 import re
 import json
+import logging
 from typing import Generator, Dict, Tuple
 
 from tool_parse import ToolRegistry
@@ -7,7 +8,7 @@ from tool_parse import ToolRegistry
 from src.agent import AgentArchitecture
 from src.core.llm import LLM
 from src.core.memory import Message, Role
-from src.utils import get_logger
+from src.utils import get_logger, LOGS_PATH
 
 logger = get_logger(__name__)
 
@@ -91,6 +92,20 @@ class DefaultArchitecture(AgentArchitecture):
             f'Initialized DefaultArchitecture with model {llm.model} and tools {tool_names}'
         )
 
+        self.token_logger = logging.Logger('token_logger')
+        formatter = logging.Formatter(f'%(name)s - {self.model}: %(message)s')
+
+        logger_handler = logging.FileHandler(
+            filename=f'{str(LOGS_PATH)}/token_usage.log',
+            mode='a',
+            encoding='utf-8'
+        )
+        logger_handler.setLevel(logging.DEBUG)
+        logger_handler.setFormatter(formatter)
+
+        self.token_logger.setLevel(logging.DEBUG)
+        self.token_logger.addHandler(logger_handler)
+
     def query(
         self,
         session_id: int,
@@ -144,6 +159,7 @@ class DefaultArchitecture(AgentArchitecture):
         response = ''
         for chunk, ctx_length in self.llm.query(history.message_dict):
             if ctx_length:
+                self.token_logger.info(f'Session: {session_id}; Tokens: {ctx_length}')
                 break
             if assistant_index == 1:
                 response += chunk
@@ -153,6 +169,7 @@ class DefaultArchitecture(AgentArchitecture):
             for c in chunk:
                 generation_state = self.__thought_parser.state(c)
                 if generation_state == State.SPEAKING:
+                    response += c
                     yield c
 
         # remove tool call result from user input and add response to history
