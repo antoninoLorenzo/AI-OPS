@@ -3,7 +3,7 @@ import json
 import unittest
 from pathlib import Path
 
-from src.agent.knowledge.collections import Collection, Document, Topic
+from src.agent.knowledge.collections import Collection
 
 
 class TestCollection(unittest.TestCase):

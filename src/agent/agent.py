@@ -1,226 +1,111 @@
-"""Contains the class `Agent`, the core of the system."""
-import json
-import re
-from json import JSONDecodeError
+"""
+This module defines the core classes and interfaces for the AI Penetration
+Testing Assistant system. It provides the foundational components for handling
+user interactions, managing conversations, and processing user inputs using
+different agent architectures.
 
-from tool_parse import ToolRegistry
+Classes:
+    - `AgentArchitecture`: An abstract base class that defines the contract for
+      various  architectures used by the assistant to process user queries.
+      Implementations of this interface can support different models or
+      strategies for generating responses.
 
-from src.agent.llm import AVAILABLE_PROVIDERS, LLM, ProviderError
-from src.agent.memory import Memory, Message, Role
-from src.agent.plan import Plan, Task
-from src.agent.prompts import PROMPTS, PROMPT_VERSION
-from src.agent.tools import Tool
+    - `Agent`: A high-level interface that manages interaction with the
+      penetration testing assistant. It abstracts session management, delegates
+      user queries to a specific `AgentArchitecture` implementation, handles
+      session persistence.
+"""
+from abc import ABC, abstractmethod
+from typing import Generator
+from src.core import Memory
+
+
+class AgentArchitecture(ABC):
+    """Interface defining the contract for various agent architectures.
+
+    This interface abstracts the underlying generation strategies used by
+    the `Agent` class, allowing the implementation of multiple architectures
+    that can be easily swapped or extended."""
+    model: str
+    architecture_name: str
+
+    def __init__(self):
+        self.memory = Memory()
+
+    @abstractmethod
+    def query(
+        self,
+        session_id: int,
+        user_input: str
+    ) -> Generator:
+        """Handles the input from the user and generates responses in a
+        streaming manner. The exact behavior depends on the specific
+        implementation of the strategy.
+
+        :param session_id: The session identifier.
+        :param user_input: The user's input query.
+
+        :returns: Generator with response text in chunks."""
+        raise NotImplementedError()
+
+    @abstractmethod
+    def new_session(self, session_id: int):
+        raise NotImplementedError()
 
 
 class Agent:
-    """Penetration Testing Assistant"""
+    """This class serves as a high-level interface for managing the interaction
+     with the penetration testing assistant. It abstracts session management
+     and delegates querying to a specific `AgentArchitecture` implementation.
+    """
 
-    def __init__(self, model: str,
-                 tools: str = '',
-                 llm_endpoint: str = 'http://localhost:11434',
-                 provider: str = 'ollama',
-                 provider_key: str = '',
-                 tool_registry: ToolRegistry | None = None):
+    def __init__(
+        self,
+        architecture: AgentArchitecture
+    ):
         """
-        :param model: llm model name
-        :param tools: documentation of penetration testing tools
-        :param llm_endpoint: llm endpoint
-        :param provider: llm provider
-        :param provider_key: provider api key (if required)
-        :param tool_registry: the available agent tools (ToolRegistry)
+        :param architecture: the agent architecture implementation that handles
+         the core query processing and responses.
         """
-        # Pre-conditions
-        if provider not in AVAILABLE_PROVIDERS.keys():
-            raise RuntimeError(f'{provider} not supported.')
+        self.agent = architecture
 
-        provider_class = AVAILABLE_PROVIDERS[provider]['class']
-        key_required = AVAILABLE_PROVIDERS[provider]['key_required']
-        if key_required and len(provider_key) == 0:
-            raise RuntimeError(
-                f'Missing PROVIDER_KEY environment variable for {provider}.'
-            )
+    def query(self, session_id: int, user_input: str):
+        """Handles the input from the user and generates responses in a
+        streaming manner.
 
-        # Agent Components
-        self.llm = LLM(
-            model=model,
-            client_url=llm_endpoint,
-            provider_class=provider_class,
-            api_key=provider_key
-        )
-        self.mem = Memory()
-        self.tool_registry: ToolRegistry | None = tool_registry
-        if tool_registry is not None and len(tool_registry) > 0:
-            self.tools = list(self.tool_registry.marshal('base'))
-        else:
-            self.tools = []
+        This method delegates the query to the specified `AgentArchitecture`
 
-        # Prompts
-        self._available_tools = tools
-        prompts = PROMPTS[model][PROMPT_VERSION]
-        self.system_plan_gen = prompts['plan']['system'].format(tools=tools)
-        self.user_plan_gen = prompts['plan']['user']
-        self.system_plan_con = prompts['conversion']['system']
-        self.user_plan_con = prompts['conversion']['user']
+        :param session_id: The session identifier.
+        :param user_input: The user's input query.
 
-    def query(self, sid: int, user_in: str):
-        """Performs a query to the Large Language Model, will use RAG
-        if provided with the necessary tool to perform rag search"""
-
-        if not isinstance(user_in, str) or len(user_in) == 0:
-            raise ValueError(f'Invalid input: {user_in} [{type(user_in)}]')
-
-        # ensure session is initialized (otherwise llm has no system prompt)
-        if sid not in self.mem.sessions.keys():
-            self.new_session(sid)
-
-        # get input for llm
-        prompt = self.user_plan_gen.format(user=user_in)
-        usr_msg = Message(Role.USER, prompt)
-        self.mem.store_message(sid, usr_msg)
-        messages = self.mem.get_session(sid).message_dict
-
-        # call tools
-        if self.tools:
-            tool_response = self.llm.tool_query(
-                messages,
-                tools=self.tools
-            )
-            # tool results aren't persisted
-            if tool_response['message'].get('tool_calls'):
-                results = self.invoke_tools(tool_response)
-                messages.extend(results)
-
-        # generate response
-        try:
-            response = ''
-            token_usage = 0
-            for chunk, tokens in self.llm.query(messages):
-                yield chunk
-                response += chunk
-
-                if tokens is not None:
-                    token_usage = tokens
-        except ProviderError:
-            raise
-
-        # update memory
-        sys_msg = Message(Role.ASSISTANT, response)
-        self.mem.get_session(sid).tokens = token_usage
-        self.mem.store_message(sid, sys_msg)
-
-    def invoke_tools(self, tool_response):
-        """Execute tools (ex. RAG) from llm response"""
-        results = []
-
-        call_stack = []
-        for tool in tool_response['message']['tool_calls']:
-            tool_meta = {
-                'name': tool['function']['name'],
-                'args': tool['function']['arguments']
-            }
-
-            if tool_meta in call_stack:
-                continue
-            try:
-                res = self.tool_registry.compile(
-                    name=tool_meta['name'],
-                    arguments=tool_meta['args']
-                )
-                call_stack.append(tool_meta)
-                results.append({'role': 'tool', 'content': str(res)})
-            except Exception:
-                pass
-
-        return results
+        :returns: Generator with response text in chunks."""
+        if not isinstance(user_input, str) or len(user_input) == 0:
+            raise ValueError(f'Invalid input: {user_input} [{type(user_input)}]')
+        # TODO: if Prometheus Metric is injected update it with token
+        #  consumption (arch_name, sid, context_length)
+        yield from self.agent.query(session_id, user_input)
 
     def new_session(self, sid: int):
         """Initializes a new conversation"""
-        self.mem.store_message(sid, Message(Role.SYS, self.system_plan_gen))
+        self.agent.new_session(sid)
 
     def get_session(self, sid: int):
         """Open existing conversation"""
-        return self.mem.get_session(sid)
+        return self.agent.memory.get_session(sid)
 
     def get_sessions(self):
         """Returns list of Session objects"""
-        return self.mem.get_sessions()
+        return self.agent.memory.get_sessions()
 
     def save_session(self, sid: int):
         """Saves the specified session to JSON"""
-        self.mem.save_session(sid)
+        self.agent.memory.save_session(sid)
 
     def delete_session(self, sid: int):
         """Deletes the specified session"""
-        self.mem.delete_session(sid)
+        self.agent.memory.delete_session(sid)
 
     def rename_session(self, sid: int, session_name: str):
         """Rename the specified session"""
-        self.mem.rename_session(sid, session_name)
+        self.agent.memory.rename_session(sid, session_name)
 
-    def extract_plan(self, plan_nl):
-        """Converts a structured LLM response in a Plan object"""
-        prompt = self.user_plan_con.format(query=plan_nl)
-        messages = [
-            {'role': 'system', 'content': self.system_plan_con},
-            {'role': 'user', 'content': prompt}
-        ]
-        stream = self.llm.query(messages=messages)
-        response = ''
-        for chunk in stream:
-            response += chunk
-
-        try:
-            plan_data = json.loads(response)
-        except JSONDecodeError:
-            # try extracting json from response
-            json_regex = re.compile(r'\[.*?\]', re.DOTALL)
-            json_match = json_regex.search(response)
-            if json_match:
-                plan_data = json.loads(json_match.group())
-            else:
-                print(f'PlanError:\n{response}')
-                return None
-
-        if not plan_data:
-            raise RuntimeError(f'Error extracting plan: data not found.'
-                               f'\nResponse: {response}')
-
-        tasks = []
-        for task in plan_data:
-            if 'command' not in task.keys() or len(task['command']) == 0:
-                continue
-            if task['command'] == 'N/A':
-                continue
-            if task['command'].startswith('`'):
-                cmd = task['command'][1:-1]
-            else:
-                cmd = task['command']
-
-            tasks.append(Task(
-                command=cmd,
-                thought=task['thought'] if 'thought' in task else None,
-                tool=Tool
-            ))
-
-        return Plan(tasks)
-
-    def execute_plan(self, sid):
-        """Extracts the plan from last message,
-        stores it in memory and executes it."""
-        session = self.mem.get_session(sid)
-
-        messages = session.messages if session else None
-        if not messages or len(messages) <= 1:
-            return None
-
-        msg = messages[-1] if messages[-1].role == Role.ASSISTANT \
-            else messages[-2]
-
-        try:
-            plan = self.extract_plan(msg.content)
-        except Exception as err:
-            raise RuntimeError from err
-
-        yield from plan.execute()
-
-        self.mem.store_plan(sid, plan)

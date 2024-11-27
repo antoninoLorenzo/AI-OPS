@@ -199,7 +199,7 @@ class TestOllamaProvider(unittest.TestCase):
 
             test_llm = Ollama(
                 model='gemma2:9b',
-                client_url=endpoint
+                inference_endpoint=endpoint
             )
             self.assertRaises(
                 expected,
@@ -247,7 +247,7 @@ class TestOllamaProvider(unittest.TestCase):
 
             llm = Ollama(
                 model=test_input['model'],
-                client_url=os.environ['ENDPOINT']
+                inference_endpoint=os.environ['ENDPOINT']
             )
 
             if self.safe_issubclass(expected, BaseException):

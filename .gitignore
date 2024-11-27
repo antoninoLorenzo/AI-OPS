@@ -1,4 +1,6 @@
-test/test_conversion.py
+benchmarks/rag/*
+test/strategies/*
+logs/
 
 # IDEs
 .idea/
@@ -15,7 +17,7 @@ venv.bak/
 .pytest_cache/
 
 # Jupyter Checkpoints
-test/benchmarks/rag/.ipynb_checkpoints
+benchmarks/rag/.ipynb_checkpoints
 
 
 # Distribution / packaging
@@ -44,7 +46,7 @@ src/__pycache__
 src/*/*/__pycache__
 src/*/*/*/__pycache__
 test/__pycache__
-test/benchmarks/__pycache__
+benchmarks/__pycache__
 test/unit/__pycache__
 test/integration/__pycache__
 test/test_acceptance/__pycache__

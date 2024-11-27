@@ -9,15 +9,38 @@ import sys
 from urllib.parse import urlparse
 
 import requests
-from requests.exceptions import ConnectionError
+from requests.exceptions import ConnectionError, HTTPError
 from rich.console import Console
 from rich.live import Live
 from rich.markdown import Markdown
 from rich.prompt import InvalidResponse, Prompt
 from rich.tree import Tree
-
+from prompt_toolkit import PromptSession
+from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.lexers import PygmentsLexer
+from pygments.lexers import MarkdownLexer
+from prompt_toolkit.keys import Keys
 
 VERSION = "0.0.0"
+
+
+def build_input_multiline():
+    """Creates an input prompt that can handle:
+    - Multiline input
+    - Copy-Paste
+    - Press Enter to complete input
+    - Press Ctrl+DownArrow to go next line"""
+    bindings = KeyBindings()
+
+    @bindings.add(Keys.ControlDown, eager=True)
+    def _(event):
+        event.current_buffer.newline()
+
+    return PromptSession(
+        "> ",
+        key_bindings=bindings,
+        lexer=PygmentsLexer(MarkdownLexer)
+    )
 
 
 class AgentClient:
@@ -34,8 +57,6 @@ class AgentClient:
             'exit': '',
 
             'chat': self.chat,
-            'exec': self.execute_plan,
-            'plans': self.list_plans,
 
             'new': self.new_session,
             'save': self.save_session,
@@ -44,15 +65,21 @@ class AgentClient:
             'list sessions': self.list_sessions,
             'load': self.load_session,
 
-            'list collections': self.list_collections,
-            'create collection': self.create_collection
+            # 'list collections': self.list_collections,
+            # 'create collection': self.create_collection
         }
+        self.multiline_input = build_input_multiline()
 
         self.console.print("[bold blue]ai-ops-cli[/] (beta) starting.")
         try:
-            self.client.get(self.api_url, timeout=20)
+            response = self.client.get(f'{self.api_url}/ping', timeout=20)
+            response.raise_for_status()
             self.console.print(f"Backend: [blue]online[/]")
-        except ConnectionError:
+            self.console.print(
+                "[bold cyan]ℹ️  Tip:[/bold cyan] Press [bold green]Ctrl + ↓ (Down Arrow)[/bold green] to move to the next line while typing.",
+                style="italic"
+            )
+        except (ConnectionError, HTTPError):
             self.console.print('Backend: [red]offline[/]')
             sys.exit(-1)
         self.console.print()
@@ -86,8 +113,8 @@ class AgentClient:
             console=self.console
         )
 
-        response = self.client.get(
-            f'{self.api_url}/session/new',
+        response = self.client.post(
+            f'{self.api_url}/sessions',
             params={'name': session_name}
         )
         response.raise_for_status()
@@ -97,8 +124,8 @@ class AgentClient:
 
     def save_session(self):
         """Save the current session"""
-        response = self.client.get(
-            f'{self.api_url}/session/{self.current_session["sid"]}/save'
+        response = self.client.put(
+            f'{self.api_url}/sessions/{self.current_session["sid"]}/chat'
         )
         if response.status_code != 200:
             self.console.print(f'[!] Failed: {response.status_code}')
@@ -107,13 +134,13 @@ class AgentClient:
 
     def rename_session(self):
         """Renames the current session"""
-        session_name = Prompt(
+        session_name = Prompt.ask(
             'New Name',
             console=self.console
         )
 
-        response = self.client.get(
-            f'{self.api_url}/session/{self.current_session["sid"]}/rename',
+        response = self.client.put(
+            f'{self.api_url}/sessions/{self.current_session["sid"]}',
             params={'new_name': str(session_name)}
         )
         response.raise_for_status()
@@ -121,9 +148,16 @@ class AgentClient:
         self.chat(print_name=True)
 
     def delete_session(self):
-        """Deletes the current session"""
-        response = self.client.get(
-            f'{self.api_url}/session/{self.current_session["sid"]}/delete'
+        """Deletes a session"""
+        session_id = Prompt.ask(
+            'Enter session ID',
+            console=self.console
+        )
+        if not session_id.isdigit():
+            self.console.print('[-] Not a number', style='bold red')
+
+        response = self.client.delete(
+            f'{self.api_url}/sessions/{session_id}'
         )
         response.raise_for_status()
         body = response.json()
@@ -132,7 +166,7 @@ class AgentClient:
     def list_sessions(self):
         """List all sessions"""
         response = self.client.get(
-            f'{self.api_url}/session/list/'
+            f'{self.api_url}/sessions'
         )
         response.raise_for_status()
         body = response.json()
@@ -155,8 +189,7 @@ class AgentClient:
             self.load_session()
 
         response = self.client.get(
-            f'{self.api_url}/session/get/',
-            params={'sid': int(session_id)}
+            f'{self.api_url}/sessions/{int(session_id)}/chat',
         )
         response.raise_for_status()
 
@@ -177,15 +210,14 @@ class AgentClient:
     def chat(self, print_name=True):
         """Opens a chat with the Agent"""
         sid = self.current_session["sid"]
-        query_url = f'{self.api_url}/session/{sid}/query'
+        query_url = f'{self.api_url}/sessions/{sid}/chat'
 
         if print_name:
             name = self.current_session["name"]
             self.console.print(f'({sid}) [bold blue]{name}[/]')
 
         while True:
-            self.console.print("[bold white]User:[/] ", end='')
-            q = self.__input_multiline()
+            q = self.multiline_input.prompt()
             if q.startswith('back'):
                 break
 
@@ -198,7 +230,10 @@ class AgentClient:
                         live.update(Markdown(response_text))
                         for chunk in resp.iter_content():
                             if chunk:
-                                response_text += chunk.decode()
+                                try:
+                                    response_text += chunk.decode('utf-8')
+                                except UnicodeDecodeError:
+                                    pass
                                 live.update(Markdown(response_text))
 
                     print()
@@ -208,7 +243,8 @@ class AgentClient:
                 else:
                     self.console.print(f'[red]Server Error: {resp.status_code}[/]')
 
-    def list_collections(self):
+    # RAG is disabled in the current version
+    def __list_collections(self):
         """Know what collections are available"""
         response = self.client.get(
             f'{self.api_url}/collections/list/'
@@ -233,7 +269,7 @@ class AgentClient:
 
             self.console.print(tree)
 
-    def create_collection(self):
+    def __create_collection(self):
         """Upload a collection to RAG"""
         collection_title = Prompt.ask(
             prompt='Title: ',
@@ -271,52 +307,6 @@ class AgentClient:
         except requests.exceptions.HTTPError as http_err:
             self.console.print(f"[bold red][!] HTTP Error: [/] {http_err}")
 
-    def execute_plan(self):
-        """Plan execution"""
-        with self.client.get(
-                f'{self.api_url}/session/{self.current_session["sid"]}/plan/execute',
-                headers=None,
-                stream=True
-        ) as resp:
-            self.console.print(f'[+] Tasks\n')
-            for task_str in resp.iter_content():
-                if task_str:
-                    self.console.print(task_str.decode(), end='')
-            print()
-        self.chat()
-
-    def list_plans(self):
-        """Retrieve the plans in the current session and
-        prints the last execution status."""
-        response = self.client.get(
-            f'{self.api_url}/session/{self.current_session["sid"]}/plan/list'
-        )
-        response.raise_for_status()
-
-        body: dict = response.json()
-
-        if 'error' in body:
-            self.console.print(f'[bold red][!][/] {body["error"]}')
-        else:
-            for i, plan in body.items():
-                tasks = ''
-                for task in plan:
-                    tasks += f'ai-ops:~$ {task["command"]}\n'
-                    if len(task['output']) > 0:
-                        tasks += f'\n{task["output"]}\n'
-
-                self.console.print(f'[+] Plan {i}\n\n'
-                                   f'{tasks}')
-
-    def __input_multiline(self) -> str:
-        input_text = ""
-        while True:
-            line = self.console.input("")
-            if line == "":
-                break
-            input_text += line + "\n"
-        return input_text
-
     def help(self):
         """Print help message"""
         # Basic Commands
@@ -329,8 +319,6 @@ class AgentClient:
         self.console.print("\n[bold white]Agent Related[/]")
         self.console.print("- [bold blue]chat[/]   : Open chat with the agent.")
         self.console.print("- [bold blue]back[/]   : Exit chat")
-        self.console.print("- [bold blue]exec[/]   : Execute the last plan generated by the agent.")
-        self.console.print("- [bold blue]plans[/]  : Lists all plans in the current session.")
 
         # Session Related
         self.console.print("\n[bold white]Session Related[/]")
@@ -342,9 +330,9 @@ class AgentClient:
         self.console.print("- [bold blue]list sessions[/]   : Show the saved sessions.")
 
         # RAG Related
-        self.console.print("\n[bold white]RAG Related[/]")
-        self.console.print("- [bold blue]list collections[/]  : Lists all collections in RAG.")
-        self.console.print("- [bold blue]create collection[/] : Upload a collection to RAG.")
+        # self.console.print("\n[bold white]RAG Related[/]")
+        # self.console.print("- [bold blue]list collections[/]  : Lists all collections in RAG.")
+        # self.console.print("- [bold blue]create collection[/] : Upload a collection to RAG.")
 
     @staticmethod
     def clear_terminal():
@@ -358,6 +346,7 @@ class ValidateURLAction(argparse.Action):
     - http/https scheme
     - the path is empty
     """
+
     def __call__(self, parser, namespace, values, option_string=None):
         parsed = urlparse(values)
         url_scheme = parsed.scheme
