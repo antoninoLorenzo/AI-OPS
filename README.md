@@ -8,8 +8,8 @@
 
 🚧 **Under Development** 🚧
 
-> **Note:** AI-OPS is currently an experimental project. Some functionalities are not implemented. Any support or feedback is highly appreciated.
-
+> **Note:** AI-OPS is currently an experimental project. 
+> 
 # AI-OPS
 
 ### Table of Contents
@@ -23,7 +23,10 @@
 
 ## 💡 Overview
 
-**AI-OPS** is an AI-powered, open-source **Penetration Testing assistant** that leverages large language models (LLMs) with [Ollama](https://github.com/ollama/ollama) in order to be cost-free. It is <ins>designed to enhance, not replace, the capabilities of human penetration testers</ins>.
+AI-OPS is a **Penetration Testing AI Assistant** that leverages open-source Large Language Models (*LLMs*)
+to explore the role of Generative AI in ethical hacking. With a focus on accessibility and practical use, it 
+aims to bridge the gap between AI research and usage during real-world workflows.
+
 
 ### 🚀 Key Features
 
@@ -38,11 +41,15 @@ TODO
 
 ### Supported Models
 
-| Name        | Implemented |
-|-------------|-------------|
-| **Mistral** | &check;     | 
-> Other models can be used, but the in the current experimentation process I'm using Mistral, so
-> other models may yield unexpected behaviour.
+AI-OPS supports virtually any LLM that can be hosted with Ollama, allowing you to tailor the assistant to your 
+available resources; for detailed setup instructions, see [Configuration](./docs/user/2.Configuration.md).
+While flexibility is key, note that performance may vary depending on the model used. Below is a list of currently implemented models.
+
+| Name           | Implemented |
+|----------------|-------------|
+| **Mistral 7B** | &check;     | 
+
+> *Note: AI-OPS prioritizes smaller, efficient LLMs like Mistral 7B to ensure accessibility and optimal performance, even on limited hardware.*
 
 ## Quickstart
 
@@ -87,5 +94,6 @@ ai-ops-cli --api AI-OPS_API_ADDRESS
 
 The creators and contributors of **AI-OPS** are not responsible for any misuse of this tool. By using **AI-OPS**, you agree to take full responsibility for your actions and to use the tool in a manner that is ethical, legal, and in accordance with the intended purpose.
 
-> **Note**: This project is provided "as-is" without any warranties, express or implied. The creators are not liable for any damages or legal repercussions resulting from the use of this tool.
+This project is provided "as-is" without any warranties, express or implied. The creators are not liable for any damages or legal repercussions resulting from the use of this tool.
 
+> Yes, this section is generated with AI.
