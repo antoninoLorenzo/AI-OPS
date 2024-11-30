@@ -1,6 +1,7 @@
 import os
 import sys
 import unittest
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -135,7 +136,11 @@ class TestStore(unittest.TestCase):
             )
 
     def test_retrieve_from(self):
-        store = Store(embedding_url=os.environ.get('ENDPOINT'))
+        store = Store(
+            base_path=str(Path(Path.home() / '.aiops')),
+            embedding_url=os.environ.get('ENDPOINT'),
+            in_memory=True
+        )
 
         CASES = {
             "na_query":

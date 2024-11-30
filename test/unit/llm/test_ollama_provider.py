@@ -65,7 +65,7 @@ class TestOllamaProvider(unittest.TestCase):
             "not_available_model":
                 {
                     # gemma:7b shouldn't be installed on Ollama
-                    "model": "gemma:7b",
+                    "model": "gemma2:9b",
                     "expected": RuntimeError
                 }
         }
@@ -196,6 +196,7 @@ class TestOllamaProvider(unittest.TestCase):
             messages = test_input['messages']
             endpoint = test_input['endpoint'] if test_input['endpoint'] else \
                 os.environ['ENDPOINT']
+                # 'http://localhost:11434'
 
             test_llm = Ollama(
                 model='gemma2:9b',
@@ -251,17 +252,16 @@ class TestOllamaProvider(unittest.TestCase):
             )
 
             if self.safe_issubclass(expected, BaseException):
-                self.assertRaises(
-                    NotImplementedError,
-                    llm.tool_query,
-                    test_input['messages'],
-                    tools
-                )
+                try:
+                    llm.tool_query(test_input['messages'], tools)
+                    self.fail(f'Expected {expected}')
+                except expected:
+                    pass
             else:
                 result = llm.tool_query(test_input['messages'], tools)
                 self.assertIsNone(
                     result,
-                    f"Expected None got {result}"
+                    f"Expected {expected} got {result}"
                 )
 
 
