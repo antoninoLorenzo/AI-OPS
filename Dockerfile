@@ -1,49 +1,28 @@
 # ----------- Agent API Docker File
-# TODO : Setup volume for persistent sessions
+# BUILD: ~ 0.8 GB
+# Note: multistage build could work if api is compiled
 
-# Kali Setup (~127 MB)
-FROM kalilinux/kali-rolling
+FROM python:3.11-slim 
 
 LABEL name="AI-OPS API" \
     src="https://github.com/antoninoLorenzo/AI-OPS" \
-    creator="antoninoLorenzo" \
-    desc="Api for AI-OPS, a Penetration Testing AI assistant"
+    creator="antoninoLorenzo"
 
 ARG ollama_endpoint=http://localhost:11434
-ARG ollama_model=gemma2:9b
+ARG ollama_model=mistral
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-pip ca-certificates python3-wheel \
-    nmap \
-    gobuster \
-    hashcat \
-    sqlmap \
-    git && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/
+COPY . /AI-OPS
+ENV PATH="/AI-OPS/.venv/bin:$PATH"
+RUN python3 -m venv /AI-OPS/.venv && \
+    pip3 install --no-cache-dir -Ur /AI-OPS/requirements-api.txt && \
+    python3 -m spacy download en_core_web_md
 
-# Setup API
-# TODO: remove GitHub and use COPY 
-# .dockerignore makes sure only needed data is copied 
-RUN git clone --filter=blob:none --no-checkout https://github.com/antoninoLorenzo/AI-OPS.git && \
-    cd AI-OPS/ && \
-    git sparse-checkout init && \
-    git sparse-checkout set requirements-api.txt src/ tools_settings/ && \
-    git checkout
-
-RUN cd AI-OPS/  && \
-    pip3 install --no-cache-dir -r requirements-api.txt && \
-    python3 -m spacy download en_core_web_md  && \
-    mkdir -p $HOME/.aiops/tools && \
-    mv tools_settings/* ~/.aiops/tools/
-
-VOLUME ["/root/.aiops"]
-
-# Run API
 ENV MODEL=${ollama_model}
 ENV ENDPOINT=${ollama_endpoint}
 
+VOLUME ["/.aiops"]
 EXPOSE 8000
+
 CMD ["fastapi", "dev", "--host", "0.0.0.0", "./AI-OPS/src/api.py"]
 
 # docker build -t ai-ops:api-dev --build-arg ollama_endpoint=ENDPOINT .
