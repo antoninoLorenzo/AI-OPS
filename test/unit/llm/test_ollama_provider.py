@@ -4,7 +4,7 @@ import unittest
 
 from dotenv import load_dotenv
 from tool_parse import ToolRegistry
-from src.agent.llm import Ollama, ProviderError
+from src.core import Ollama, ProviderError
 
 
 class TestOllamaProvider(unittest.TestCase):

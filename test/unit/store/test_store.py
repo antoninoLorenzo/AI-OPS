@@ -4,9 +4,9 @@ import unittest
 
 from dotenv import load_dotenv
 
-from src.agent.llm.llm import ProviderError
-from src.agent.knowledge.store import Store
-from src.agent.knowledge.collections import Collection, Document, Topic
+from src.core.llm import ProviderError
+from src.core.knowledge import Store, Collection
+from src.core.knowledge.collections import Document, Topic
 
 
 class TestStore(unittest.TestCase):
