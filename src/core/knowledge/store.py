@@ -6,11 +6,9 @@ from typing import Dict, Optional
 import httpx
 import ollama
 import spacy
-import pandas as pd
 import qdrant_client.http.exceptions
 from qdrant_client import QdrantClient, models
 from qdrant_client.http.exceptions import UnexpectedResponse
-from tqdm import tqdm
 
 from src.core.llm.llm import ProviderError
 from src.core.knowledge.collections import Collection, Document, Topic
@@ -23,13 +21,14 @@ class Store:
     """Act as interface for Qdrant database.
     Manages Collections and implements the Upload/Retrieve operations."""
 
-    def __init__(self,
-                 base_path: str,
-                 embedding_url: str = 'http://localhost:11434',
-                 embedding_model: str = 'nomic-embed-text',
-                 url: str = 'http://localhost:6333',
-                 in_memory: bool = False,
-                 ):
+    def __init__(
+        self,
+        base_path: str,
+        embedding_url: str = 'http://localhost:11434',
+        embedding_model: str = 'nomic-embed-text',
+        url: str = 'http://localhost:6333',
+        in_memory: bool = False,
+    ):
         """
         :param embedding_url:
             The url of the Ollama server.
@@ -83,8 +82,11 @@ class Store:
         except (httpx.ConnectError, ollama._types.ResponseError) as err:
             raise ProviderError("Can't load embedding model") from err
 
-    def create_collection(self, collection: Collection,
-                          progress_bar: bool = False):
+    def create_collection(
+        self,
+        collection: Collection,
+        progress_bar: bool = False
+    ):
         """Creates a new Qdrant collection, uploads the collection documents
         using `upload` and creates a metadata file for collection."""
         if collection.title in self.collections:
@@ -103,16 +105,8 @@ class Store:
 
         # upload documents (if present)
         self._collections[collection.title] = collection
-        if progress_bar:
-            for document in tqdm(
-                    collection.documents,
-                    total=len(collection.documents),
-                    desc=f"Uploading {collection.title}"
-            ):
-                self.upload(document, collection.title)
-        else:
-            for document in collection.documents:
-                self.upload(document, collection.title)
+        for document in collection.documents:
+            self.upload(document, collection.title)
 
         # should do logging
         # print(f'Collection {collection.title}: '
@@ -122,7 +116,11 @@ class Store:
         if not self.in_memory:
             self.save_metadata(collection)
 
-    def upload(self, document: Document, collection_name: str):
+    def upload(
+        self,
+        document: Document,
+        collection_name: str
+    ):
         """Performs chunking and embedding of a document
         and uploads it to the specified collection"""
         if not isinstance(collection_name, str):
@@ -162,9 +160,13 @@ class Store:
         # self._collections[collection_name].documents.append(document)
         self._collections[collection_name].size = current_len + len(emb_chunks)
 
-    def retrieve_from(self, query: str, collection_name: str,
-                      limit: int = 3,
-                      threshold: int = 0.5) -> list[str] | None:
+    def retrieve_from(
+        self,
+        query: str,
+        collection_name: str,
+        limit: int = 3,
+        threshold: int = 0.5
+    ) -> list[str] | None:
         """Performs retrieval of chunks from the vector database.
         :param query:
             A natural language query used to search in the vector database.
@@ -254,15 +256,16 @@ class Store:
                 p.unlink()
                 continue
 
-            df = pd.read_json(p)
+            with open(p, 'r', encoding='utf-8') as fp:
+                data = json.load(fp)
+
             topics = []
             documents = []
-
-            for _, row in df.iterrows():
-                topic = Topic(row['category'])
+            for item in data:
+                topic = Topic(item['category'])
                 document = Document(
-                    name=row['title'],
-                    content=row['content'],
+                    name=item['title'],
+                    content=item['content'],
                     topic=topic
                 )
                 topics.append(topic)

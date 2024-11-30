@@ -6,8 +6,6 @@ from src.core.memory import (
     Memory
 )
 from src.core.tools import (
-    ExploitDB,
-    Terminal,
     Search,
     TOOL_REGISTRY
 )

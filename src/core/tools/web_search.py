@@ -7,10 +7,9 @@ from functools import lru_cache
 from urllib.parse import urlparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-import requests
+import httpx
 import newspaper
 from bs4 import BeautifulSoup
-from tool_parse import ToolRegistry
 
 from src.utils import get_logger
 
@@ -23,10 +22,10 @@ class Search:
     usage: str = "Make an online search using a query string."
 
     def __init__(
-            self,
-            headers: dict = None,
-            max_results: int = 3,
-            num_threads: int = 3
+        self,
+        headers: dict = None,
+        max_results: int = 3,
+        num_threads: int = 3
     ):
         """
         :param headers: HTTP headers to use for requests. Defaults to a basic
@@ -72,7 +71,7 @@ class Search:
 
         if len(links) == 1:
             title, content, _ = self.__parse(links[0])
-            results = [f"# {title}\n{content}"]
+            results = [f"# {title} ({links[0]})\n{content}"]
         else:
             with ThreadPoolExecutor(max_workers=self.num_threads) as executor:
                 futures = [
@@ -81,17 +80,17 @@ class Search:
                 ]
 
                 for future in as_completed(futures):
-                    title, content, _ = future.result()
+                    title, content, _, link = future.result()
                     if title and content:
-                        results.append(f"> Page: {title}\n{content}")
+                        results.append(f"# {title} ({link})\n{content}")
 
         return '\n\n'.join(results)
 
     def __google_search(
-            self,
-            search_query,
-            results=3,
-            timeout: int = 3
+        self,
+        search_query,
+        results=3,
+        timeout: int = 3
     ) -> list:
         """
         Conducts a Google search and retrieves links from the result page.
@@ -102,7 +101,7 @@ class Search:
 
         :returns: a list of links."""
         try:
-            response = requests.get(
+            response: httpx.Response = httpx.get(
                 url="https://www.google.com/search",
                 headers=self.headers,
                 params={
@@ -114,8 +113,9 @@ class Search:
                 },
                 timeout=timeout,
             )
-            response.raise_for_status()
-        except requests.HTTPError as req_err:
+            if 400 <= response.status_code < 600:
+                raise httpx.HTTPError(f'{response.status_code}: {response.reason_phrase}')
+        except httpx.HTTPError as req_err:
             print(f'[!] Error: {req_err}')
             return []
 
@@ -150,7 +150,7 @@ class Search:
     def __parse(self, link: str) -> tuple:
         """Downloads a web page and parses it with `newspaper3k` library.
 
-        :returns: tuple(title: str, content: str, tags: list)"""
+        :returns: tuple(title: str, content: str, tags: list, link: str)"""
         page = newspaper.Article(
             link,
             headers=self.headers,
@@ -161,7 +161,7 @@ class Search:
             page.parse()
         except newspaper.ArticleException:
             return '', '', []
-        return page.title, page.text, page.tags
+        return page.title, page.text, page.tags, link
 
     @staticmethod
     def __user_agent() -> str:
@@ -172,4 +172,3 @@ class Search:
             # yeah, fuck apple
         )
         return available[random.randint(0, len(available) - 1)]
-
