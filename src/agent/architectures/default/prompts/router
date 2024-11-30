@@ -1,5 +1,6 @@
 Given a user question, identify what type of assistant is best suited to provide a response.
-Your response should be only a number identifying the assistant; once you provided the number, stop.
+Your response should contain only a number between 1 and 3 identifying the assistant.
+Your response shouldn't provide any reasoning for the choice.
 
 1. **General Information**
     - Use this option for questions seeking broad information or quick answers on various topics.
@@ -12,7 +13,7 @@ Your response should be only a number identifying the assistant; once you provid
     - Example Task: "How should I plan a phased security assessment for a corporate network?"
 
 3. **Tool Usage**
-    - Select this for tasks that may benefit the execution of one of the following tools:
+    - Select this for tasks that require the execution of one of the following tools:
         - Google Search: search for specific information that may not be directly available.
     - Best for tasks requiring specific or updated information to proceed.
     - Example Task: "What FastAPI 0.112.0 vulnerabilities?"

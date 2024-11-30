@@ -282,13 +282,13 @@ class DefaultArchitecture(AgentArchitecture):
             return None, {}
         try:
             # fix response to be JSON
-            tool_call_json = tool_call_match \
-                .group(1) \
-                .replace('"', '')
-            tool_call_json = tool_call_json \
-                .replace("'", '"')
+            # tool_call_json = tool_call_match \
+            #     .group(1) \
+            #     .replace('"', '')
+            # tool_call_json = tool_call_json \
+            #     .replace("'", '"')
 
-            tool_call_dict = json.loads(tool_call_json)
+            tool_call_dict = json.loads(tool_call_match.group(1))
             name, parameters = tool_call_dict['name'], tool_call_dict['parameters']
         except json.JSONDecodeError as json_extract_err:
             logger.error(
