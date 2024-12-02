@@ -241,8 +241,8 @@ class DefaultArchitecture(AgentArchitecture):
         }
         message_history.append({
             'role': 'user',
-            'content': user_input}
-        )
+            'content': user_input
+        })
 
         tool_call_response = ''
         for chunk, _ in self.llm.query(message_history):
@@ -260,7 +260,10 @@ class DefaultArchitecture(AgentArchitecture):
             )
             return tool_call_result
         except Exception as tool_exec_error:
-            logger.error(f'Tool execution failed: {tool_exec_error}')
+            logger.error(
+                f'Tool execution failed ({type(tool_exec_error)}): '
+                f'{tool_exec_error}'
+            )
             return ''
 
     def __extract_tool_call(
@@ -282,13 +285,11 @@ class DefaultArchitecture(AgentArchitecture):
             return None, {}
         try:
             # fix response to be JSON
-            # tool_call_json = tool_call_match \
-            #     .group(1) \
-            #     .replace('"', '')
-            # tool_call_json = tool_call_json \
-            #     .replace("'", '"')
+            tool_call_json = tool_call_match \
+                .group(1) \
+                .replace("'", '"')
 
-            tool_call_dict = json.loads(tool_call_match.group(1))
+            tool_call_dict = json.loads(tool_call_json)
             name, parameters = tool_call_dict['name'], tool_call_dict['parameters']
         except json.JSONDecodeError as json_extract_err:
             logger.error(
