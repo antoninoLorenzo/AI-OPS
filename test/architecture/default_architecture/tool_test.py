@@ -9,10 +9,10 @@ from deepeval.test_case import LLMTestCase
 from deepeval.metrics import BaseMetric, JsonCorrectnessMetric
 
 from test.architecture.commons import (
-    setup,
+    setup_component_test_resources,
     load_prompt,
     load_tests,
-    run_tests,
+    run_component_tests,
     save_tests
 )
 
@@ -132,7 +132,7 @@ def run_tool_test(
     }
 
     print('[+] Running tool evaluation')
-    run_tests(
+    run_component_tests(
         model=agent,
         prompt=tool_prompt,
         test_cases=test_cases,
@@ -148,5 +148,5 @@ def run_tool_test(
 
 if __name__ == '__main__':
     print('[+] Loading LLMs')
-    AGENT, JUDGE = setup()
+    AGENT, JUDGE = setup_component_test_resources()
     run_tool_test(AGENT, JUDGE)
