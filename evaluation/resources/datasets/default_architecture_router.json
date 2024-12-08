@@ -1,0 +1,110 @@
+[
+    {
+        "category": "",
+        "activity": "general",
+        "input": "Hi",
+        "expected_output": "1"
+    },
+    {
+        "category": "Web",
+        "activity": "general",
+        "input": "Can you provide an in-depth explanation of SQL Injection testing techniques for every type of SQLi?",
+        "expected_output": "1"
+    },
+    {
+        "category": "Web",
+        "activity": "general",
+        "input": "Can you search for jinja2 SSTI vulnerability and exploitation?",
+        "expected_output": "3"
+    },
+    {
+        "category": "Web",
+        "activity": "reconnaissance",
+        "input": "in a CTF, once I gained access to JetBrains TeamCity, I need to get remote access (ex. via RCE). Can you find a vulnerability?",
+        "expected_output": "3"
+    },
+    {
+        "category": "Web",
+        "activity": "reconnaissance",
+        "input": "I need to perform subdomain enumeration with goburp on the domain *.running.thm, can you help me identify useful subdomain enumeration wordlists?",
+        "expected_output": "3"
+    },
+    {
+        "category": "Web",
+        "activity": "reconnaissance",
+        "input": "I have gethered some info about the domains starlabs.com and starlabs.edu for a bug bounty program:\n```\nstarlabs.com.        3600 IN A     192.168.1.100  \nstarlabs.com.        3600 IN A     192.168.1.101 \nstarlabs.com.        3600 IN A     198.51.100.10 \nstarlabs.com.        3600 IN A     203.0.113.10   \nstarlabs.edu.        3600 IN A     198.51.100.5    \nstarlabs.edu.        3600 IN A     203.0.113.5     \nstarlabs.edu.        3600 IN A     198.51.100.20  \n\n\nwww.starlabs.com.    3600 IN CNAME  starlabs.com.\nmail.starlabs.com.   3600 IN CNAME  mail.starlabs.edu.\nshop.starlabs.com.   3600 IN CNAME  store.starlabs.com.\nblog.starlabs.com.   3600 IN CNAME  blog.starlabs.edu.researchlabs.net.\ndev.starlabs.com.    3600 IN CNAME  dev.starlabs.com.edgesuite.net.\nwww.starlabs.edu.    3600 IN CNAME  starlabs.edu.\nresearch.starlabs.edu.  3600 IN CNAME research.starlabs.edu.researchlabs.net.\nmail.starlabs.edu.   3600 IN CNAME  mail.starlabs.edu.edgehost.com.\n\n\nstarlabs.com.        3600 IN NS    ns1.starlabsdns.com.\nstarlabs.com.        3600 IN NS    ns2.starlabsdns.com.\nstarlabs.com.        3600 IN NS    ns3.starlabsdns.net.\nstarlabs.com.        3600 IN NS    ns4.exampledns.com.\nstarlabs.edu.        3600 IN NS    ns1.starlabsdns.edu.\nstarlabs.edu.        3600 IN NS    ns2.starlabsdns.edu.\nstarlabs.edu.        3600 IN NS    ns3.starlabsdns.net.\nstarlabs.edu.        3600 IN NS    ns4.edu-dns.org.\n\n\nstarlabs.com.        3600 IN TXT    \"v=spf1 include:_spf.starlabsdns.com ~all\"  \nstarlabs.com.        3600 IN TXT    \"google-site-verification=ABCDEFG123456\"  \nstarlabs.com.        3600 IN TXT    \"MS=ms123456789\"  # Microsoft verification\nstarlabs.com.        3600 IN TXT    \"v=spf1 include:spf.mailstarlabs.edu ~all\"  \nstarlabs.edu.        3600 IN TXT    \"v=spf1 include:_spf.starlabsdns.edu ~all\"  \nstarlabs.edu.        3600 IN TXT    \"google-site-verification=XYZ987654321\"  \nstarlabs.edu.        3600 IN TXT    \"MS=ms987654321\"  \n```\n\nSince that's a lot of information, do yo unotice something interesting where I can start from?\n\n\n\n",
+        "expected_output": "1"
+    },
+    {
+        "category": "Web",
+        "activity": "code_writing",
+        "input":  "While experimenting with SQLi I found the following ways to bypass a client-side filter:\nOR: OORR\nAND: AANDND\nSELECT: SESELECTLECT\nUNION: UNUNIONION\nORDER BY: OORRDER BY\n\nWrite the tamper script for sqlmap to use this filter bypass techniques.",
+        "expected_output": "2"
+    },
+    {
+        "category": "Web",
+        "activity": "code_writing",
+        "input":  "I found a SQLi in the login page of a web application, as you can see from the following request:\n```\nPOST /api/auth/login HTTP/1.1\nHost: vulnerable-site.com\nContent-Type: application/x-www-form-urlencoded\nContent-Length: 100\nX-Requested-With: XMLHttpRequest\nAuthorization: Bearer <valid_jwt_token>\nX-CSRF-Token: <csrf_token>\n\nusername=testuser' OR 1=1 -- &password=anything\n\n```\nThe response contains the following:\n```\n{\n  \"message\": \"Login successful\",\n  \"user\": {\n    \"id\": 2,\n    \"username\": \"new_admin\",\n    \"role\": \"admin\"\n  }\n}\n```\n\nImportant: \n- the CSRF token is fetched on each request from the following html element `<input type=\"hidden\" name=\"csrf_token\" value=\"a1b2c3d4e5f6g7h8i9j0\">`\n- the JWT is abcdef1234567890abcdef1234567890abcdef12 \n\nImplement an exploit in python that allows the bypass of login; it should take as arguments the\nusername and the target url.",
+        "expected_output": "2"
+    },
+    {
+        "category": "Web",
+        "activity": "code_writing",
+        "input":  "I found an XSS in the search feature of a web application using this payload:\n```\n<script>alert('test')</script>\n```\n\nAnd here is the result.\n```\n<section class=\"search-results p-6 bg-white shadow-lg rounded-lg\">\n  <h1 class=\"text-3xl font-semibold text-gray-900 mb-4\">\n    Search Results for: \n    <span id=\"search-query\" class=\"text-indigo-600\">\n      <script>alert('test')</script>\n    </span>\n  </h1>\n```\n\nI need you to write a payload to exfiltrate users cookies.",
+        "expected_output": "2"
+    },
+    {
+        "category": "Web",
+        "activity": "code_analysis",
+        "input": "On my home router dashboard there is the following code, analyze it and determine if there is an Authentication Bypass vulnerability. Note: the dashboard runs on http.\n```\nfunction hex_to_ascii(str) {\n  var hex  = str.toString();\n  var str = '';\n  for (var n = 0; n < hex.length; n += 2) {\n    str += String.fromCharCode(parseInt(hex.substr(n, 2), 16));\n  }\n  return str;\n}\n\nvar timeSecond;\n$(document).ready(\n  function() {\n    var password = \"\";\n    var tries = 0;\n    window.sessionStorage.removeItem(\"current_role\");\n\n    // Set the focus on the first input field\n    $('form:first *:input[type!=hidden]:first').focus();\n    // Handle press of enter. Could be handled by adding a hidden input submit but\n    // this requires a lot of css tweaking to get it right since display:none does\n    // not work on every browser. So go for the js way\n    $('form input').keydown(function(e) {\n        if(e.which == 13 || e.which == 10) {\n            e.preventDefault();\n            $(\"#sign-me-in\").click();\n        }\n    });\n\n    $(\"#sign-me-in\").on(\"click\", function () {\n      $(this).text(verifying);\n      if(loginFailureAttempt){\n        password = $(\"#srp_password\")[0].value;\n        //If the user has option legacy_salt, do migration\n        var inputUsername = $(\"#srp_username\")[0].value;\n        var index = -1;\n        var userNameArray = userNames.split(\",\")\n        var legacySaltArray = legacySalts.split(\",\")\n        var timesecond;\n        var tries = 0;\n        if(forgotPassword){\n          if (inputUsername == \"forgotpassword\")\n          {\n            $(\"#sign-me-in\").text(signIn);\n            $(\"#erroruserpass\").show();\n            $(\".control-group\").addClass(\"error\");\n            return;\n          }\n        }\n        for (var i = 0; i < userNameArray.length - 1; i ++)\n        {\n          if ( inputUsername == userNameArray[i] )\n          {\n            index = i;\n          }\n        }\n        if (index >= 0)\n        {\n          var hashObj = new jsSHA((legacySaltArray[index]+tch.stringToHex(password)), \"HEX\");\n          password = hashObj.getHash(\"SHA-1\", \"HEX\");\n        }\n      }\n\n      var srp = new SRP();\n      srp.success = function() {\n        // If we showed the login page using an internal redirect (detected\n        // by checking if the URL ends with \"/login.lp\") then we simply\n        // have to reload the page to get the actual page content now that\n        // we're logged in.\n        // Otherwise we explicitly go back to the main page.\n        var key = srp.key();\n        key = hex_to_ascii(key)\n        window.sessionStorage.setItem(\"session_key\", key);\n        if(lastAccess){\n          $.get(\"login.lp\", {action:\"lastaccess\"}, function (data){\n             pathLoad();\n          });\n        }\n        else{\n          pathLoad();\n        }\n      }\n      function pathLoad() {\n        if (window.location.pathname.search(/\\/login\\.lp$/) == -1){\n          var curl = window.location.href\n          window.location.href = curl.substring(0,curl.indexOf(\"#\"));\n        }else\n          window.location = \"/\";\n      }\n      srp.error_message = function(err) {\n      if(err == 403){\n        $.get(\"login.lp\", function (data){\n        var token = $(data).filter('meta[name=\"CSRFtoken\"]').attr('content');\n        $('meta[name=CSRFtoken]').attr('content', token);\n        if(!loginFailureAttempt){\n            srp.identify(\"/authenticate\", $(\"#srp_username\")[0].value, password);\n        }\n         else {\n            if (!$(\"#loginfailure\").is(\":visible\")) {\n              srp.identify(\"/authenticate\", $(\"#srp_username\")[0].value, password);\n            }\n         }\n        });\n      }else{\n        $(\"#sign-me-in\").text(signIn);\n        $(\"#erroruserpass\").show();\n        $(\".control-group\").addClass(\"error\");\n      }\n      if(loginFailureAttempt){\n        timeSecond = err.waitTime;\n        tries = err.wrongCount;\n        if (timeSecond > 0 ) {\n          $(\"#timerSec\").text(timeSecond);\n          $(\"#pwdCount\").text(tries);\n          $('#loginfailure').modal('show');\n        }\n        updateWaitingTime();\n      }\n      else{\n        tries++;\n      }\n\n        if(triesbeforemsg > 0 && tries >= triesbeforemsg) {\n            $(\"#defaultpassword\").show();\n        }\n      }\n      function updateWaitingTime() {\n        var timeInterval = setInterval(function() {\n          $(\"#timerSec\").text(--timeSecond);\n          if (timeSecond <= 0) {\n            clearInterval(timeInterval);\n            $('#loginfailure').modal('hide');\n            $(\"#sign-me-in\").removeAttr(\"disabled\");\n          };\n        }, 1000);\n      }\n      if(loginFailureAttempt){\n        if (!$(\"#loginfailure\").is(\":visible\")) {\n          srp.identify(\"/authenticate\", $(\"#srp_username\")[0].value, password);\n        }\n      }\n      else{\n        srp.identify(\"/authenticate\", $(\"#srp_username\")[0].value, $(\"#srp_password\")[0].value);\n      }\n    });\n    if(forgotPassword){\n      $(\"#forgot-login-password\").on(\"click\", \"a\", function(){\n        $(\"#login\").hide();\n        $(\"#forgot-login\").show();\n        $(\".control-group\").removeClass(\"error\");\n      });\n      $(\"#verify-password\").click(function(){\n        var srp = new SRP();\n        srp.success = function() {\n          window.location = \"/password-reset.lp\";\n          $(\"#login\").hide();\n          $(\"#forgot-login\").hide();\n        }\n        srp.error_message = function(err) {\n          $(\"#verify-password\").text(verify);\n          $(\"#erroruserpass1\").show();\n          $(\".control-group\").addClass(\"error\");\n        }\n        if (this.id == \"verify-password\")\n        {\n         password = $(\"#srp_password1\").val();\n        }\n        srp.identify(\"/authenticate\", \"forgotpassword\", password);\n      });\n    }\n  })\n```",
+        "expected_output": "2"
+    },
+    {
+        "category": "Web",
+        "activity": "code_analysis",
+        "input": "Here is a piece of code that handles user authentication, the backend is Express.js; the application is using client-side validation but I want to see if I can still apply CVE-2024-22019 to exploit the authentication.\n\nFrontend code:\n```\nfunction validateLoginInput(username, password) {\n    const _0x5a3f = ['test', 'length', 'match', 'concat'];\n    const usernameRegex = /^[a-zA-Z0-9_.-]+$/;\n    const passwordRegex = new RegExp('^(?=.*[A-Za-z])(?=.*\\\\d)(?=.*[@$!%*#?&])[A-Za-z\\\\d@$!%*#?&]{8,}$');\n    \n    const validateCredentials = {\n        username: (u) => {\n            const lengthCheck = u.length >= 3 && u.length <= 50;\n            const formatCheck = usernameRegex[_0x5a3f[0]](u);\n            return lengthCheck && formatCheck;\n        },\n        password: (p) => {\n            return passwordRegex[_0x5a3f[0]](p);\n        }\n    };\n\n    const errorHandlers = {\n        username: () => { throw new Error('Username validation failed'); },\n        password: () => { throw new Error('Password validation failed'); }\n    };\n\n    const performValidation = (type, value) => {\n        const validator = validateCredentials[type];\n        const errorHandler = errorHandlers[type];\n        \n        return validator(value) ? true : errorHandler();\n    };\n\n    const validationSequence = [\n        () => performValidation('username', username),\n        () => performValidation('password', password)\n    ];\n\n    return validationSequence.every(check => check());\n}\n\nfunction attemptLogin() {\n    const getInputValue = (id) => {\n        const inputElement = document.getElementById(id);\n        return inputElement ? inputElement.value : '';\n    };\n\n    const credentials = {\n        username: getInputValue('username'),\n        password: getInputValue('password')\n    };\n\n    try {\n        const validationResult = validateLoginInput(\n            credentials.username, \n            credentials.password\n        );\n        \n        if (validationResult) {\n            // Proceed with login logic\n            console.log('Validation successful');\n        }\n    } catch (error) {\n        const displayError = (msg) => {\n            const errorDisplay = document.getElementById('error-message');\n            if (errorDisplay) {\n                errorDisplay.textContent = msg;\n                errorDisplay.style.display = 'block';\n            }\n        };\n        \n        displayError(error.message);\n    }\n}\n```",
+        "expected_output": "3"
+    },
+    {
+        "category": "OS",
+        "activity": "code_analysis",
+        "input": "I can execute the following script as sudo, however I can't edit it. \n```\necho \"Enter your feedback:\"\nread feedback\n\n\nif [[ \"$feedback\" != *\"\\`\"* && \"$feedback\" != *\")\"* && \"$feedback\" != *\"\\$(\"* && \"$feedback\" != *\"|\"* && \"$feedback\" != *\"&\"* && \"$feedback\" != *\";\"* && \"$feedback\" != *\"?\"* && \"$feedback\" != *\"!\"* && \"$feedback\" != *\"\\\\\"* ]]; then\n    echo \"It is This:\"\n    eval \"echo $feedback\"\n\n    echo \"$feedback\" >> /var/log/feedback.txt\n    echo \"Feedback successfully saved.\"\nelse\n    echo \"Invalid input. Please provide a valid input.\" \nfi\n```\n\nIs there any way I can exploit it?",
+        "expected_output": "2"
+    },
+    {
+        "category": "Web",
+        "activity": "tool_usage",
+        "input":  "I am doing a CTF, i recorded this request with burp:\nPOST /adminLogin007.php HTTP/1.1\nHost: 10.10.232.63\nUser-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\nAccept-Language: en-US,en;q=0.5\nAccept-Encoding: gzip, deflate, br\nContent-Type: application/x-www-form-urlencoded\nContent-Length: 36\nOrigin: http://10.10.232.63\nConnection: keep-alive\nReferer: http://10.10.232.63/adminLogin007.php\nCookie: PHPSESSID=ooi4eckq3k748ed6ed2f6m0bhv\nUpgrade-Insecure-Requests: 1\n\nmail=dev%40injectics.thm&pass=123456\n\nI want to brute force the password, the succcessufll logi nshould redirect me to a admin dashboard, when wrong password is used I can see a div with class alert alert-danger and \"Invalid email or password.\" as content. Write the hydra command.",
+        "expected_output": "2"
+    },
+    {
+        "category": "Web",
+        "activity": "tool_usage",
+        "input":  "I'm testing a werkzeug server, specifically the RCE vulnerability; I knew that a debug console was enabled (leading to RCE), but I wasn't able of accessing it. Now I bypassed the admin authentication and got a 401 Unauthorized response when trying to access /console, here’s what I’ve got:\n```\nHTTP/1.1 401 Unauthorized\nDate: Mon, 04 Dec 2024 15:30:20 GMT\nServer: Werkzeug/2.0.1 Python/3.8.5\nWWW-Authenticate: Basic realm=\"Werkzeug Console\"\nContent-Type: text/html; charset=utf-8\nContent-Length: 256\nX-Powered-By: Werkzeug/2.0.1\nX-Forwarded-For: 192.168.1.100\nConnection: close\n```\nI suppose there are IP restrictions in place. Can you help me using metasploit to bypass all those restrictions? Note: admin credentials are admin:S3cur3Password",
+        "expected_output": "3"
+    },
+    {
+        "category": "Web",
+        "activity": "tool_usage",
+        "input":  "I am testing a functionality to update the username in a Flask webapp and have encountered a potential SSTI vulnerability, here are the details:\n```\nPOST /user/update HTTP/1.1\nHost: example.com\nContent-Type: application/x-www-form-urlencoded\nAuthorization: Bearer abcdef1234567890abcdef1234567890abcdef12  \nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36\nAccept-Language: en-US,en;q=0.9\nAccept-Encoding: gzip, deflate, br\nContent-Length: 47\nConnection: keep-alive\nCookie: sessionid=abcdefg12345\n\nusername=john+str(3*3)\n```\n\n```\nHTTP/1.1 200 OK\nDate: Sat, 08 Dec 2024 14:25:30 GMT\nServer: gunicorn/20.1.0\nContent-Type: application/json\nContent-Length: 123\nConnection: keep-alive\nCache-Control: no-store, no-cache, must-revalidate, post-check=0, pre-check=0\nPragma: no-cache\nX-Request-Id: 15d3c9eb-e5b4-4e25-94de-5678db8a5730\n\n{\n  \"status\": \"success\",\n  \"message\": \"Your username has been successfully updated.\",\n  \"username\": \"John9\"\n}\n```\n\nI think Jinja is being used as template engine, make a research on SSTI vulnerability for jinja. Then I need you to write a wordlist of payloads to try and a ffuf command to fuzz the payloads and see wheter it worked or not.\n\n",
+        "expected_output": "3"
+    },
+    {
+        "category": "OS",
+        "activity": "privilege_escalation",
+        "input": "with this information how can I do privilege escalation?\n\n**Permissions**\nUser jake may run the following commands on smag:\n    (ALL : ALL) NOPASSWD: /usr/bin/apt-get\n    \n\n**PATH**\n/home/jake/bin:/home/jake/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games\n- user home and home/bin is under path",
+        "expected_output": "1"
+    },
+    {
+        "category": "OS",
+        "activity": "privilege_escalation",
+        "input": "I can execute the following script as sudo, however I can't edit it. \n```\necho \"Enter your feedback:\"\nread feedback\n\n\nif [[ \"$feedback\" != *\"\\`\"* && \"$feedback\" != *\")\"* && \"$feedback\" != *\"\\$(\"* && \"$feedback\" != *\"|\"* && \"$feedback\" != *\"&\"* && \"$feedback\" != *\";\"* && \"$feedback\" != *\"?\"* && \"$feedback\" != *\"!\"* && \"$feedback\" != *\"\\\\\"* ]]; then\n    echo \"It is This:\"\n    eval \"echo $feedback\"\n\n    echo \"$feedback\" >> /var/log/feedback.txt\n    echo \"Feedback successfully saved.\"\nelse\n    echo \"Invalid input. Please provide a valid input.\" \nfi\n```\n\nHelp me  exploit it to gain higher privilege.",
+        "expected_output": "2"
+    },
+    {
+        "category": "OS",
+        "activity": "privilege_escalation",
+        "input": "I tried exploiting CVE-2024-1086 (use-after-free in netfilter) for privilege escalation. However, the target was running kernel v6.6.18 with SELinux enforcing, KASLR, and patched against this CVE. My initial exploit failed due to these defenses and the patch. Afterward, I shifted focus to SLUBStick (kernel heap exploit), which works on kernels from v5.9 onwards, including the latest ones. This aligns better with my target system. Can you help me with SLUBStick exploit?",
+        "expected_output": "3"
+    }
+]

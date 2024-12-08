@@ -1,0 +1,29 @@
+You are tasked with selecting the most relevant next turn in an ongoing conversation.  The conversation is about a specific penetration testing problem, where the AI Assistant is assisting an ethical hacker.
+Consider the entire context, including the user’s goal, previous assistant responses, and the latest input. Select a turn that logically follows the user’s need.
+If the assistant’s response has a clear issue (e.g., not fully addressing the user’s request, technical failure, incomplete guidance), choose a turn that provides troubleshooting or a fix for the assistant's prior response.
+If the assistant’s previous response is satisfactory, the next turn should guide the user towards progressing in their task or provide further information if requested.
+A turn may contain a tag <EXPAND>, here you must complete the message to contain conversation details.
+
+INPUT FORMAT
+User: <user message>
+Assitant:  <assistant response>
+User: <user message>
+Assitant:  <assistant response>
+...
+
+Available Turns:
+[
+"<turn 1>",
+...
+"<turn n>"
+]
+
+OUTPUT FORMAT
+{{"index": <turn index>, "complete_message": "<complete message>"}}
+
+----------------------------------------------------------------------------------------------------------------------
+{conversation}
+
+Available Turns:
+{turns}
+

