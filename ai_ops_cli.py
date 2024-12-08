@@ -6,6 +6,7 @@ when executing the frontend is not convenient.
 import argparse
 import os
 import sys
+import json
 from urllib.parse import urlparse
 
 import requests
@@ -72,7 +73,7 @@ class AgentClient:
 
         self.console.print("[bold blue]ai-ops-cli[/] (beta) starting.")
         try:
-            response = self.client.get(f'{self.api_url}/ping', timeout=20)
+            response = self.client.get(f'{self.api_url}/ping', timeout=5)
             response.raise_for_status()
             self.console.print(f"Backend: [blue]online[/]")
             self.console.print(
@@ -220,28 +221,35 @@ class AgentClient:
             q = self.multiline_input.prompt()
             if q.startswith('back'):
                 break
+            self.__generate_response(query_url, q)
 
-            try:
-                with self.client.post(query_url, json={'query': q}, headers=None, stream=True) as resp:
-                    resp.raise_for_status()
+    def __generate_response(self, url: str, query: str):
+        try:
+            with self.client.post(
+                url,
+                json={'query': query},
+                headers=None,
+                stream=True
+            ) as resp:
+                resp.raise_for_status()
 
-                    response_text = '**Assistant**: '
-                    with Live(console=self.console, refresh_per_second=10) as live:
-                        live.update(Markdown(response_text))
-                        for chunk in resp.iter_content():
-                            if chunk:
-                                try:
-                                    response_text += chunk.decode('utf-8')
-                                except UnicodeDecodeError:
-                                    pass
-                                live.update(Markdown(response_text))
+                response_text = '**Assistant**: '
+                with Live(console=self.console, refresh_per_second=10) as live:
+                    live.update(Markdown(response_text))
+                    for chunk in resp.iter_content(decode_unicode=True):
+                        if chunk:
+                            try:
+                                response_text += chunk.decode('utf-8')
+                            except UnicodeDecodeError:
+                                pass
+                            live.update(Markdown(response_text))
 
-                    print()
-            except requests.exceptions.HTTPError:
-                if 400 <= resp.status_code < 500:
-                    self.console.print(f'[red]Client Error: {resp.status_code}[/]')
-                else:
-                    self.console.print(f'[red]Server Error: {resp.status_code}[/]')
+                print()
+        except requests.exceptions.HTTPError:
+            if 400 <= resp.status_code < 500:
+                self.console.print(f'[red]Client Error: {resp.status_code}[/]')
+            else:
+                self.console.print(f'[red]Server Error: {resp.status_code}[/]')
 
     # RAG is disabled in the current version
     def __list_collections(self):
