@@ -2,13 +2,13 @@
 <div align="center">
 
   <h1>AI-OPS</h1>
+  <p><strong>AI-OPS is a Penetration Testing AI Assistant based on open source LLMs.</strong></p>
   
   [![license](https://img.shields.io/badge/LICENSE-MIT-<COLOR>.svg)](https://shields.io/)
   ![GitHub last commit (branch)](https://img.shields.io/github/last-commit/antoninoLorenzo/AI-OPS/main)
   [![unit test](https://img.shields.io/badge/Unit%20Test-passing-<COLOR>.svg)](https://shields.io/) 
   ![pylint](https://img.shields.io/badge/PyLint-8.94-yellow) 
 
-  <p>AI-OPS is a Penetration Testing AI Assistant based on open source LLMs.</p>
 
 </div>
 
