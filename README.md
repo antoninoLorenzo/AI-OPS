@@ -1,41 +1,62 @@
 
-<div style="display:flex; gap: 8px">
+<div style="display:flex; flex-direction: column; align-items: center;">
 
-[![unit test](https://img.shields.io/badge/Unit%20Test-passing-<COLOR>.svg)](https://shields.io/) ![pylint](https://img.shields.io/badge/PyLint-8.94-yellow) [![license](https://img.shields.io/badge/LICENSE-MIT-<COLOR>.svg)](https://shields.io/)
+# AI-OPS
 
 </div>
 
+<div style="display:flex; flex-direction: column; align-items: center;">
 
-🚧 **Under Development** 🚧
+   <div style="display:flex; gap: 8px">
+   
+   [![license](https://img.shields.io/badge/LICENSE-MIT-<COLOR>.svg)](https://shields.io/)
+   ![GitHub last commit (branch)](https://img.shields.io/github/last-commit/antoninoLorenzo/AI-OPS/main)
+   [![unit test](https://img.shields.io/badge/Unit%20Test-passing-<COLOR>.svg)](https://shields.io/) 
+   ![pylint](https://img.shields.io/badge/PyLint-8.94-yellow) 
 
-> **Note:** AI-OPS is currently an experimental project. 
-> 
-# AI-OPS
+   </div>
 
-### Table of Contents
-1. [Overview](#-overview)
-   - [Key Features](#key-features)
-   - [Supported Models](#supported-models)
-2. [Quickstart](#quickstart)
-3. [Ethical and Legal Considerations](#-ethical-and-legal-considerations)
+   AI-OPS is a Penetration Testing AI Assistant based on open source LLMs. 
+
+</div>
 
 ---
 
-## 💡 Overview
+### Table of Contents
+1. [Overview](#overview)
+   - [Key Features](#key-features)
+   - [Supported Models](#supported-models)
+2. [Quickstart](#quickstart)
+   - [Requirements](#requirements)
+   - [Get Started](#get-started)
+   - [Additional Information](#additional-information)
+3. [Ethical and Legal Considerations](#-ethical-and-legal-considerations)
+
+> 💡 ***Note:** AI-OPS is currently an experimental project.*
+
+---
+
+## Overview
 
 AI-OPS is a **Penetration Testing AI Assistant** that leverages open-source Large Language Models (*LLMs*)
 to explore the role of Generative AI in ethical hacking. With a focus on accessibility and practical use, it 
-aims to bridge the gap between AI research and usage during real-world workflows.
+aims to accelerate common tasks in pentesting such as exploit development, vulnerability research, and code analysis.
 
+It is designed to support human operators rather than automate penetration testing activities entirely, 
+ensuring that AI remains a supplementary tool during real-world workflows. In the current iteration, AI-OPS does not 
+directly interact with target systems. Instead, it serves as an assistive tool that aids in tasks like generating 
+proof-of-concept (PoC) exploits, researching security vulnerabilities in specific technologies, and analyzing code for potential flaws.
 
-### 🚀 Key Features
+### Key Features
 
-- 🎁 **Full Open-Source**: No need for third-party LLM providers; use any model you prefer with [Ollama](https://github.com/ollama/ollama).
+- 🚀 **Full Open-Source**: There is no reliance on third-party LLM providers; use any model you prefer with [Ollama](https://github.com/ollama/ollama).
+- 🔍 **Web Search**: The AI assistant delivers up-to-date responses by performing online searches via Google.
 
 <!--
 ### ▶️ Demo
 
 TODO
+
 -->
 
 
@@ -45,37 +66,55 @@ AI-OPS supports virtually any LLM that can be hosted with Ollama, allowing you t
 available resources; for detailed setup instructions, see [Configuration](./docs/user/2.Configuration.md).
 While flexibility is key, note that performance may vary depending on the model used. Below is a list of currently implemented models.
 
-| Name           | Implemented |
-|----------------|-------------|
-| **Mistral 7B** | &check;     | 
+| Name           | GPU Usage | Overall Performance | Notes |
+|----------------|-----------|---------------------|-------|
+| **Mistral 7B** |           |                     |       |
+| **Gemma2**     |           |                     |       |
 
-> *Note: AI-OPS prioritizes smaller, efficient LLMs like Mistral 7B to ensure accessibility and optimal performance, even on limited hardware.*
+> *Note: AI-OPS prioritizes smaller, efficient LLMs to ensure accessibility and optimal performance, even on limited hardware.*
+
+---
 
 ## Quickstart
 
-**Requirements**
-- Python (>= 3.11)
-- Ollama (>= 0.3.0)
-- Docker
+### Requirements
+
+To get started with AI-OPS, ensure you have the following dependencies installed:
+- **Python** (*>= 3.11*): for AI-OPS CLI interface. 
+- **Ollama** (*>= 0.3.0*): for LLM inference.
+- **Docker** : for AI-OPS API.
+
+### Get Started
+
+Start by cloning the repository:
+```
+git clone https://github.com/antoninoLorenzo/AI-OPS.git
+cd AI-OPS
+```
+
+Then configure Ollama, you can refer to their [documentation](https://github.com/ollama/ollama/blob/main/docs/README.md) for additional
+details:
+```
+ollama run MODEL
+```
+> 💡 ***Tip:** If you lack mid/high-end GPUs to run LLMs locally you can follow [my guide](https://github.com/antoninoLorenzo/Ollama-on-Colab-with-ngrok) on how to run Ollama on Google Colab.*
+
+Build and run the Docker container for the AI-OPS API using the following command. Replace `ENDPOINT` with the URL of your 
+Ollama instance and `MODEL` with the name of the model you wish to use (e.g., Mistral 7B):
 
 ```
-# Clone Repository 
-git clone https://github.com/antoninoLorenzo/AI-OPS.git
-
-# Launch Ollama (...)
- 
-# Run `ai_ops_api.py` or build manually:
 docker build -t ai-ops:api-dev --build-arg ollama_endpoint=ENDPOINT ollama_model=MODEL .
 docker run -p 8000:8000 ai-ops:api-dev
+```
 
-# Install Client
+To start interacting with AI-OPS, install and run the `ai-ops-cli` command-line client. Make sure to 
+replace `AI-OPS_API_ADDRESS` with the address of your running Docker container (e.g., http://localhost:8000):
+```
 pip install .
-
-# Run Client
 ai-ops-cli --api AI-OPS_API_ADDRESS
 ```
 
----
+### Additional Information
 
 **User Documentation**
 1. [Usage](./docs/user/1.Usage.md)
