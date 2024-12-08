@@ -58,10 +58,10 @@ AI-OPS supports virtually any LLM that can be hosted with Ollama, allowing you t
 available resources; for detailed setup instructions, see [Configuration](./docs/user/2.Configuration.md).
 While flexibility is key, note that performance may vary depending on the model used. Below is a list of currently implemented models.
 
-| Name           | GPU Usage | Overall Performance | Notes |
-|----------------|-----------|---------------------|-------|
-| **Mistral 7B** |           |                     |       |
-| **Gemma2**     |           |                     |       |
+| Name           | Notes                                                                                              |
+|----------------|----------------------------------------------------------------------------------------------------|
+| **Mistral 7B** | Using non quantized mistral `mistral:7b-instruct-v0.3-q8_0` gives better results in exploit tasks. |
+| **Gemma2**     | Better compared to mistral in vulnerability research tasks.                                        |
 
 > *Note: AI-OPS prioritizes smaller, efficient LLMs to ensure accessibility and optimal performance, even on limited hardware.*
 
