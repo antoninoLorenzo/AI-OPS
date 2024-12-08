@@ -66,7 +66,7 @@ class Search:
 
         results = []
         if not links:
-            logger.error('No links found')
+            logger.error('\tNo links found')
             return ''
 
         if len(links) == 1:

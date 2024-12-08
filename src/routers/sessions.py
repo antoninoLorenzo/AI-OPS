@@ -121,6 +121,7 @@ def query_generator(agent: Agent, sid: int, usr_query: str):
         yield from agent.query(sid, usr_query)
     except Exception as err:
         yield json.dumps({'error': f'query_generator: {err}'})
+        raise RuntimeError from err
 
 
 @session_router.post('/sessions/{sid}/chat')

@@ -14,7 +14,7 @@ logger = get_logger(__name__)
 SESSIONS_PATH = Path(Path.home() / '.aiops' / 'sessions')
 if not SESSIONS_PATH.exists():
     SESSIONS_PATH.mkdir(parents=True, exist_ok=True)
-    logger.info(f"Created {str(SESSIONS_PATH)}")
+    logger.info(f"\tCreated {str(SESSIONS_PATH)}")
 
 
 class Role(StrEnum):
@@ -126,7 +126,7 @@ class Memory:
     def save_session(self, sid: int):
         """Saves the current session state to a JSON file at SESSION_PATH"""
         if sid not in self.sessions:
-            logger.error(f'Error in {self.__name__}: session not exists.')
+            logger.error(f'\tError in {self.__name__}: session not exists.')
             raise ValueError(f'Session {sid} does not exist')
 
         session: Session = self.sessions[sid]
@@ -140,7 +140,7 @@ class Memory:
                     'name': session.name,
                     'messages': session.message_dict,
                 }
-                json.dump(data, fp)
+                json.dump(data, fp, indent='\t')
             except (
                 UnicodeDecodeError,
                 json.JSONDecodeError,
@@ -178,6 +178,6 @@ class Memory:
             if path.is_file() and path.suffix == '.json':
                 sid, session = Session.from_json(str(path))
                 if sid == -1:
-                    logger.error(f"Failed loading session {path}")
-                logger.info(f"Loaded session {path}")
+                    logger.error(f"\tFailed loading session {path}")
+                logger.info(f"\tLoaded session {path}")
                 self.sessions[sid] = session

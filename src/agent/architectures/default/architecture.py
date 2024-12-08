@@ -139,15 +139,28 @@ class DefaultArchitecture(AgentArchitecture):
             # Execute tool call and temporarily concatenate output to user
             # message, but the tool call result is thrown away (for simplicity)
             # in order to avoid display the result when load_session is called.
-            tool_call_result = self.__tool_call(
+            tool_call_result: str | None = None
+            tool_call_str: str | None = None
+            for tool_call_execution in self.__tool_call(
                 user_input,
                 self.memory.get_session(session_id).message_dict,
-            )
-            if len(tool_call_result) == 0:
-                logger.error('Tool call failed, will exclude tool results.')
+            ):
+                tool_call_state = tool_call_execution['state']
+                if tool_call_state == 'error':
+                    break
+                elif tool_call_state == 'running':
+                    # should inform client of tool execution ...
+                    tool_call_str = tool_call_execution['message']
+                else:
+                    tool_call_result = tool_call_execution['message']
 
-            user_input_with_tool_call += f'\nWeb Search Result:\n{tool_call_result}'
-            assistant_index = 1
+            if tool_call_result:
+                user_input_with_tool_call += (
+                    f'\n### TOOL {tool_call_str} ###\n'
+                    f'{tool_call_result}\n'
+                    f'### TOOL {tool_call_str} END ###'
+                )
+                assistant_index = 1
 
         # Replace system prompt with the one built for specific assistant type
         history = self.memory.get_session(session_id)
@@ -177,6 +190,7 @@ class DefaultArchitecture(AgentArchitecture):
                 if generation_state == State.SPEAKING:
                     response += c
                     yield c
+                # add thinking yield
 
         # remove tool call result from user input and add response to history
         history.messages[-1].content = user_input
@@ -228,13 +242,14 @@ class DefaultArchitecture(AgentArchitecture):
         self,
         user_input: str,
         message_history: list
-    ) -> str:
+    ):
         """Query a LLM for a tool call and executes it.
 
         :param user_input: The user's input query.
         :param message_history: The conversation history.
 
         :returns: Result of the tool execution."""
+        # replace system prompt and generate tool call
         message_history[0] = {
             'role': 'system',
             'content': self.__prompts['tool']
@@ -248,55 +263,90 @@ class DefaultArchitecture(AgentArchitecture):
         for chunk, _ in self.llm.query(message_history):
             tool_call_response += chunk
 
-        name, parameters = self.__extract_tool_call(tool_call_response)
+        # extract tool call and run it
+        name, parameters, tool_extraction_error_message = self.__extract_tool_call(tool_call_response)
         if not name:
-            return ''
+            yield {
+                'name': name,
+                'parameters': parameters,
+                'state': 'error',
+                'message': tool_extraction_error_message
+            }
+            return
 
-        logger.debug(f'Calling {name} with {parameters}).')
+        running_msg = (
+            f"Running "
+            f"{name.replace('_', ' ').capitalize()} "
+            f"{list(parameters.values())[0]}"
+        )
+        logger.info(running_msg)
+        yield {
+            'name': name,
+            'parameters': parameters,
+            'state': 'running',
+            'message': running_msg
+        }
         try:
             tool_call_result = self.__tool_registry.compile(
                 name=name,
                 arguments=parameters
             )
-            return tool_call_result
+            yield {
+                'name': name,
+                'parameters': parameters,
+                'state': 'done',
+                'message': tool_call_result
+            }
+            return
         except Exception as tool_exec_error:
-            logger.error(
-                f'Tool execution failed ({type(tool_exec_error)}): '
+            error_message = (
+                f'({type(tool_exec_error).__name__}): tool execution failed, '
                 f'{tool_exec_error}'
             )
-            return ''
+            logger.error(error_message)
+            yield {
+                'name': name,
+                'parameters': parameters,
+                'state': 'error',
+                'message': error_message
+            }
+            return
 
     def __extract_tool_call(
         self,
         tool_call_response: str
-    ) -> Tuple[str | None, Dict]:
+    ) -> Tuple[str | None, Dict, str | None]:
         """Extracts the tool call and its parameters from the LLM response.
 
         :param tool_call_response: The response containing a tool call.
 
         :returns:
-            (tool name, parameters) OK
-            (None, None) if extraction fails."""
+            (tool name, parameters, None) OK
+            (None, None, error_message) if extraction fails."""
         tool_call_match = re.search(self.__tool_pattern, tool_call_response)
         if not tool_call_match:
-            logger.error(
-                f'Tool call failed: not found in LLM response: {tool_call_response}'
+            error_message = (
+                f'Tool call failed: '
+                f'not found in LLM response: {tool_call_response}'
             )
-            return None, {}
+            logger.error(error_message)
+            return None, {}, error_message
         try:
             # fix response to be JSON
             tool_call_json = tool_call_match \
                 .group(1) \
-                .replace("'", '"')
+                .replace("'", '"') \
+                .strip()
 
             tool_call_dict = json.loads(tool_call_json)
             name, parameters = tool_call_dict['name'], tool_call_dict['parameters']
         except json.JSONDecodeError as json_extract_err:
-            logger.error(
+            error_message = (
                 f'Tool call failed: not found in LLM response: {tool_call_response}'
                 f'\nError: {json_extract_err}'
             )
-            return None, {}
+            logger.error(error_message)
+            return None, {}, error_message
 
         # check if tool exists
         found = False
@@ -304,6 +354,8 @@ class DefaultArchitecture(AgentArchitecture):
             if t['function']['name'] == name:
                 found = True
         if not found:
-            logger.error(f'Tool call failed: {name} is not a tool.')
-            return None, {}
-        return name, parameters
+            error_message = f'Tool call failed: {name} is not a tool.'
+            logger.error(error_message)
+            return None, {}, error_message
+
+        return name, parameters, None

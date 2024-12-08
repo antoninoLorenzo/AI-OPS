@@ -58,5 +58,5 @@ class MemoryUsageLogger(threading.Thread):
                     steps = 0
                     self.logger.info(f'Usage: {memory:.2f} GB')
             except Exception as err:
-                logger.error(f'Unexpected error in {self.__name__}: {str(err)}')
+                logger.error(f'\tUnexpected error in {self.__name__}: {str(err)}')
                 time.sleep(5)

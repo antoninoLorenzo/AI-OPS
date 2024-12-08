@@ -10,6 +10,7 @@ import httpx
 from ollama import Client, ResponseError
 
 from src.core.memory import Role
+from src.utils import get_logger
 
 AVAILABLE_MODELS = {
     'mistral': {
@@ -32,8 +33,9 @@ AVAILABLE_MODELS = {
             'num_ctx': 8192
         },
         'tools': False
-    },
+    }
 }
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -80,6 +82,11 @@ class Provider(ABC):
             for msg in messages
         ]
         if False in message_roles or False in message_content:
+            if False in message_roles:
+                invalid = messages[message_roles.index(False)]
+            else:
+                invalid = messages[message_content.index(False)]
+            logger.error(f'\t{err_message}. Found {invalid}')
             raise ValueError(err_message)
 
 
