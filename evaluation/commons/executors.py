@@ -33,6 +33,7 @@ def load_tests(name: str) -> list[dict]:
     current = str(Path(__file__))
     datasets_path = (
         Path(current[:current.find('evaluation')])
+        / 'evaluation'
         / 'resources'
         / 'datasets'
     )
@@ -182,12 +183,15 @@ def generate_conversation(
     gemini_llm: GeminiLLM,
     max_turns: int = 3
 ):
+    current = str(Path(__file__))
     prompt_path = (
-        Path(__file__).parent /
-        'resources' /
-        'prompts' /
-        'conversation_expansion_prompt'
+        Path(current[:current.find('evaluation')])
+        / 'evaluation'
+        / 'resources'
+        / 'prompts'
+        / 'conversation_expansion_prompt'
     )
+
     with open(str(prompt_path), 'r', encoding='utf-8') as fp:
         conversation_expansion_prompt = fp.read()
 
