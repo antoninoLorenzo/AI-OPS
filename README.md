@@ -1,6 +1,7 @@
 
 <div align="center">
 
+   <img src="./static/logo.png">
   <h1>AI-OPS</h1>
   <p><strong>AI-OPS is a Penetration Testing AI Assistant based on open source LLMs.</strong></p>
   
@@ -15,14 +16,15 @@
 ---
 
 ### Table of Contents
-1. [Overview](#overview)
-   - [Key Features](#key-features)
-   - [Supported Models](#supported-models)
-2. [Quickstart](#quickstart)
-   - [Requirements](#requirements)
-   - [Get Started](#get-started)
-   - [Additional Information](#additional-information)
-3. [Ethical and Legal Considerations](#-ethical-and-legal-considerations)
+- [Overview](#overview)
+  - [Key Features](#key-features)
+  - [Supported Models](#supported-models)
+- [Quickstart](#quickstart)
+  - [Requirements](#requirements)
+  - [Get Started](#get-started)
+  - [Additional Information](#additional-information)
+- [⚖️ Ethical and Legal Considerations](#️-ethical-and-legal-considerations)
+  - [Disclaimer](#disclaimer)
 
 > 💡 ***Note:** AI-OPS is currently an experimental project.*
 
