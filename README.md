@@ -1,7 +1,7 @@
 
 <div align="center">
 
-   <img src="./static/logo.png">
+   <img src="./static/logo.jpg" style="width:100px">
   <h1>AI-OPS</h1>
   <p><strong>AI-OPS is a Penetration Testing AI Assistant based on open source LLMs.</strong></p>
   
