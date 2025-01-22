@@ -1,7 +1,3 @@
-"""Memory module: handles conversation data for the assistant"""
-from src.core.memory.base import (
-    Role,
-    Message,
-    Session,
-    Memory
-)
+from src.core.memory.schema import Role, Message, Conversation
+from src.core.memory.base import Memory
+

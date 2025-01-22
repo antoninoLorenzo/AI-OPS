@@ -2,7 +2,7 @@ from src.core.knowledge import Store
 from src.core.memory import (
     Role,
     Message,
-    Session,
+    Conversation,
     Memory
 )
 from src.core.tools import (

@@ -10,7 +10,7 @@ import qdrant_client.http.exceptions
 from qdrant_client import QdrantClient, models
 from qdrant_client.http.exceptions import UnexpectedResponse
 
-from src.core.llm.llm import ProviderError
+from src.core.llm import ProviderError
 from src.core.knowledge.collections import Collection, Document, Topic
 
 
