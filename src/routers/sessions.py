@@ -54,7 +54,7 @@ async def get_session(sid: int, agent: Agent = Depends(get_agent)):
     return {
         'sid': sid,
         'name': session.name,
-        'messages': session.message_dict
+        'messages': session.model_dump()
     }
 
 

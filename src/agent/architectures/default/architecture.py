@@ -6,6 +6,7 @@ from typing import Generator, Dict, Tuple
 from tool_parse import ToolRegistry
 
 from src.agent import AgentArchitecture
+from src.core import Conversation
 from src.core.llm import LLM
 from src.core.memory import Message, Role
 from src.utils import get_logger, LOGS_PATH
@@ -124,7 +125,7 @@ class DefaultArchitecture(AgentArchitecture):
         :returns: Generator with response text in chunks."""
         # TODO: yield (chunk, context_length)
         # create a new conversation if not exists
-        if not self.memory.get_session(session_id):
+        if not self.memory.get_conversation(session_id):
             self.new_session(session_id)
 
         # route query
@@ -143,7 +144,7 @@ class DefaultArchitecture(AgentArchitecture):
             tool_call_str: str | None = None
             for tool_call_execution in self.__tool_call(
                 user_input,
-                self.memory.get_session(session_id).message_dict,
+                self.memory.get_conversation(session_id),
             ):
                 tool_call_state = tool_call_execution['state']
                 if tool_call_state == 'error':
@@ -163,9 +164,9 @@ class DefaultArchitecture(AgentArchitecture):
                 assistant_index = 1
 
         # Replace system prompt with the one built for specific assistant type
-        history = self.memory.get_session(session_id)
+        history = self.memory.get_conversation(session_id)
         history.messages[0] = Message(role=Role.SYS, content=prompt)
-        history.add_message(
+        history.add(
             Message(
                 role=Role.USER,
                 content=user_input_with_tool_call
@@ -174,7 +175,7 @@ class DefaultArchitecture(AgentArchitecture):
 
         # note: history.message_dict doesn't care about context length
         response = ''
-        for chunk, ctx_length in self.llm.query(history.message_dict):
+        for chunk, ctx_length in self.llm.query(history):
             if ctx_length:
                 self.token_logger.info(
                     f'Session: {session_id}; Tokens: {ctx_length}'
@@ -194,9 +195,9 @@ class DefaultArchitecture(AgentArchitecture):
 
         # remove tool call result from user input and add response to history
         history.messages[-1].content = user_input
-        history.add_message(
+        history.add(
             Message(
-                Role.ASSISTANT,
+                role=Role.ASSISTANT,
                 content=response
             )
         )
@@ -221,10 +222,13 @@ class DefaultArchitecture(AgentArchitecture):
         :param user_input: The user's input query.
         :return: An index to choose the proper prompt.
         """
-        route_messages = [
-            {'role': 'system', 'content': self.__prompts['router']},
-            {'role': 'user', 'content': user_input}
-        ]
+        route_messages = Conversation(
+            name='get_assistant_index',
+            messages=[
+                {'role': 'system', 'content': self.__prompts['router']},
+                {'role': 'user', 'content': user_input}
+            ]
+        )
         assistant_index_buffer = ''
         for chunk, _ in self.llm.query(route_messages):
             if not chunk:
@@ -241,26 +245,26 @@ class DefaultArchitecture(AgentArchitecture):
     def __tool_call(
         self,
         user_input: str,
-        message_history: list
+        conversation: Conversation
     ):
         """Query a LLM for a tool call and executes it.
 
         :param user_input: The user's input query.
-        :param message_history: The conversation history.
+        :param conversation: The conversation history.
 
         :returns: Result of the tool execution."""
         # replace system prompt and generate tool call
-        message_history[0] = {
-            'role': 'system',
-            'content': self.__prompts['tool']
-        }
-        message_history.append({
-            'role': 'user',
-            'content': user_input
-        })
+        conversation.messages[0] = Message(
+            role='system',
+            content=self.__prompts['tool']
+        )
+        conversation.add(Message(
+            role='user',
+            content=user_input
+        ))
 
         tool_call_response = ''
-        for chunk, _ in self.llm.query(message_history):
+        for chunk, _ in self.llm.query(conversation):
             tool_call_response += chunk
 
         # extract tool call and run it

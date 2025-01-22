@@ -91,21 +91,21 @@ class Agent:
 
     def get_session(self, sid: int):
         """Open existing conversation"""
-        return self.agent.memory.get_session(sid)
+        return self.agent.memory.get_conversation(sid)
 
     def get_sessions(self):
         """Returns list of Session objects"""
-        return self.agent.memory.get_sessions()
+        return self.agent.memory.get_conversations()
 
     def save_session(self, sid: int):
         """Saves the specified session to JSON"""
-        self.agent.memory.save_session(sid)
+        self.agent.memory.save_conversation(sid)
 
     def delete_session(self, sid: int):
         """Deletes the specified session"""
-        self.agent.memory.delete_session(sid)
+        self.agent.memory.delete_conversation(sid)
 
     def rename_session(self, sid: int, session_name: str):
         """Rename the specified session"""
-        self.agent.memory.rename_session(sid, session_name)
+        self.agent.memory.rename_conversation(sid, session_name)
 
