@@ -14,7 +14,7 @@ class Provider(ABC):
     api_key: str | None = None
 
     @abstractmethod
-    def query(self, messages: Conversation) -> Tuple[str, Tuple]:
+    def query(self, messages: Conversation) -> Tuple[str, int, int]:
         """Implement to makes query to the LLM provider"""
 
     @abstractmethod

@@ -1,8 +1,9 @@
 import json
 from enum import StrEnum
-from typing import List
+from typing import List, Literal, Any
 
 from pydantic import BaseModel, validate_call
+from pydantic.main import IncEx
 
 
 class Role(StrEnum):
@@ -25,9 +26,17 @@ class Message(BaseModel):
     """Message object"""
     role: Role
     content: str
+    __token_length: int = 0
 
-    class Config:
-        use_enum_values = True
+    def model_dump(self, **kwargs):
+        return {'role': str(self.role), 'content': self.content}
+
+    # using @property causes issues with BaseModel
+    def get_tokens(self) -> int:
+        return self.__token_length
+
+    def set_tokens(self, val: int):
+        self.__token_length = val
 
 
 class Conversation(BaseModel):
@@ -48,13 +57,8 @@ class Conversation(BaseModel):
             for message in self.messages
         ]
 
-    @property
-    def tokens(self):
-        return self._tokens
-
-    @tokens.setter
-    def tokens(self, val):
-        self._tokens = val
+    def __len__(self):
+        return len(self.messages)
 
     @staticmethod
     def from_json(path: str):

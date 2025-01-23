@@ -24,7 +24,7 @@ class LLM:
     def query(
         self,
         messages: Conversation
-    ) -> Tuple[str, int]:
+    ) -> Tuple[str, int, int]:
         """Generator that returns LLM response in a tuple containing:
         (chunk, token_usage).
 

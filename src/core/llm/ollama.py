@@ -31,7 +31,20 @@ AVAILABLE_MODELS = {
             'num_ctx': 8192
         },
         'tools': False
-    }
+    },
+    # The version `deepseek-r1:14b-qwen-distill-q4_K_M` seems promising.
+    # This also thanks to the ollama system prompt for deepseek-r1 that
+    # generate reasoning in `<think>...</think>` tags.
+    # However, those tags content should be masked from the user and, the
+    # current code isn't flexible enough in order to handle custom outputs
+    # for a specific model.
+    # 'deepseek-r1': {
+    #     'options': {
+    #         'temperature': 0.5,
+    #         'num_ctx': 16384
+    #     },
+    #     'tools': False
+    # }
 }
 logger = get_logger(__name__)
 
@@ -49,13 +62,33 @@ class Ollama(Provider):
         except Exception as err:
             raise RuntimeError('Initialization Failed') from err
 
+    @staticmethod
+    def user_message_token_length(
+        conversation: Conversation,
+        full_input_tokens: int,
+        system_prompt_tokens: int
+    ) -> int:
+        # assumes conversation contains at least system prompt and usr message
+        if len(conversation) < 2:
+            return 0
+
+        if len(conversation) == 2:
+            return full_input_tokens - system_prompt_tokens
+        else:
+            user_message_tokens = full_input_tokens - system_prompt_tokens
+            # currently conversation.messages contains all messages
+            # except the assistant response, so last message must be excluded
+            for message in conversation.messages[:-1]:
+                user_message_tokens -= message.get_tokens()
+            return user_message_tokens
+
     @validate_call
     def query(
         self,
         messages: Conversation
-    ) -> Tuple[str, int]:
+    ) -> Tuple[str, int, int]:
         """Generator that returns a tuple containing:
-         (response_chunk, token_usage)"""
+         (response_chunk, user message tokens, assistant message tokens)"""
         try:
             options = AVAILABLE_MODELS[self.__match_model()]['options']
             stream = self.client.chat(
@@ -64,11 +97,27 @@ class Ollama(Provider):
                 stream=True,
                 options=options
             )
+            c = None
             for chunk in stream:
-                if 'eval_count' and 'prompt_eval_count' in chunk:
-                    yield "", chunk['prompt_eval_count']
+                c = chunk
+                yield chunk['message']['content'], 0, 0
 
-                yield chunk['message']['content'], None
+            # The last chunk in the ollama stream contains:
+            # - `prompt_eval_count` -> input prompt tokens
+            # - `eval_count` -> output tokens
+            # The input prompt contains system prompt + entire conversation.
+            system_prompt_length_estimate = int(len(messages.messages[0].content) / 4)
+            user_msg_tokens = Ollama.user_message_token_length(
+                conversation=messages,
+                full_input_tokens=c['prompt_eval_count'],
+                system_prompt_tokens=system_prompt_length_estimate
+            )
+            assistant_msg_tokens = c['eval_count']
+
+            logger.info(f'User: {user_msg_tokens} tokens')
+            logger.info(f'Assistant: {assistant_msg_tokens} tokens')
+
+            yield "", user_msg_tokens, assistant_msg_tokens
         except (ResponseError, httpx.ConnectError) as err:
             raise ProviderError(err) from err
 

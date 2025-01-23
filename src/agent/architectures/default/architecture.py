@@ -175,11 +175,13 @@ class DefaultArchitecture(AgentArchitecture):
 
         # note: history.message_dict doesn't care about context length
         response = ''
-        for chunk, ctx_length in self.llm.query(history):
-            if ctx_length:
-                self.token_logger.info(
-                    f'Session: {session_id}; Tokens: {ctx_length}'
-                )
+        # yes, I called ass_tokens the assistant tokens
+        response_tokens = 0
+        for chunk, usr_tokens, ass_tokens in self.llm.query(history):
+            if usr_tokens:
+                # set last message (usr) token usage
+                history.messages[-1].set_tokens(usr_tokens)
+                response_tokens = ass_tokens
                 break
             if assistant_index == 1:
                 response += chunk
@@ -198,9 +200,10 @@ class DefaultArchitecture(AgentArchitecture):
         history.add(
             Message(
                 role=Role.ASSISTANT,
-                content=response
+                content=response,
             )
         )
+        history.messages[-1].set_tokens(response_tokens)
 
     def new_session(self, session_id: int):
         """Create a new conversation if not exists"""
@@ -230,7 +233,7 @@ class DefaultArchitecture(AgentArchitecture):
             ]
         )
         assistant_index_buffer = ''
-        for chunk, _ in self.llm.query(route_messages):
+        for chunk, _, _ in self.llm.query(route_messages):
             if not chunk:
                 break
             assistant_index_buffer += chunk
@@ -264,7 +267,7 @@ class DefaultArchitecture(AgentArchitecture):
         ))
 
         tool_call_response = ''
-        for chunk, _ in self.llm.query(conversation):
+        for chunk, _, _ in self.llm.query(conversation):
             tool_call_response += chunk
 
         # extract tool call and run it
