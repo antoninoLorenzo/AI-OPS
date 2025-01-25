@@ -114,9 +114,6 @@ class Ollama(Provider):
             )
             assistant_msg_tokens = c['eval_count']
 
-            logger.info(f'User: {user_msg_tokens} tokens')
-            logger.info(f'Assistant: {assistant_msg_tokens} tokens')
-
             yield "", user_msg_tokens, assistant_msg_tokens
         except (ResponseError, httpx.ConnectError) as err:
             raise ProviderError(err) from err
