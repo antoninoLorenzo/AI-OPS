@@ -49,7 +49,7 @@ class AgentArchitecture(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def new_session(self, session_id: int):
+    def new_session(self, session_id: int, name: str):
         raise NotImplementedError()
 
 
@@ -85,27 +85,28 @@ class Agent:
         #  consumption (arch_name, sid, context_length)
         yield from self.agent.query(session_id, user_input)
 
-    def new_session(self, sid: int):
+    def new_session(self, sid: int, name: str):
         """Initializes a new conversation"""
-        self.agent.new_session(sid)
+        self.agent.new_session(sid, name)
 
     def get_session(self, sid: int):
         """Open existing conversation"""
-        return self.agent.memory.get_conversation(sid)
+        return self.agent.memory[sid]
 
     def get_sessions(self):
         """Returns list of Session objects"""
-        return self.agent.memory.get_conversations()
+        return self.agent.memory.conversations
 
     def save_session(self, sid: int):
         """Saves the specified session to JSON"""
-        self.agent.memory.save_conversation(sid)
+        self.agent.memory.save(sid)
 
     def delete_session(self, sid: int):
         """Deletes the specified session"""
-        self.agent.memory.delete_conversation(sid)
+        self.agent.memory.delete(sid)
 
     def rename_session(self, sid: int, session_name: str):
         """Rename the specified session"""
-        self.agent.memory.rename_conversation(sid, session_name)
+        if sid in self.agent.memory:
+            self.agent.memory[sid].name = session_name
 

@@ -63,6 +63,12 @@ class State:
 
 
 class DefaultArchitecture(AgentArchitecture):
+    """
+    TODO: fix architecture since its kinda broken
+        - search adds two user messages ???
+
+    The overall code sucks. My bad.
+    """
     model: str
     architecture_name = 'default_architecture'
 
@@ -125,7 +131,7 @@ class DefaultArchitecture(AgentArchitecture):
         :returns: Generator with response text in chunks."""
         # TODO: yield (chunk, context_length)
         # create a new conversation if not exists
-        if not self.memory.get_conversation(session_id):
+        if not self.memory[session_id]:
             self.new_session(session_id)
 
         # route query
@@ -144,7 +150,7 @@ class DefaultArchitecture(AgentArchitecture):
             tool_call_str: str | None = None
             for tool_call_execution in self.__tool_call(
                 user_input,
-                self.memory.get_conversation(session_id),
+                self.memory[session_id],
             ):
                 tool_call_state = tool_call_execution['state']
                 if tool_call_state == 'error':
@@ -164,23 +170,21 @@ class DefaultArchitecture(AgentArchitecture):
                 assistant_index = 1
 
         # Replace system prompt with the one built for specific assistant type
-        history = self.memory.get_conversation(session_id)
-        history.messages[0] = Message(role=Role.SYS, content=prompt)
-        history.add(
-            Message(
-                role=Role.USER,
-                content=user_input_with_tool_call
-            )
+        conversation = self.memory[session_id]
+        conversation.messages[0] = Message(role=Role.SYS, content=prompt)
+        conversation += Message(
+            role=Role.USER,
+            content=user_input_with_tool_call
         )
 
-        # note: history.message_dict doesn't care about context length
+        # note: conversation.message_dict doesn't care about context length
         response = ''
         # yes, I called ass_tokens the assistant tokens
         response_tokens = 0
-        for chunk, usr_tokens, ass_tokens in self.llm.query(history):
+        for chunk, usr_tokens, ass_tokens in self.llm.query(conversation):
             if usr_tokens:
                 # set last message (usr) token usage
-                history.messages[-1].set_tokens(usr_tokens)
+                conversation.messages[-1].set_tokens(usr_tokens)
                 response_tokens = ass_tokens
                 break
             if assistant_index == 1:
@@ -195,25 +199,24 @@ class DefaultArchitecture(AgentArchitecture):
                     yield c
                 # add thinking yield
 
-        # remove tool call result from user input and add response to history
-        history.messages[-1].content = user_input
-        history.add(
-            Message(
-                role=Role.ASSISTANT,
-                content=response,
-            )
+        # remove tool call result from user input and add response to conversation
+        conversation.messages[-1].content = user_input
+        conversation += Message(
+            role=Role.ASSISTANT,
+            content=response,
         )
-        history.messages[-1].set_tokens(response_tokens)
 
-    def new_session(self, session_id: int):
+        conversation.messages[-1].set_tokens(response_tokens)
+        logger.debug(f'CONVERSATION: {conversation}')
+
+    def new_session(self, session_id: int, name: str):
         """Create a new conversation if not exists"""
         # logger.debug('Creating new session')
-        self.memory.store_message(
-            session_id,
-            Message(
-                role=Role.SYS,
-                content=self.__prompts['general']
-            )
+        if session_id not in self.memory:
+            self.memory[session_id] = Conversation(name=name)
+        self.memory[session_id] += Message(
+            role=Role.SYS,
+            content=self.__prompts['general']
         )
 
     def __get_assistant_index(
@@ -261,10 +264,10 @@ class DefaultArchitecture(AgentArchitecture):
             role='system',
             content=self.__prompts['tool']
         )
-        conversation.add(Message(
+        conversation += Message(
             role='user',
             content=user_input
-        ))
+        )
 
         tool_call_response = ''
         for chunk, _, _ in self.llm.query(conversation):

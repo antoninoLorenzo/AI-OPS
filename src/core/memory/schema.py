@@ -46,9 +46,9 @@ class Conversation(BaseModel):
     _tokens: int = 0
 
     @validate_call
-    def add(self, message: Message):
-        """Append a message"""
-        self.messages.append(message)
+    def __iadd__(self, other):
+        self.messages.append(other)
+        return self
 
     def model_dump(self, **kwargs):
         # return only a list of messages when converting to list[dict]
@@ -62,8 +62,7 @@ class Conversation(BaseModel):
 
     @staticmethod
     def from_json(path: str):
-        """
-        Get a session from a JSON file.
+        """Get a session from a JSON file.
         Reason for not using model_validate_json: saved JSON file contains
         ID, instead Conversation doesn't have an ID field.
         """

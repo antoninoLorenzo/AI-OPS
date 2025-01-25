@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Dict
 
 from pydantic import validate_call
-from src.core.memory.schema import Message, Conversation
+from src.core.memory.schema import Conversation
 from src.utils import get_logger
 
 
@@ -16,92 +16,88 @@ if not SESSIONS_PATH.exists():
 
 
 class Memory:
-    """
-    Contains the chat history for each session.
+    """Manages in-memory conversations and provides persistence.
+
+    Conversations are accessible via Python mapping protocol (`memory[key]`).
+
+    Conversations can be saved to persistent JSON files and will be
+    loaded on Memory initialization.
+
+    # TODO: Implement conversation management for max context length
     """
 
     def __init__(self):
-        self.sessions: Dict[int: Conversation] = {}
-        self.load_conversations()
+        self.__conversation_map: Dict[int: Conversation] = {}
+        self.__load_conversations()
 
     @validate_call
-    def store_message(self, sid: int, message: Message):
-        """Add a message to a session identified by session id.
-        Creates a new session if the specified do not exist."""
-        if sid not in self.sessions:
-            self.sessions[sid] = Conversation(name='New Session', messages=[])
-        self.sessions[sid].add(message)
+    def __setitem__(self, key, value: Conversation):
+        self.__conversation_map[key] = value
 
-    def get_conversation(self, sid: int) -> Conversation:
+    def __getitem__(self, key) -> Conversation:
+        return self.__conversation_map[key] \
+            if key in self.__conversation_map \
+            else None
+
+    def __contains__(self, key):
+        return key in self.__conversation_map
+
+    @property
+    def conversations(self) -> Dict[int, Conversation]:
+        return self.__conversation_map
+
+    def save(self, conversation_id: int):
+        """Saves a conversation to a persistent JSON file in SESSION_PATH.
+        In the case `conversation_id` is not in memory, the error is logged.
         """
-        :return: a session identified by session id or None
-        """
-        return self.sessions[sid] if sid in self.sessions else None
+        if conversation_id not in self:
+            logger.error(f'[save]: {conversation_id} not available.')
+            return
 
-    @validate_call
-    def replace_system_prompt(self, sid: int, message: Message):
-        session = self.sessions[sid]
-        session.messages[0] = message
-
-    def get_conversations(self) -> dict:
-        """Returns all loaded sessions as id: session"""
-        return self.sessions
-
-    def save_conversation(self, sid: int):
-        """Saves the current session state to a JSON file at SESSION_PATH"""
-        if sid not in self.sessions:
-            logger.error(f'\tError in {self.__name__}: session not exists.')
-            raise ValueError(f'Session {sid} does not exist')
-
-        session: Conversation = self.sessions[sid]
-        self.delete_conversation(sid)
-
-        path = f'{SESSIONS_PATH}/{sid}__{session.name}.json'
-        with open(path, 'w+', encoding='utf-8') as fp:
+        conversation = self.__conversation_map[conversation_id]
+        conversation_path = (
+            SESSIONS_PATH
+            / f'{conversation_id}__{conversation.name}.json'
+        )
+        with open(str(conversation_path), 'w+', encoding='utf-8') as fp:
             try:
                 data = {
-                    'id': sid,
-                    'name': session.name,
-                    'messages': session.model_dump(),
+                    'id': conversation_id,
+                    'name': conversation.name,
+                    'messages': conversation.model_dump(),
                 }
                 json.dump(data, fp, indent='\t')
-            except (
-                UnicodeDecodeError,
-                json.JSONDecodeError,
-                OverflowError
-            ) as save_error:
+            except Exception as save_error:
                 logger.error(
-                    f'Failed saving session {sid}. {save_error}'
+                    f'[save]: failed saving conversation {conversation_id}. {save_error}'
                 )
 
-    def delete_conversation(self, sid: int):
-        """Deletes a session from SESSION_PATH"""
-        # TODO: should also delete session from sessions dictionary
-        if sid not in self.sessions:
-            raise ValueError(f'Session {sid} does not exist')
+    def delete(self, conversation_id: int):
+        """Removes Conversation object from internal map and from persistent
+        files. In case `conversation_id` is not in memory, the error is logged.
+        """
+        if conversation_id not in self:
+            logger.error(f'[delete]: {conversation_id} not available.')
+            return
 
-        # delete file from ~/.aiops/sessions
-        for path in SESSIONS_PATH.iterdir():
-            if path.is_file() and path.suffix == '.json' and \
-                    path.name.startswith(f'{sid}__'):
-                path.unlink()
-
-        # delete session from memory
-        self.sessions.pop(sid, None)
-
-    def rename_conversation(self, sid: int, session_name: str):
-        """Renames a session identified by session id or creates a new one"""
-        if sid not in self.sessions:
-            self.sessions[sid] = Conversation(name=session_name, messages=[])
+        conversation_path = (
+            SESSIONS_PATH
+            / f'{conversation_id}__{self[conversation_id].name}.json'
+        )
+        if conversation_path.exists():
+            conversation_path.unlink()
+            self.__conversation_map.pop(conversation_id, None)
         else:
-            self.sessions[sid].name = session_name
+            logger.error(f'[delete]: {conversation_path} not found.')
 
-    def load_conversations(self):
-        """Loads the saved sessions at SESSION_PATH"""
+    def __load_conversations(self):
+        """
+        Populates the internal map from persistent JSON files at SESSION_PATH.
+        """
         for path in SESSIONS_PATH.iterdir():
             if path.is_file() and path.suffix == '.json':
                 sid, session = Conversation.from_json(str(path))
                 if sid == -1:
                     logger.error(f"\tFailed loading session {path}")
                 logger.info(f"\tLoaded session {path}")
-                self.sessions[sid] = session
+                self.__conversation_map[sid] = session
