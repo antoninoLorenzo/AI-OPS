@@ -70,8 +70,8 @@ async def new_session(name: str, agent: Agent = Depends(get_agent)):
         new_id = 1
     else:
         new_id = max(sorted(sessions.keys())) + 1
-    agent.new_session(new_id)
-    agent.get_session(new_id).name = name
+    agent.new_session(new_id, name)
+    # agent.get_session(new_id).name = name
 
     return {'sid': new_id}
 
