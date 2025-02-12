@@ -1,10 +1,14 @@
-import argparse
 import os
+import io
 import sys
 import json
-from typing import Callable, Any, Dict, Type, Generator
+import argparse
+from enum import StrEnum
+from functools import partial
+from typing import Callable, Any, Dict, Type, Generator, List, Union, Iterable, Optional
 from urllib.parse import urlparse
 
+import httpx
 import requests
 from requests.exceptions import ConnectionError, HTTPError
 from rich.console import Console
@@ -21,6 +25,350 @@ from pydantic import BaseModel, validate_call
 
 VERSION = "0.0.0"
 
+
+class RequestMethod(StrEnum):
+    GET = 'get'
+    POST = 'post'
+    PUT = 'put'
+    DELETE = 'delete'
+
+
+class RequestEndpoint(BaseModel):
+    method: RequestMethod
+    path: str
+
+
+class CommandParameter(BaseModel):
+    parameter_name: str
+    parameter_value: Any = None
+    required: bool = True
+
+
+class CommandSchema(BaseModel):
+    command_name: str
+    command_parameters: List[CommandParameter] = []
+
+
+class Command(BaseModel):
+    command_schema: CommandSchema
+    command_callback: Callable
+    request_endpoint: Optional[RequestEndpoint] = None
+    requires_app_context: bool = False
+
+
+class ParserException(Exception):
+    pass
+
+
+class CommandParser:
+    def __init__(self):
+        # base commands
+        self.base_parser = argparse.ArgumentParser(exit_on_error=False)
+        self.base_parser.add_argument(
+            'command',
+            choices=['help', 'clear', 'exit', 'chat', 'conversation']
+        )
+
+        # conversation commands
+        self.conversation_commands = [
+            'list',
+            'new',
+            'load',
+            'rename',
+            'save',
+            'delete'
+        ]
+        self.conversation_parser = argparse.ArgumentParser(exit_on_error=False)
+        conversation_subparsers = self.conversation_parser.add_subparsers(
+            dest='subcommand',
+            required=True
+        )
+
+        # that's so manual
+        list_parser = conversation_subparsers.add_parser(
+            'list',
+            exit_on_error=False,
+            usage="conversation list"
+        )
+
+        new_parser = conversation_subparsers.add_parser(
+            'new',
+            exit_on_error=False,
+            usage="conversation new [conversation_name]"
+        )
+        new_parser.add_argument('conversation_name', type=str)
+
+        load_parser = conversation_subparsers.add_parser(
+            'load',
+            exit_on_error=False,
+            usage="conversation load [conversation_id]"
+        )
+        load_parser.add_argument('conversation_id', type=str)
+
+        rename_parser = conversation_subparsers.add_parser(
+            'rename',
+            exit_on_error=False,
+            usage="conversation rename [conversation_id] [new_name]"
+        )
+        rename_parser.add_argument('conversation_id', type=str)
+        rename_parser.add_argument('new_name', type=str)
+
+        save_parser = conversation_subparsers.add_parser(
+            'save',
+            exit_on_error=False,
+            usage="conversation save [conversation_id]"
+        )
+        save_parser.add_argument('conversation_id', type=str)
+
+        delete_parser = conversation_subparsers.add_parser(
+            'delete',
+            exit_on_error=False,
+            usage="conversation delete [conversation_id]"
+        )
+        delete_parser.add_argument('conversation_id', type=str)
+
+    def parse(self, user_input: str) -> CommandSchema:
+        try:
+            # parse_known_args returns the namespace corresponding to the arguments
+            # specified in the `base_parser`, any other argument is ignored and
+            # returned in the subcommand list, if present, otherwise the list is empty.
+            base_command, subcommand = self.base_parser.parse_known_args(user_input.split())
+            command_schema = {'command_name': base_command.command}
+
+            if base_command.command == "conversation":
+                if not subcommand:
+                    usage = self.conversation_parser.format_usage().strip()
+                    raise ParserException(f"conversation: required {usage}")
+
+                # argparse prints errors to stderr, instead we need to capture
+                # them and print in the AppContext.console
+                stderr_capture = io.StringIO()
+                original_stderr = sys.stderr
+                sys.stderr = stderr_capture
+                try:
+                    conversation_args = vars(self.conversation_parser.parse_args(subcommand))
+                except SystemExit:
+                    error_message = stderr_capture.getvalue().strip()
+                    raise ParserException(error_message)
+                finally:
+                    sys.stderr = original_stderr
+
+                command_schema['command_name'] += f" {conversation_args.pop('subcommand')}"
+                parameters = []
+                for param, value in conversation_args.items():
+                    parameters.append(
+                        CommandParameter(
+                            parameter_name=param,
+                            parameter_value=value
+                        )
+                    )
+                command_schema['command_parameters'] = parameters
+
+            return CommandSchema(**command_schema)
+        except (argparse.ArgumentError, SystemExit) as arg_err:
+            raise ParserException(str(arg_err))
+
+
+class CommandRegistry:
+    def __init__(self):
+        self.__commands: List[Command] = []
+
+    def register(
+            self,
+            commands: Union[Command, Iterable[Command]],
+    ):
+        if isinstance(commands, Iterable):
+            self.__commands.extend(commands)
+        else:
+            self.__commands.append(commands)
+
+    def search(self, command_schema: CommandSchema) -> Optional[Command]:
+        command = None
+        for cmd in self.__commands:
+            if command_schema.command_name == cmd.command_schema.command_name:
+                command = Command(
+                    command_schema=command_schema,                  # the schema contains parameters !!!
+                    command_callback=cmd.command_callback,
+                    request_endpoint=cmd.request_endpoint,
+                    requires_app_context=cmd.requires_app_context
+                )
+                break
+        return command
+
+
+class AppContext:
+
+    def __init__(self, client: httpx.Client, console: Console):
+        # most commands need either access to stdout or api client
+        self.client = client
+        self.console = console
+
+
+class App:
+
+    def __init__(
+            self,
+            api_url: str,
+            commands: List[Command]
+    ):
+        self.__parser = CommandParser()
+        self.__registry = CommandRegistry()
+        self.__registry.register(commands)
+
+        # health-check
+        try:
+            self.__context = AppContext(
+                httpx.Client(base_url=api_url),
+                Console()
+            )
+
+            response = self.__context.client.get('/ping', timeout=5)
+            response.raise_for_status()
+            self.__context.console.print(f"Backend: [blue]online[/]")
+            self.__context.console.print(
+                "[bold cyan]ℹ️  Tip:[/bold cyan] Press [bold green]Ctrl + ↓ (Down Arrow)[/bold green] to move to the next line while typing.",
+                style="italic"
+            )
+        except Exception:
+            self.__context.console.print('Backend: [red]offline[/]\n')
+            sys.exit(-1)
+
+    def run(self):
+        while True:
+            user_input = Prompt.ask(
+                '[underline]ai-ops[/] >',
+                console=self.__context.console,
+                default='help',
+                show_default=False
+            )
+            if user_input == 'exit':
+                break
+
+            # parse user input as command schema
+            try:
+                command_schema = self.__parser.parse(user_input)
+            except ParserException as parse_err:
+                self.__context.console.print(
+                    f"[red]Error:[/] invalid command {user_input}: {parse_err}"
+                )
+                continue
+
+            command: Command = self.__registry.search(command_schema)
+
+            # bind context (if required) and parameters to command function
+            if command.requires_app_context:
+                command.command_callback = partial(
+                    command.command_callback,
+                    app_context=self.__context
+                )
+            parameters = {
+                parameter.parameter_name: parameter.parameter_value
+                for parameter
+                in command.command_schema.command_parameters
+            }
+
+            command.command_callback(**parameters)
+
+
+def __help(app_context: AppContext):
+    # Basic Commands
+    app_context.console.print("[bold white]Basic Commands[/]")
+    app_context.console.print("- [bold blue]help[/]   : Show available commands.")
+    app_context.console.print("- [bold blue]clear[/]  : Clears the terminal.")
+    app_context.console.print("- [bold blue]exit[/]   : Exit the program")
+
+    # Agent Related
+    app_context.console.print("\n[bold white]Agent Related[/]")
+    app_context.console.print("- [bold blue]chat[/]   : Open chat with the agent.")
+    app_context.console.print("- [bold blue]back[/]   : Exit chat")
+
+    # Session Related
+    app_context.console.print("\n[bold white]Session Related[/]")
+    app_context.console.print("- [bold blue]new[/]             : Create a new session.")
+    app_context.console.print("- [bold blue]save[/]            : Save the current session.")
+    app_context.console.print("- [bold blue]load[/]            : Opens a session.")
+    app_context.console.print("- [bold blue]delete[/]          : Delete the current session from persistent sessions.")
+    app_context.console.print("- [bold blue]rename[/]          : Rename the current session.")
+    app_context.console.print("- [bold blue]list sessions[/]   : Show the saved sessions.")
+
+
+def __clear():
+    os.system(
+        'cls' if os.name == 'nt'  # windows (its always him)
+        else 'clear'  # unix
+    )
+
+
+COMMANDS = [
+    # BASIC COMMANDS
+    Command(
+        command_schema=CommandSchema(command_name='help'),
+        command_callback=__help,
+        requires_app_context=True
+    ),
+    Command(
+        command_schema=CommandSchema(command_name='clear'),
+        command_callback=__clear
+    ),
+    # ASSISTANT INTERACTION
+    Command(
+        command_schema=CommandSchema(command_name='chat'),
+        command_callback=lambda: print('chat')
+    ),
+    # CONVERSATION MANAGEMENT
+    Command(
+        command_schema=CommandSchema(command_name='conversation list'),
+        command_callback=lambda: print('conversation list')
+    ),
+    Command(
+        command_schema=CommandSchema(
+            command_name='conversation new',
+            command_parameters=[
+                CommandParameter(parameter_name='conversation_name')
+            ]
+        ),
+        command_callback=lambda conversation_name: print(f'new conversation: {conversation_name}')
+    ),
+    Command(
+        command_schema=CommandSchema(
+            command_name='conversation load',
+            command_parameters=[
+                CommandParameter(parameter_name='conversation_id')
+            ]
+        ),
+        command_callback=lambda conversation_id: print(f'loaded conversation: {conversation_id}')
+    ),
+    Command(
+        command_schema=CommandSchema(
+            command_name='conversation rename',
+            command_parameters=[
+                CommandParameter(parameter_name='conversation_id'),
+                CommandParameter(parameter_name='new_name')
+            ]
+        ),
+        command_callback=lambda conversation_id, new_name: print(f'renaming {conversation_id} as {new_name}')
+    ),
+    Command(
+        command_schema=CommandSchema(
+            command_name='conversation save',
+            command_parameters=[
+                CommandParameter(parameter_name='conversation_id')
+            ]
+        ),
+        command_callback=lambda conversation_id: print(f'saving conversation: {conversation_id}')
+    ),
+    Command(
+        command_schema=CommandSchema(
+            command_name='conversation delete',
+            command_parameters=[
+                CommandParameter(parameter_name='conversation_id')
+            ]
+        ),
+        command_callback=lambda conversation_id: print(f'deleting conversation: {conversation_id}')
+    )
+]
+
+# --- OLD STUFF
 
 def build_input_multiline():
     """Creates an input prompt that can handle:
@@ -342,52 +690,56 @@ class AgentClient:
     @staticmethod
     def clear_terminal():
         os.system(
-            'cls' if os.name == 'nt'    # windows (its always him)
-            else 'clear'                # unix
+            'cls' if os.name == 'nt'  # windows (its always him)
+            else 'clear'  # unix
         )
 
 
-class ValidateURLAction(argparse.Action):
-    """
-    Checks if the URL string for the API is valid.
-    A valid url in this context has:
-    - http/https scheme
-    - the path is empty
-    """
+def validate_endpoint(api_endpoint: str):
+    parsed_endpoint = urlparse(api_endpoint)
+    protocol = parsed_endpoint.scheme
 
-    def __call__(self, parser, namespace, values, option_string=None):
-        parsed = urlparse(values)
-        url_scheme = parsed.scheme
-        url_path = parsed.path
-
-        try:
-            valid_scheme = url_scheme in ('http', 'https') if url_scheme else False
-            valid_path = len(url_path) <= 1  # consider "/"
-            assert valid_scheme and valid_path
-        except AssertionError:
-            print(f'[!] Invalid URL: {values}')
-            sys.exit(-1)
-
-        setattr(namespace, self.dest, values)
+    if protocol not in ('http', 'https') or \
+            parsed_endpoint.query:
+        return None
+    return api_endpoint
 
 
-def main():
-    """Main function for AI-OPS CLI client"""
-    parser = argparse.ArgumentParser()
+def old_main():
+    startup_parser = argparse.ArgumentParser()
 
-    parser.add_argument(
+    startup_parser.add_argument(
         '--api',
         default='http://127.0.0.1:8000',
         help='The Agent API address',
-        action=ValidateURLAction
+        type=validate_endpoint
     )
 
     try:
-        args = parser.parse_args(sys.argv[1:])
+        args = startup_parser.parse_args(sys.argv[1:])
         client = AgentClient(api_url=args.api)
         client.run()
     except KeyboardInterrupt:
         sys.exit()
 
-if __name__ == "__main__":
+
+def main():
+    startup_parser = argparse.ArgumentParser()
+
+    startup_parser.add_argument(
+        '--api',
+        default='http://127.0.0.1:8000',
+        help='The Agent API address',
+        type=validate_endpoint
+    )
+
+    try:
+        args = startup_parser.parse_args(sys.argv[1:])
+        client = App(api_url=args.api, commands=COMMANDS)
+        client.run()
+    except KeyboardInterrupt:
+        sys.exit()
+
+
+if __name__ == '__main__':
     main()
