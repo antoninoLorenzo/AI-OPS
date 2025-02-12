@@ -36,9 +36,11 @@ AI-OPS is a **Penetration Testing AI Assistant** that leverages open-source Larg
 to explore the role of Generative AI in ethical hacking. With a focus on accessibility and practical use, it 
 aims to accelerate common tasks in pentesting such as exploit development, vulnerability research, and code analysis.
 
-It is designed to support human operators rather than automate penetration testing activities entirely, 
-ensuring that AI remains a supplementary tool during real-world workflows. In the current iteration, AI-OPS does not 
-directly interact with target systems. Instead, it serves as an assistive tool that aids in tasks like generating 
+**Disclaimer**: AI-OPS goal is to support human operators rather than automate penetration testing activities entirely, 
+ensuring that AI remains a supplementary tool during real-world workflows. As any other automation tool, it doesn't 
+replace operator competence, neither knowledge: AI won't do the work for you, but it may help in the process.
+
+In the current iteration, AI-OPS does not  directly interact with target systems. Instead, it serves as an assistive tool that aids in tasks like generating 
 proof-of-concept (PoC) exploits, researching security vulnerabilities in specific technologies, and analyzing code for potential flaws.
 
 ### Key Features

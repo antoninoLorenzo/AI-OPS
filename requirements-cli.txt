@@ -1,3 +1,4 @@
 rich~=13.7.1
 prompt_toolkit
 requests~=2.32.3
+pydantic

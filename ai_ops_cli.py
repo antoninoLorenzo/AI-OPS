@@ -1,12 +1,8 @@
-"""
-CLI Client for the Agent API, is useful for development and
-when executing the frontend is not convenient.
-
-"""
 import argparse
 import os
 import sys
 import json
+from typing import Callable, Any, Dict, Type, Generator
 from urllib.parse import urlparse
 
 import requests
@@ -21,6 +17,7 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.lexers import PygmentsLexer
 from pygments.lexers import MarkdownLexer
 from prompt_toolkit.keys import Keys
+from pydantic import BaseModel, validate_call
 
 VERSION = "0.0.0"
 
@@ -226,10 +223,10 @@ class AgentClient:
     def __generate_response(self, url: str, query: str):
         try:
             with self.client.post(
-                url,
-                json={'query': query},
-                headers=None,
-                stream=True
+                    url,
+                    json={'query': query},
+                    headers=None,
+                    stream=True
             ) as resp:
                 resp.raise_for_status()
 
@@ -344,7 +341,10 @@ class AgentClient:
 
     @staticmethod
     def clear_terminal():
-        os.system('cls' if os.name == 'nt' else 'clear')
+        os.system(
+            'cls' if os.name == 'nt'    # windows (its always him)
+            else 'clear'                # unix
+        )
 
 
 class ValidateURLAction(argparse.Action):
@@ -388,7 +388,6 @@ def main():
         client.run()
     except KeyboardInterrupt:
         sys.exit()
-
 
 if __name__ == "__main__":
     main()
