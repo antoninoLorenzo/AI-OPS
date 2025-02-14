@@ -1,16 +1,12 @@
 import os
 import io
 import sys
-import json
 import argparse
-from enum import StrEnum
 from functools import partial
-from typing import Callable, Any, Dict, Type, Generator, List, Union, Iterable, Optional
+from typing import Callable, Any, List, Union, Iterable, Optional
 from urllib.parse import urlparse
 
 import httpx
-import requests
-from requests.exceptions import ConnectionError, HTTPError
 from rich.console import Console
 from rich.live import Live
 from rich.markdown import Markdown
@@ -24,18 +20,6 @@ from prompt_toolkit.keys import Keys
 from pydantic import BaseModel, validate_call
 
 VERSION = "0.0.0"
-
-
-class RequestMethod(StrEnum):
-    GET = 'get'
-    POST = 'post'
-    PUT = 'put'
-    DELETE = 'delete'
-
-
-class RequestEndpoint(BaseModel):
-    method: RequestMethod
-    path: str
 
 
 class CommandParameter(BaseModel):
@@ -52,8 +36,7 @@ class CommandSchema(BaseModel):
 class Command(BaseModel):
     command_schema: CommandSchema
     command_callback: Callable
-    request_endpoint: Optional[RequestEndpoint] = None
-    requires_app_context: bool = False
+    requires_app_context: bool = True
 
 
 class ParserException(Exception):
@@ -187,9 +170,8 @@ class CommandRegistry:
         for cmd in self.__commands:
             if command_schema.command_name == cmd.command_schema.command_name:
                 command = Command(
-                    command_schema=command_schema,                  # the schema contains parameters !!!
+                    command_schema=command_schema,  # the schema contains parameters !!!
                     command_callback=cmd.command_callback,
-                    request_endpoint=cmd.request_endpoint,
                     requires_app_context=cmd.requires_app_context
                 )
                 break
@@ -202,6 +184,7 @@ class AppContext:
         # most commands need either access to stdout or api client
         self.client = client
         self.console = console
+        self.current_conversation_id: Optional[int] = None
 
 
 class App:
@@ -270,106 +253,6 @@ class App:
             command.command_callback(**parameters)
 
 
-def __help(app_context: AppContext):
-    # Basic Commands
-    app_context.console.print("[bold white]Basic Commands[/]")
-    app_context.console.print("- [bold blue]help[/]   : Show available commands.")
-    app_context.console.print("- [bold blue]clear[/]  : Clears the terminal.")
-    app_context.console.print("- [bold blue]exit[/]   : Exit the program")
-
-    # Agent Related
-    app_context.console.print("\n[bold white]Agent Related[/]")
-    app_context.console.print("- [bold blue]chat[/]   : Open chat with the agent.")
-    app_context.console.print("- [bold blue]back[/]   : Exit chat")
-
-    # Session Related
-    app_context.console.print("\n[bold white]Session Related[/]")
-    app_context.console.print("- [bold blue]new[/]             : Create a new session.")
-    app_context.console.print("- [bold blue]save[/]            : Save the current session.")
-    app_context.console.print("- [bold blue]load[/]            : Opens a session.")
-    app_context.console.print("- [bold blue]delete[/]          : Delete the current session from persistent sessions.")
-    app_context.console.print("- [bold blue]rename[/]          : Rename the current session.")
-    app_context.console.print("- [bold blue]list sessions[/]   : Show the saved sessions.")
-
-
-def __clear():
-    os.system(
-        'cls' if os.name == 'nt'  # windows (its always him)
-        else 'clear'  # unix
-    )
-
-
-COMMANDS = [
-    # BASIC COMMANDS
-    Command(
-        command_schema=CommandSchema(command_name='help'),
-        command_callback=__help,
-        requires_app_context=True
-    ),
-    Command(
-        command_schema=CommandSchema(command_name='clear'),
-        command_callback=__clear
-    ),
-    # ASSISTANT INTERACTION
-    Command(
-        command_schema=CommandSchema(command_name='chat'),
-        command_callback=lambda: print('chat')
-    ),
-    # CONVERSATION MANAGEMENT
-    Command(
-        command_schema=CommandSchema(command_name='conversation list'),
-        command_callback=lambda: print('conversation list')
-    ),
-    Command(
-        command_schema=CommandSchema(
-            command_name='conversation new',
-            command_parameters=[
-                CommandParameter(parameter_name='conversation_name')
-            ]
-        ),
-        command_callback=lambda conversation_name: print(f'new conversation: {conversation_name}')
-    ),
-    Command(
-        command_schema=CommandSchema(
-            command_name='conversation load',
-            command_parameters=[
-                CommandParameter(parameter_name='conversation_id')
-            ]
-        ),
-        command_callback=lambda conversation_id: print(f'loaded conversation: {conversation_id}')
-    ),
-    Command(
-        command_schema=CommandSchema(
-            command_name='conversation rename',
-            command_parameters=[
-                CommandParameter(parameter_name='conversation_id'),
-                CommandParameter(parameter_name='new_name')
-            ]
-        ),
-        command_callback=lambda conversation_id, new_name: print(f'renaming {conversation_id} as {new_name}')
-    ),
-    Command(
-        command_schema=CommandSchema(
-            command_name='conversation save',
-            command_parameters=[
-                CommandParameter(parameter_name='conversation_id')
-            ]
-        ),
-        command_callback=lambda conversation_id: print(f'saving conversation: {conversation_id}')
-    ),
-    Command(
-        command_schema=CommandSchema(
-            command_name='conversation delete',
-            command_parameters=[
-                CommandParameter(parameter_name='conversation_id')
-            ]
-        ),
-        command_callback=lambda conversation_id: print(f'deleting conversation: {conversation_id}')
-    )
-]
-
-# --- OLD STUFF
-
 def build_input_multiline():
     """Creates an input prompt that can handle:
     - Multiline input
@@ -389,310 +272,225 @@ def build_input_multiline():
     )
 
 
-class AgentClient:
-    """Client for Agent API"""
+def __help(app_context: AppContext):
+    console = app_context.console
+    console.print("[bold white]Basic Commands[/]")
+    console.print("- [bold blue]help[/]   : Show available commands.")
+    console.print("- [bold blue]clear[/]  : Clears the terminal.")
+    console.print("- [bold blue]exit[/]   : Exit the program")
 
-    def __init__(self, api_url: str = 'http://127.0.0.1:8000'):
-        self.api_url = api_url
-        self.client = requests.Session()
-        self.console = Console()
-        self.current_session = {'sid': 0, 'name': 'Undefined'}
-        self.commands = {
-            'help': self.help,
-            'clear': AgentClient.clear_terminal,
-            'exit': '',
+    console.print("\n[bold white]Assistant[/]")
+    console.print("- [bold blue]chat[/]   : Open chat with the agent.")
+    console.print("- [bold blue]back[/]   : Exit chat")
 
-            'chat': self.chat,
+    console.print("\n[bold white]Conversation[/]")
+    cmd = '[italic]conversation[/]'
+    console.print(f"- {cmd} [bold blue]list[/]")
+    console.print(f"- {cmd} [bold blue]new[/]    \\[name]")
+    console.print(f"- {cmd} [bold blue]load[/]   \\[conversation id]")
+    console.print(f"- {cmd} [bold blue]save[/]   \\[conversation id]")
+    console.print(f"- {cmd} [bold blue]delete[/] \\[conversation id]")
+    console.print(f"- {cmd} [bold blue]rename[/] \\[conversation id] \\[new name]")
 
-            'new': self.new_session,
-            'save': self.save_session,
-            'delete': self.delete_session,
-            'rename': self.rename_session,
-            'list sessions': self.list_sessions,
-            'load': self.load_session,
 
-            # 'list collections': self.list_collections,
-            # 'create collection': self.create_collection
-        }
-        self.multiline_input = build_input_multiline()
+def __clear():
+    os.system(
+        'cls' if os.name == 'nt'  # windows (its always him)
+        else 'clear'  # unix
+    )
 
-        self.console.print("[bold blue]ai-ops-cli[/] (beta) starting.")
-        try:
-            response = self.client.get(f'{self.api_url}/ping', timeout=5)
-            response.raise_for_status()
-            self.console.print(f"Backend: [blue]online[/]")
-            self.console.print(
-                "[bold cyan]ℹ️  Tip:[/bold cyan] Press [bold green]Ctrl + ↓ (Down Arrow)[/bold green] to move to the next line while typing.",
-                style="italic"
-            )
-        except (ConnectionError, HTTPError):
-            self.console.print('Backend: [red]offline[/]')
-            sys.exit(-1)
-        self.console.print()
 
-    def run(self):
-        """Runs the main loop of the client"""
-        while True:
-            user_input = None
-            try:
-                user_input = Prompt.ask(
-                    '[underline]ai-ops[/] >',
-                    console=self.console,
-                    choices=list(self.commands.keys()),
-                    default='help',
-                    show_choices=False,
-                    show_default=False
-                )
-            except InvalidResponse:
-                self.console.print('Invalid command', style='bold red')
-                self.commands['help']()
+def __chat(app_context: AppContext):
+    client = app_context.client
+    console = app_context.console
 
-            if user_input == 'exit':
-                break
+    if not app_context.current_conversation_id:
+        __conversation_new(app_context, conversation_name='chat convo')
+        return
 
-            self.commands[user_input]()
+    multiline_input = build_input_multiline()
+    conversation_id = app_context.current_conversation_id
+    while True:
+        user_input = multiline_input.prompt()
+        if user_input.startswith('back'):
+            break
 
-    def new_session(self):
-        """Creates a new session and opens the related chat"""
-        session_name = Prompt.ask(
-            'Session Name',
-            console=self.console
-        )
+        with client.stream(
+            method='POST',
+            url=f'/conversations/{conversation_id}/chat',
+            json={'message': user_input}
+        ) as response_stream:
+            console.print('[bold blue]Assistant[/]: ', end='')
+            for c in response_stream.iter_text():
+                console.print(c)
 
-        response = self.client.post(
-            f'{self.api_url}/sessions',
-            params={'name': session_name}
+
+def __conversation_list(app_context: AppContext):
+    client = app_context.client
+    console = app_context.console
+    try:
+        response = client.get('/conversations')
+        response.raise_for_status()
+        conversations = response.json()
+    except httpx.HTTPStatusError as status:
+        console.print(f"[bold red]Error: [/] {status}")
+        return
+
+    if len(conversations) == 0:
+        console.print(f"No Conversations.")
+        return
+
+    tree = Tree("Conversations:")
+    for conversation in conversations:
+        tree.add(f'[{conversation["conversation_id"]}]: {conversation["name"]}')
+    console.print(tree)
+
+
+def __conversation_new(app_context: AppContext, conversation_name: str):
+    client = app_context.client
+    console = app_context.console
+    try:
+        response = client.post(
+            url='/conversations',
+            params={'name': conversation_name}
         )
         response.raise_for_status()
+        conversation = response.json()
+    except httpx.HTTPError as status:
+        console.print(f"[bold red]Error: [/] {status}")
+        return
 
-        self.current_session = {'sid': response.json()['sid'], 'name': session_name}
-        self.chat(print_name=True)
+    console.print(f'[{conversation["conversation_id"]}]: {conversation["name"]}')
+    # new conversation makes transition to chat
+    app_context.current_conversation_id = conversation["conversation_id"]
+    __chat(app_context)
 
-    def save_session(self):
-        """Save the current session"""
-        response = self.client.put(
-            f'{self.api_url}/sessions/{self.current_session["sid"]}/chat'
+
+def __conversation_load(app_context: AppContext, conversation_id: int):
+    client = app_context.client
+    console = app_context.console
+    try:
+        response = client.get(f'/conversations/{conversation_id}')
+        response.raise_for_status()
+        conversation = response.json()
+    except httpx.HTTPError as status:
+        console.print(f"[bold red]Error: [/] {status}")
+        return
+
+    for message in conversation['messages']:
+        console.print(
+            f"[bold blue]{message['role']}[/]: {message['content']}"
         )
-        if response.status_code != 200:
-            self.console.print(f'[!] Failed: {response.status_code}')
-        else:
-            self.console.print(f'[+] Saved')
 
-    def rename_session(self):
-        """Renames the current session"""
-        session_name = Prompt.ask(
-            'New Name',
-            console=self.console
-        )
+    # load conversation makes transition to chat
+    app_context.current_conversation_id = conversation["conversation_id"]
+    __chat(app_context)
 
-        response = self.client.put(
-            f'{self.api_url}/sessions/{self.current_session["sid"]}',
-            params={'new_name': str(session_name)}
+
+def __conversation_rename(app_context: AppContext, conversation_id: int, new_name: str):
+    client = app_context.client
+    console = app_context.console
+    try:
+        response = client.put(
+            url=f'/conversations/{conversation_id}',
+            params={'new_name': new_name}
         )
         response.raise_for_status()
-        self.current_session['name'] = str(session_name)
-        self.chat(print_name=True)
+    except httpx.HTTPError as status:
+        console.print(f"[bold red]Error: [/] {status}")
+        return
 
-    def delete_session(self):
-        """Deletes a session"""
-        session_id = Prompt.ask(
-            'Enter session ID',
-            console=self.console
-        )
-        if not session_id.isdigit():
-            self.console.print('[-] Not a number', style='bold red')
 
-        response = self.client.delete(
-            f'{self.api_url}/sessions/{session_id}'
-        )
+def __conversation_save(app_context: AppContext, conversation_id: int):
+    client = app_context.client
+    console = app_context.console
+    try:
+        response = client.put(f'/conversations/{conversation_id}')
         response.raise_for_status()
-        body = response.json()
-        self.console.print(f'[{"+" if body["success"] else "-"}] {body["message"]}')
+    except httpx.HTTPError as status:
+        console.print(f"[bold red]Error: [/] {status}")
+        return
 
-    def list_sessions(self):
-        """List all sessions"""
-        response = self.client.get(
-            f'{self.api_url}/sessions'
-        )
+
+def __conversation_delete(app_context: AppContext, conversation_id: int):
+    client = app_context.client
+    console = app_context.console
+    try:
+        response = client.delete(f'/conversations/{conversation_id}')
         response.raise_for_status()
-        body = response.json()
-        if len(body) == 0:
-            self.console.print('[+] No sessions found')
-        else:
-            tree = Tree("[+] Available Sessions:")
-            for session in body:
-                tree.add(f'({session["sid"]}) {session["name"]}')
-            self.console.print(tree)
+    except httpx.HTTPError as status:
+        console.print(f"[bold red]Error: [/] {status}")
+        return
 
-    def load_session(self):
-        """Opens an existing session"""
-        session_id = Prompt.ask(
-            'Enter session ID',
-            console=self.console
-        )
-        if not session_id.isdigit():
-            self.console.print('[-] Not a number', style='bold red')
-            self.load_session()
 
-        response = self.client.get(
-            f'{self.api_url}/sessions/{int(session_id)}/chat',
-        )
-        response.raise_for_status()
-
-        body = response.json()
-        if 'success' in body:
-            self.console.print(f'No session for {session_id}', style='red')
-
-        sid = body['sid']
-        name = body['name']
-        self.current_session = {'sid': sid, 'name': name}
-        self.console.print(f'({sid}) [bold blue]{name}[/]')
-
-        body['messages'] = body['messages'][1:]  # exclude system message
-        for msg in body['messages']:
-            self.console.print(f'[bold white]{msg["role"]}[/]: {msg["content"]}\n')
-        self.chat(print_name=False)
-
-    def chat(self, print_name=True):
-        """Opens a chat with the Agent"""
-        sid = self.current_session["sid"]
-        query_url = f'{self.api_url}/sessions/{sid}/chat'
-
-        if print_name:
-            name = self.current_session["name"]
-            self.console.print(f'({sid}) [bold blue]{name}[/]')
-
-        while True:
-            q = self.multiline_input.prompt()
-            if q.startswith('back'):
-                break
-            self.__generate_response(query_url, q)
-
-    def __generate_response(self, url: str, query: str):
-        try:
-            with self.client.post(
-                    url,
-                    json={'query': query},
-                    headers=None,
-                    stream=True
-            ) as resp:
-                resp.raise_for_status()
-
-                response_text = '**Assistant**: '
-                with Live(console=self.console, refresh_per_second=10) as live:
-                    live.update(Markdown(response_text))
-                    for chunk in resp.iter_content(decode_unicode=True):
-                        if chunk:
-                            try:
-                                response_text += chunk.decode('utf-8')
-                            except UnicodeDecodeError:
-                                pass
-                            live.update(Markdown(response_text))
-
-                print()
-        except requests.exceptions.HTTPError:
-            if 400 <= resp.status_code < 500:
-                self.console.print(f'[red]Client Error: {resp.status_code}[/]')
-            else:
-                self.console.print(f'[red]Server Error: {resp.status_code}[/]')
-
-    # RAG is disabled in the current version
-    def __list_collections(self):
-        """Know what collections are available"""
-        response = self.client.get(
-            f'{self.api_url}/collections/list/'
-        )
-        response.raise_for_status()
-        body = response.json()
-        if len(body) == 0:
-            self.console.print('[+] No collections found')
-        else:
-            tree = Tree("[+] Available Collections:")
-            for collection in body:
-                c_doc = f"[bold blue]{collection['title']}[/]\n"
-
-                str_topics = ', '.join(collection['topics'])
-                c_doc += f"[bold white]Topics[/]: {str_topics}\n"
-
-                c_doc += "[bold white]Documents[/]:\n"
-                for document in collection['documents']:
-                    c_doc += f"- {document['name']}\n"
-
-                tree.add(c_doc)
-
-            self.console.print(tree)
-
-    def __create_collection(self):
-        """Upload a collection to RAG"""
-        collection_title = Prompt.ask(
-            prompt='Title: ',
-            console=self.console
-        )
-        collection_path = Prompt.ask(
-            prompt='Path (leave blank for nothing): ',
-            console=self.console
-        )
-
-        try:
-            if collection_path:
-                with open(collection_path, 'rb') as collection_file:
-                    response = requests.post(
-                        url=f'{self.api_url}/collections/new',
-                        data={'title': collection_title},
-                        files={'file': collection_file}
-                    )
-            else:
-                response = requests.post(
-                    url=f'{self.api_url}/collections/new',
-                    data={'title': collection_title}
-                )
-
-            response.raise_for_status()
-            body: dict = response.json()
-
-            if 'error' in body:
-                self.console.print(f"[bold red][!] Failed: [/] {body['error']}")
-            else:
-                self.console.print(f"[bold blue][+] Success: [/] {body['success']}")
-
-        except OSError as err:
-            self.console.print(f"[bold red][!] Failed: [/] {err}")
-        except requests.exceptions.HTTPError as http_err:
-            self.console.print(f"[bold red][!] HTTP Error: [/] {http_err}")
-
-    def help(self):
-        """Print help message"""
-        # Basic Commands
-        self.console.print("[bold white]Basic Commands[/]")
-        self.console.print("- [bold blue]help[/]   : Show available commands.")
-        self.console.print("- [bold blue]clear[/]  : Clears the terminal.")
-        self.console.print("- [bold blue]exit[/]   : Exit the program")
-
-        # Agent Related
-        self.console.print("\n[bold white]Agent Related[/]")
-        self.console.print("- [bold blue]chat[/]   : Open chat with the agent.")
-        self.console.print("- [bold blue]back[/]   : Exit chat")
-
-        # Session Related
-        self.console.print("\n[bold white]Session Related[/]")
-        self.console.print("- [bold blue]new[/]             : Create a new session.")
-        self.console.print("- [bold blue]save[/]            : Save the current session.")
-        self.console.print("- [bold blue]load[/]            : Opens a session.")
-        self.console.print("- [bold blue]delete[/]          : Delete the current session from persistent sessions.")
-        self.console.print("- [bold blue]rename[/]          : Rename the current session.")
-        self.console.print("- [bold blue]list sessions[/]   : Show the saved sessions.")
-
-        # RAG Related
-        # self.console.print("\n[bold white]RAG Related[/]")
-        # self.console.print("- [bold blue]list collections[/]  : Lists all collections in RAG.")
-        # self.console.print("- [bold blue]create collection[/] : Upload a collection to RAG.")
-
-    @staticmethod
-    def clear_terminal():
-        os.system(
-            'cls' if os.name == 'nt'  # windows (its always him)
-            else 'clear'  # unix
-        )
+COMMANDS = [
+    # BASIC COMMANDS
+    Command(
+        command_schema=CommandSchema(command_name='help'),
+        command_callback=__help
+    ),
+    Command(
+        command_schema=CommandSchema(command_name='clear'),
+        command_callback=__clear,
+        requires_app_context=False
+    ),
+    # ASSISTANT INTERACTION
+    Command(
+        command_schema=CommandSchema(command_name='chat'),
+        command_callback=__chat
+    ),
+    # CONVERSATION MANAGEMENT
+    Command(
+        command_schema=CommandSchema(command_name='conversation list'),
+        command_callback=__conversation_list
+    ),
+    Command(
+        command_schema=CommandSchema(
+            command_name='conversation new',
+            command_parameters=[
+                CommandParameter(parameter_name='conversation_name')
+            ]
+        ),
+        command_callback=__conversation_new
+    ),
+    Command(
+        command_schema=CommandSchema(
+            command_name='conversation load',
+            command_parameters=[
+                CommandParameter(parameter_name='conversation_id')
+            ]
+        ),
+        command_callback=__conversation_load
+    ),
+    Command(
+        command_schema=CommandSchema(
+            command_name='conversation rename',
+            command_parameters=[
+                CommandParameter(parameter_name='conversation_id'),
+                CommandParameter(parameter_name='new_name')
+            ]
+        ),
+        command_callback=__conversation_rename
+    ),
+    Command(
+        command_schema=CommandSchema(
+            command_name='conversation save',
+            command_parameters=[
+                CommandParameter(parameter_name='conversation_id')
+            ]
+        ),
+        command_callback=__conversation_save
+    ),
+    Command(
+        command_schema=CommandSchema(
+            command_name='conversation delete',
+            command_parameters=[
+                CommandParameter(parameter_name='conversation_id')
+            ]
+        ),
+        command_callback=__conversation_delete
+    )
+]
 
 
 def validate_endpoint(api_endpoint: str):
@@ -703,24 +501,6 @@ def validate_endpoint(api_endpoint: str):
             parsed_endpoint.query:
         return None
     return api_endpoint
-
-
-def old_main():
-    startup_parser = argparse.ArgumentParser()
-
-    startup_parser.add_argument(
-        '--api',
-        default='http://127.0.0.1:8000',
-        help='The Agent API address',
-        type=validate_endpoint
-    )
-
-    try:
-        args = startup_parser.parse_args(sys.argv[1:])
-        client = AgentClient(api_url=args.api)
-        client.run()
-    except KeyboardInterrupt:
-        sys.exit()
 
 
 def main():
