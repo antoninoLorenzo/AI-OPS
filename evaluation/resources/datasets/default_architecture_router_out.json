@@ -711,13 +711,13 @@
 		"category": "Web",
 		"activity": "reconnaissance",
 		"input": "I have gethered some info about the domains starlabs.com and starlabs.edu for a bug bounty program:\n```\nstarlabs.com.        3600 IN A     192.168.1.100  \nstarlabs.com.        3600 IN A     192.168.1.101 \nstarlabs.com.        3600 IN A     198.51.100.10 \nstarlabs.com.        3600 IN A     203.0.113.10   \nstarlabs.edu.        3600 IN A     198.51.100.5    \nstarlabs.edu.        3600 IN A     203.0.113.5     \nstarlabs.edu.        3600 IN A     198.51.100.20  \n\n\nwww.starlabs.com.    3600 IN CNAME  starlabs.com.\nmail.starlabs.com.   3600 IN CNAME  mail.starlabs.edu.\nshop.starlabs.com.   3600 IN CNAME  store.starlabs.com.\nblog.starlabs.com.   3600 IN CNAME  blog.starlabs.edu.researchlabs.net.\ndev.starlabs.com.    3600 IN CNAME  dev.starlabs.com.edgesuite.net.\nwww.starlabs.edu.    3600 IN CNAME  starlabs.edu.\nresearch.starlabs.edu.  3600 IN CNAME research.starlabs.edu.researchlabs.net.\nmail.starlabs.edu.   3600 IN CNAME  mail.starlabs.edu.edgehost.com.\n\n\nstarlabs.com.        3600 IN NS    ns1.starlabsdns.com.\nstarlabs.com.        3600 IN NS    ns2.starlabsdns.com.\nstarlabs.com.        3600 IN NS    ns3.starlabsdns.net.\nstarlabs.com.        3600 IN NS    ns4.exampledns.com.\nstarlabs.edu.        3600 IN NS    ns1.starlabsdns.edu.\nstarlabs.edu.        3600 IN NS    ns2.starlabsdns.edu.\nstarlabs.edu.        3600 IN NS    ns3.starlabsdns.net.\nstarlabs.edu.        3600 IN NS    ns4.edu-dns.org.\n\n\nstarlabs.com.        3600 IN TXT    \"v=spf1 include:_spf.starlabsdns.com ~all\"  \nstarlabs.com.        3600 IN TXT    \"google-site-verification=ABCDEFG123456\"  \nstarlabs.com.        3600 IN TXT    \"MS=ms123456789\"  # Microsoft verification\nstarlabs.com.        3600 IN TXT    \"v=spf1 include:spf.mailstarlabs.edu ~all\"  \nstarlabs.edu.        3600 IN TXT    \"v=spf1 include:_spf.starlabsdns.edu ~all\"  \nstarlabs.edu.        3600 IN TXT    \"google-site-verification=XYZ987654321\"  \nstarlabs.edu.        3600 IN TXT    \"MS=ms987654321\"  \n```\n\nSince that's a lot of information, do yo unotice something interesting where I can start from?\n\n\n\n",
-		"expected_output": "1",
+		"expected_output": "2",
 		"model": "mistral:7b-instruct-v0.3-q8_0",
 		"response": "3",
 		"prompt_alignment": 1.0,
 		"prompt_alignment_reason": "The score is 1.00 because the LLM perfectly followed the prompt instructions and provided a relevant and concise response.",
 		"assistant_index_correctness": 0.4,
-		"assistant_index_correctness_reason": "The actual output is 3, indicating function calling, while the expected output is 1, indicating a general response.  This is a heavily penalized mismatch. The input requests a starting point for analysis of DNS records; a general summary would have been appropriate."
+		"assistant_index_correctness_reason": "The actual output is 3, indicating function calling, while the expected output is 2, indicating a general response.  This is a heavily penalized mismatch. The input requests a starting point for analysis of DNS records; a general summary would have been appropriate."
 	},
 	{
 		"category": "Web",

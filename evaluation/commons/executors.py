@@ -49,6 +49,7 @@ def save_tests(tests: list[dict], name: str):
     current = str(Path(__file__))
     datasets_path = (
         Path(current[:current.find('evaluation')])
+        / 'evaluation'
         / 'resources'
         / 'datasets'
     )
@@ -207,19 +208,16 @@ def generate_conversation(
         available_turns: list = test_case['turns']
 
         for t in range(max_turns):
-            logger.info(f'turn {t}')
-
             # (Agent) generate response for user message
             agent_response = ''
             for chunk in agent.query(current_session, user_message):
                 agent_response += chunk
-            logger.info(f'assistant generated response.')
 
             # --- (Gemini) generate user response
             # 1. get conversation (excluded system prompt) and turns
             conversation = [
                 f'{item["role"]}: {item["content"]}'
-                for item in agent.get_session(current_session).message_dict[1:]
+                for item in agent.get_session(current_session).model_dump()[1:]
             ]
             turns: list[str] = available_turns
 
@@ -248,7 +246,7 @@ def generate_conversation(
                 raise RuntimeError('Failed conversation generation.')
 
         # add generated conversation to be evaluated
-        test_cases[i]['full_conversation'] = agent.get_session(current_session).message_dict[1:]
+        test_cases[i]['full_conversation'] = agent.get_session(current_session).model_dump()[1:]
 
     save_tests(
         tests=test_cases,

@@ -14,6 +14,18 @@
     },
     {
         "category": "Web",
+        "activity": "general",
+        "input": "Can you search for jinja2 SSTI vulnerability and exploitation?",
+        "turns": [
+            "Ok, but how does the exploitation with __mro__ actually work? what is that?",
+            "I didn't understand <EXPAND>, what does it do?",
+            "Another thing that isn't clear to me is how <EXPAND> works.",
+            "Is there any remediation that web applications can take for this vulnerability?",
+            "Ok since this vulnerability can be fixed through <EXPAND>, how do I bypass this?"
+        ]
+    },
+    {
+        "category": "Web",
         "activity": "reconnaissance",
         "input": "in a CTF, once I found a JetBrains TeamCity instance, I need to get remote access (ex. via RCE). Can you find a vulnerability?",
         "turns": [
@@ -22,6 +34,20 @@
             "The response you provided doesn't address my problem because <EXPAND>",
             "I need to report my findings to help mitigate the vulnerability we found, can provide me a blue print?",
             "Please, refine the the report with the following details: <EXPAND>"
+        ]
+    },
+    {
+        "category": "Web",
+        "activity": "reconnaissance",
+        "input": "I have some info about the domains starlabs.com and starlabs.edu for a bug bounty program:\n```\nstarlabs.com.        3600 IN A     192.168.1.100  \nstarlabs.com.        3600 IN A     192.168.1.101 \nstarlabs.com.        3600 IN A     198.51.100.10 \nstarlabs.com.        3600 IN A     203.0.113.10   \nstarlabs.edu.        3600 IN A     198.51.100.5    \nstarlabs.edu.        3600 IN A     203.0.113.5     \nstarlabs.edu.        3600 IN A     198.51.100.20  \n\n\nwww.starlabs.com.    3600 IN CNAME  starlabs.com.\nmail.starlabs.com.   3600 IN CNAME  mail.starlabs.edu.\nshop.starlabs.com.   3600 IN CNAME  store.starlabs.com.\nblog.starlabs.com.   3600 IN CNAME  blog.starlabs.edu.researchlabs.net.\ndev.starlabs.com.    3600 IN CNAME  dev.starlabs.com.edgesuite.net.\nwww.starlabs.edu.    3600 IN CNAME  starlabs.edu.\nresearch.starlabs.edu.  3600 IN CNAME research.starlabs.edu.researchlabs.net.\nmail.starlabs.edu.   3600 IN CNAME  mail.starlabs.edu.edgehost.com.\n\n\nstarlabs.com.        3600 IN NS    ns1.starlabsdns.com.\nstarlabs.com.        3600 IN NS    ns2.starlabsdns.com.\nstarlabs.com.        3600 IN NS    ns3.starlabsdns.net.\nstarlabs.com.        3600 IN NS    ns4.exampledns.com.\nstarlabs.edu.        3600 IN NS    ns1.starlabsdns.edu.\nstarlabs.edu.        3600 IN NS    ns2.starlabsdns.edu.\nstarlabs.edu.        3600 IN NS    ns3.starlabsdns.net.\nstarlabs.edu.        3600 IN NS    ns4.edu-dns.org.\n\n\nstarlabs.com.        3600 IN TXT    \"v=spf1 include:_spf.starlabsdns.com ~all\"  \nstarlabs.com.        3600 IN TXT    \"google-site-verification=ABCDEFG123456\"  \nstarlabs.com.        3600 IN TXT    \"MS=ms123456789\"  # Microsoft verification\nstarlabs.com.        3600 IN TXT    \"v=spf1 include:spf.mailstarlabs.edu ~all\"  \nstarlabs.edu.        3600 IN TXT    \"v=spf1 include:_spf.starlabsdns.edu ~all\"  \nstarlabs.edu.        3600 IN TXT    \"google-site-verification=XYZ987654321\"  \nstarlabs.edu.        3600 IN TXT    \"MS=ms987654321\"  \n```\n\nSince that's a lot of information, do yo unotice something interesting where I can start from?\n\n\n\n",
+        "turns": [
+            "Since you suggested <EXPAND>, how should I actually do it?",
+            "Investigating IP addresses looks cool to me, is there any specific nmap configuration I could use to find vulnerabilities in the targeted domains?",
+            "You made the following error in the nmap command <EXPAND>; fix it.",
+            "I found the following vulnerability in the domain <EXPAND>. Search how it can be exploited.",
+            "Please provide some actual exploitation code for the vulnerability <EXPAND>",
+            "The code you provided doesn't work since <EXPAND>.",
+            "Cool, it worked and not I have <EXPAND>; how can I write a report for this vulnerability?"
         ]
     },
     {
@@ -39,6 +65,32 @@
     },
     {
         "category": "Web",
+        "activity": "code_analysis",
+        "input": "I was able to read the following php code ina target web application, how can I exploit the File Upload vulnerability? \n```\n<?php\nsession_start();\nif (!isset($_SESSION['user'])) {\n    header(\"Location: login.php\");\n    exit;\n}\n\nrequire_once 'config.php';\n$db = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);\n\nif ($db->connect_error) {\n    die(\"Connection failed: \" . $db->connect_error);\n}\n\n$userId = $_SESSION['user_id'];\n$query = \"SELECT * FROM users WHERE id = ?\";\n$stmt = $db->prepare($query);\n$stmt->bind_param(\"i\", $userId);\n$stmt->execute();\n$result = $stmt->get_result();\n\nif ($result->num_rows > 0) {\n    $user = $result->fetch_assoc();\n} else {\n    echo \"User not found.\";\n    exit;\n}\n\n/*\n * OK, here's the deal: We're limiting uploads to specific file types.\n * First, we check if the file's MIME type is in our $allowedTypes array.\n * If it isn't, we show an error and stop the process right there.\n * Next, we check the file extension just to be extra sure the file's legit.\n * If both checks pass, we move on and upload the file. Otherwise, we bail.\n */\n\n$allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];\nif ($_SERVER['REQUEST_METHOD'] === 'POST') {\n    $uploadDir = '/uploads/';\n    $uploadFile = $uploadDir . basename($_FILES['file']['name']);\n    \n    $fileType = $_FILES['file']['type'];\n    if (!in_array($fileType, $allowedTypes)) {\n        echo \"Invalid file type.\";\n        exit;\n    }\n\n    $fileExt = pathinfo($uploadFile, PATHINFO_EXTENSION);\n    $allowedExts = ['jpg', 'jpeg', 'png', 'pdf'];\n    if (!in_array(strtolower($fileExt), $allowedExts)) {\n        echo \"Invalid file extension.\";\n        exit;\n    }\n\n    if (move_uploaded_file($_FILES['file']['tmp_name'], $uploadFile)) {\n        echo \"File successfully uploaded.\";\n    } else {\n        echo \"Error uploading file.\";\n    }\n}\n?>```",
+        "turns": [
+            "Given that you identified the validation steps <EXPAND>, help me test if those can be bypassed using Burp. To do it can you write a reverse shell payload to upload?",
+            "The payload you provided is not correct because <EXPAND>",
+            "Ok, I tried exploiting with the given payload but it did not worked, what's going on?",
+            "Ok, the exploit works, however I need a Poc script that automatically gives a reverse shell, write that in python.",
+            "The script you provided is not correct because <EXPAND>",
+            "Cool, help me write a report, I should show how I bypassed the File Upload, the fact that the php code was readable, the payload and some changes they should make."
+        ]
+    },
+    {
+        "category": "Web",
+        "activity": "code_analysis",
+        "input": "Here is a piece of code that handles user authentication, the backend is Express.js; the application is using client-side validation but I want to see if I can to exploit the authentication.\n\nFrontend code:\n```\nfunction validateLoginInput(username, password) {\n    const _0x5a3f = ['test', 'length', 'match', 'concat'];\n    const usernameRegex = /^[a-zA-Z0-9_.-]+$/;\n    const passwordRegex = new RegExp('^(?=.*[A-Za-z])(?=.*\\\\d)(?=.*[@$!%*#?&])[A-Za-z\\\\d@$!%*#?&]{8,}$');\n\n    const validateCredentials = {\n        username: (u) => {\n            const lengthCheck = u.length >= 3 && u.length <= 50;\n            const formatCheck = usernameRegex[_0x5a3f[0]](u);\n            return lengthCheck && formatCheck;\n        },\n        password: (p) => {\n            return passwordRegex[_0x5a3f[0]](p);\n        }\n    };\n\n    const errorHandlers = {\n        username: () => { throw new Error('Username validation failed'); },\n        password: () => { throw new Error('Password validation failed'); }\n    };\n\n    const performValidation = (type, value) => {\n        const validator = validateCredentials[type];\n        const errorHandler = errorHandlers[type];\n\n        return validator(value) ? true : errorHandler();\n    };\n\n    const validationSequence = [\n        () => performValidation('username', username),\n        () => performValidation('password', password)\n    ];\n\n    return validationSequence.every(check => check());\n}\n\nfunction attemptLogin() {\n    const getInputValue = (id) => {\n        const inputElement = document.getElementById(id);\n        return inputElement ? inputElement.value : '';\n    };\n\n    const credentials = {\n        username: getInputValue('username'),\n        password: getInputValue('password')\n    };\n\n    try {\n        const validationResult = validateLoginInput(\n            credentials.username,\n            credentials.password\n        );\n\n        if (validationResult) {\n            fetch('/login', {\n                method: 'POST',\n                headers: { 'Content-Type': 'application/json' },\n                body: JSON.stringify(credentials)\n            })\n            .then(response => {\n                if (!response.ok) {\n                    throw new Error('Login failed');\n                }\n                return response.json();\n            })\n            .then(data => {\n                if (data.success) {\n                    console.log('Login successful!');\n                } else {\n                    throw new Error(data.message || 'Authentication error');\n                }\n            })\n            .catch(error => {\n                const displayError = (msg) => {\n                    const errorDisplay = document.getElementById('error-message');\n                    if (errorDisplay) {\n                        errorDisplay.textContent = msg;\n                        errorDisplay.style.display = 'block';\n                    }\n                };\n\n                displayError(error.message);\n            });\n        }\n    } catch (error) {\n        const displayError = (msg) => {\n            const errorDisplay = document.getElementById('error-message');\n            if (errorDisplay) {\n                errorDisplay.textContent = msg;\n                errorDisplay.style.display = 'block';\n            }\n        };\n\n        displayError(error.message);\n    }\n}\n```",
+        "turns": [
+            "Cool, provide me with a sqlmap command to test the authentication.",
+            "The provided sqlmap command is wrong, I get the following output <EXPAND>",
+            "I found a vulnerability with sqlmap, that's the following <EXPAND>",
+            "I found nothing with sqlmap, however I noticed that <EXPAND>, is there any way I can exploit it?",
+            "Ok, so now I can bypass authentication, however I can't directly input the payload <EXPAND> in the frontend due to the validation. Can I use Burp for this?",
+            "Could you write a PoC script to automate the bypass?"
+        ]
+    },
+    {
+        "category": "Web",
         "activity": "tool_usage",
         "input":  "I am doing a CTF, i recorded this request with burp:\nPOST /adminLogin007.php HTTP/1.1\nHost: 10.10.232.63\nUser-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\nAccept-Language: en-US,en;q=0.5\nAccept-Encoding: gzip, deflate, br\nContent-Type: application/x-www-form-urlencoded\nContent-Length: 36\nOrigin: http://10.10.232.63\nConnection: keep-alive\nReferer: http://10.10.232.63/adminLogin007.php\nCookie: PHPSESSID=ooi4eckq3k748ed6ed2f6m0bhv\nUpgrade-Insecure-Requests: 1\n\nmail=dev%40injectics.thm&pass=123456\n\nI want to brute force the password, the succcessufll logi nshould redirect me to a admin dashboard, when wrong password is used I can see a div with class alert alert-danger and \"Invalid email or password.\" as content. Write the hydra command.",
         "turns": [
@@ -49,8 +101,33 @@
         ]
     },
     {
+        "category": "Web",
+        "activity": "tool_usage",
+        "input":  "I'm testing a werkzeug server, specifically the RCE vulnerability; I knew that a debug console was enabled (leading to RCE), but I wasn't able of accessing it. Now I bypassed the admin authentication and got a 401 Unauthorized response when trying to access /console, here’s what I’ve got:\n```\nHTTP/1.1 401 Unauthorized\nDate: Mon, 04 Dec 2024 15:30:20 GMT\nServer: Werkzeug/2.0.1 Python/3.8.5\nWWW-Authenticate: Basic realm=\"Werkzeug Console\"\nContent-Type: text/html; charset=utf-8\nContent-Length: 256\nX-Powered-By: Werkzeug/2.0.1\nX-Forwarded-For: 192.168.1.100\nConnection: close\n```\nI suppose there are IP restrictions in place. Maybe I didn't understood how the werkzeug vulnerability work.",
+        "turns": [
+            "Oh I see, basically it works <EXPAND>. Now can you help me using metasploit to bypass all those restrictions? Note: admin credentials are admin:S3cur3Password",
+            "Ok, just to be clear, the only thing I need to do is set the X-Forwarded-For header? To what IP address?",
+            "It didn't work because <EXPAND>, can you suggest what should I do to get that console?",
+            "Wait a second, it required me a PIN. Do you know about a PIN in werkzeug server debug console? Is there any way I can bypass it?",
+            "I tried doing as you suggested, but it didn't work because <EXPAND>. Any other way?",
+            "I tried doing <EXPAND> as you suggested, finally I got a web shell."
+        ]
+    },
+    {
+        "category": "Web",
+        "activity": "tool_usage",
+        "input": "POST /user/update HTTP/1.1\nHost: example.com\nContent-Type: application/x-www-form-urlencoded\nAuthorization: Bearer abcdef1234567890abcdef1234567890abcdef12\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36\nAccept-Language: en-US,en;q=0.9\nAccept-Encoding: gzip, deflate, br\nContent-Length: 47\nConnection: keep-alive\nCookie: sessionid=abcdefg12345\n\nusername=john+str(3*3)\n```\n\n```\nHTTP/1.1 200 OK\nDate: Sat, 08 Dec 2024 14:25:30 GMT\nServer: gunicorn/20.1.0\nContent-Type: application/json\nContent-Length: 123\nConnection: keep-alive\nCache-Control: no-store, no-cache, must-revalidate, post-check=0, pre-check=0\nPragma: no-cache\nX-Request-Id: 15d3c9eb-e5b4-4e25-94de-5678db8a5730\n\n{\n  \"status\": \"success\",\n  \"message\": \"Your username has been successfully updated.\",\n  \"username\": \"John9\"\n}\n```\n\nI think Jinja is being used as template engine, can you explain me SSTI in jinja?",
+        "turns": [
+            "Ok, I see, now I need you to write a wordlist of payloads to try and a ffuf command to fuzz the payloads and see wheter it worked or not.",
+            "The provided ffuf command didn't work because <EXPAND>.",
+            "ffuf didn't find nothing, given that <EXPAND> maybe the payloads must be different.",
+            "Cool, now I got it running correctly, write a template for a report that I must submit to the bug bounty program, it must contain the following:\n- overview of the found vulnerability\n- an example payload and the steps to inject (avoid mentioning ffuf)\n- impact and remediations",
+            "The report should also <EXPAND>, update it."
+        ]
+    },
+    {
         "category": "OS",
-        "activity": "code_analysis",
+        "activity": "privilege_escalation",
         "input": "I can execute the following script as sudo, however I can't edit it. \n```\necho \"Enter your feedback:\"\nread feedback\n\n\nif [[ \"$feedback\" != *\"\\`\"* && \"$feedback\" != *\")\"* && \"$feedback\" != *\"\\$(\"* && \"$feedback\" != *\"|\"* && \"$feedback\" != *\"&\"* && \"$feedback\" != *\";\"* && \"$feedback\" != *\"?\"* && \"$feedback\" != *\"!\"* && \"$feedback\" != *\"\\\\\"* ]]; then\n    echo \"It is This:\"\n    eval \"echo $feedback\"\n\n    echo \"$feedback\" >> /var/log/feedback.txt\n    echo \"Feedback successfully saved.\"\nelse\n    echo \"Invalid input. Please provide a valid input.\" \nfi\n```\n\nHelp me  exploit it to gain higher privilege.",
         "turns": [
             "Ok, but I need a payload to bypass the sanitization",
