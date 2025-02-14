@@ -66,8 +66,10 @@ async def delete_conversation(conversation_id: int):
 
 
 def query_generator(conversation_id: int, usr_query: str):
-    response = f'[{conversation_id}] - response for: {usr_query}'
+    import time
+    response = f'\n# Conversation **{conversation_id}**\nResponse for: *{usr_query}*'
     for c in response:
+        time.sleep(0.1)
         yield c
 
 

@@ -10,14 +10,14 @@ import httpx
 from rich.console import Console
 from rich.live import Live
 from rich.markdown import Markdown
-from rich.prompt import InvalidResponse, Prompt
+from rich.prompt import Prompt
 from rich.tree import Tree
 from prompt_toolkit import PromptSession
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.lexers import PygmentsLexer
 from pygments.lexers import MarkdownLexer
 from prompt_toolkit.keys import Keys
-from pydantic import BaseModel, validate_call
+from pydantic import BaseModel
 
 VERSION = "0.0.0"
 
@@ -320,9 +320,19 @@ def __chat(app_context: AppContext):
             url=f'/conversations/{conversation_id}/chat',
             json={'message': user_input}
         ) as response_stream:
-            console.print('[bold blue]Assistant[/]: ', end='')
-            for c in response_stream.iter_text():
-                console.print(c)
+            try:
+                response_stream.raise_for_status()
+            except Exception:
+                console.print('[bold red]Error[/] : something went wrong.')
+                break
+
+            console.print('[bold blue]Assistant[/]: ')
+            response_text = ''
+            with Live(console=console, refresh_per_second=10) as live_console:
+                live_console.update(Markdown(response_text))
+                for chunk in response_stream.iter_text():
+                    response_text += chunk
+                    live_console.update(Markdown(response_text))
 
 
 def __conversation_list(app_context: AppContext):
