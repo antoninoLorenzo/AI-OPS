@@ -41,6 +41,7 @@ class Message(BaseModel):
 
 class Conversation(BaseModel):
     """Represents a conversation"""
+    conversation_id: int
     name: str
     messages: List[Message] = []
     _tokens: int = 0
@@ -49,13 +50,6 @@ class Conversation(BaseModel):
     def __iadd__(self, other):
         self.messages.append(other)
         return self
-
-    def model_dump(self, **kwargs):
-        # return only a list of messages when converting to list[dict]
-        return [
-            message.model_dump()
-            for message in self.messages
-        ]
 
     def __len__(self):
         return len(self.messages)

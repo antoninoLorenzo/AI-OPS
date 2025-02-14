@@ -64,7 +64,7 @@ class Memory:
                 data = {
                     'id': conversation_id,
                     'name': conversation.name,
-                    'messages': conversation.model_dump(),
+                    'messages': [message.model_dump() for message in conversation.messages]
                 }
                 json.dump(data, fp, indent='\t')
             except Exception as save_error:

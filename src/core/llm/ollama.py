@@ -85,7 +85,7 @@ class Ollama(Provider):
     @validate_call
     def query(
         self,
-        messages: Conversation
+        conversation: Conversation
     ) -> Tuple[str, int, int]:
         """Generator that returns a tuple containing:
          (response_chunk, user message tokens, assistant message tokens)"""
@@ -93,7 +93,7 @@ class Ollama(Provider):
             options = AVAILABLE_MODELS[self.__match_model()]['options']
             stream = self.client.chat(
                 model=self.model,
-                messages=messages.model_dump(),
+                messages=[message.model_dump() for message in conversation.messages],
                 stream=True,
                 options=options
             )
@@ -106,9 +106,9 @@ class Ollama(Provider):
             # - `prompt_eval_count` -> input prompt tokens
             # - `eval_count` -> output tokens
             # The input prompt contains system prompt + entire conversation.
-            system_prompt_length_estimate = int(len(messages.messages[0].content) / 4)
+            system_prompt_length_estimate = int(len(conversation.messages[0].content) / 4)
             user_msg_tokens = Ollama.user_message_token_length(
-                conversation=messages,
+                conversation=conversation,
                 full_input_tokens=c['prompt_eval_count'],
                 system_prompt_tokens=system_prompt_length_estimate
             )
@@ -121,11 +121,11 @@ class Ollama(Provider):
     @validate_call
     def tool_query(
         self,
-        messages: Conversation,
+        conversation: Conversation,
         tools: list | None = None
     ):
         """Implements LLM tool calling.
-        :param messages:
+        :param conversation:
             The current conversation provided as a list of messages in the
             format [{"role": "assistant/user/system", "content": "..."}, ...]
         :param tools:
@@ -145,7 +145,7 @@ class Ollama(Provider):
 
         tool_response = self.client.chat(
             model=self.model,
-            messages=messages.model_dump(),
+            messages=[message.model_dump() for message in conversation.messages],
             tools=tools
         )
 
