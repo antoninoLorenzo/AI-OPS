@@ -4,9 +4,9 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
 from src.agent import Agent
-from src.core import Conversation
+from src.core import Conversation, Role, Message
 from src.dependencies import get_agent
-from src.chat.service import ConversationService, get_conversation_service
+from src.chat.service import ConversationService, get_conversation_service, query_generator
 
 router = APIRouter(prefix='/conversations')
 
@@ -58,14 +58,6 @@ async def delete_conversation(
     conversation_service.delete_conversation(conversation_id)
 
 
-def query_generator(conversation_id: int, usr_query: str):
-    import time
-    response = f'\n# Conversation **{conversation_id}**\nResponse for: *{usr_query}*'
-    for c in response:
-        time.sleep(0.1)
-        yield c
-
-
 @router.post('/{conversation_id}/chat')
 async def query(
         conversation_id: int,
@@ -73,4 +65,11 @@ async def query(
         agent: Agent = Depends(get_agent),
         conversation_service: ConversationService = Depends(get_conversation_service)
 ):
-    pass
+    usr_query = body.get("query")
+    if not usr_query:
+        raise HTTPException(status_code=400, detail="Query parameter required")
+
+    conversation = conversation_service.get_conversation(conversation_id)
+    conversation += Message(role=Role.USER, content=usr_query)
+
+    return StreamingResponse(query_generator(agent, conversation))

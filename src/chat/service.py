@@ -1,5 +1,6 @@
 from typing import List
 
+from src.agent import Agent
 from src.core.memory import Memory, Conversation
 
 
@@ -38,3 +39,7 @@ CONVERSATION_SERVICE = ConversationService()
 
 def get_conversation_service() -> ConversationService:
     return CONVERSATION_SERVICE
+
+
+def query_generator(agent: Agent, conversation: Conversation):
+    yield from agent.query(conversation)
