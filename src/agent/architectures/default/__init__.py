@@ -4,6 +4,7 @@ from tool_parse import ToolRegistry
 
 from src.core import LLM
 from src.agent.architectures.default.architecture import DefaultArchitecture
+from src.agent.architectures.default.prompt import DefaultPrompt
 
 
 def init_default_architecture(
@@ -27,8 +28,10 @@ def init_default_architecture(
     return DefaultArchitecture(
         llm=llm,
         tools=tool_registry,
-        router_prompt=router,
-        general_prompt=general,
-        reasoning_prompt=reasoning,
-        tool_prompt=tool
+        prompts=DefaultPrompt(
+            router_prompt=router,
+            general_prompt=general,
+            reasoning_prompt=reasoning,
+            tool_prompt=tool
+        )
     )

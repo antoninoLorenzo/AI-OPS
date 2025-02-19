@@ -4,7 +4,7 @@ from src.core import (
     AVAILABLE_PROVIDERS,
     TOOL_REGISTRY,
 )
-from src.agent.agent import Agent, AgentArchitecture
+from src.agent.agent import Agent, Architecture
 from src.agent.architectures import init_default_architecture
 
 

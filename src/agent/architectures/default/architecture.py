@@ -1,15 +1,15 @@
 import re
 import json
-import logging
 from typing import Generator, Dict, Tuple
 
 from tool_parse import ToolRegistry
 
-from src.agent import AgentArchitecture
+from src.agent import Architecture
 from src.core import Conversation
 from src.core.llm import LLM
 from src.core.memory import Message, Role
 from src.utils import get_logger, LOGS_PATH
+from src.agent.architectures.default.prompt import DefaultPrompt
 
 logger = get_logger(__name__)
 
@@ -62,7 +62,7 @@ class State:
                     return State.THINKING
 
 
-class DefaultArchitecture(AgentArchitecture):
+class DefaultArchitecture(Architecture):
     """
     TODO: fix architecture since its kinda broken
         - search adds two user messages ???
@@ -76,22 +76,14 @@ class DefaultArchitecture(AgentArchitecture):
         self,
         llm: LLM,
         tools: ToolRegistry,
-        router_prompt: str,
-        general_prompt: str,
-        reasoning_prompt: str,
-        tool_prompt: str
+        prompts: DefaultPrompt
     ):
         super().__init__()
         self.llm: LLM = llm
         self.model = llm.model
         self.__tool_registry: ToolRegistry = tools
         self.__tools: tuple = tuple(self.__tool_registry.marshal('base'))
-        self.__prompts: Dict[str, str] = {
-            'router': router_prompt,
-            'general': general_prompt,
-            'reasoning': reasoning_prompt,
-            'tool': tool_prompt
-        }
+        self.__prompts = DefaultPrompt
 
         self.__thought_parser: State = State()
         self.__tool_pattern = r"\s*({[^}]*(?:{[^}]*})*[^}]*}|\[[^\]]*(?:\[[^\]]*\])*[^\]]*\])\s*$"
@@ -103,45 +95,29 @@ class DefaultArchitecture(AgentArchitecture):
             f'Initialized DefaultArchitecture with model {llm.model} and tools {tool_names}'
         )
 
-        self.token_logger = logging.Logger('token_logger')
-        formatter = logging.Formatter(f'%(name)s - {self.model}: %(message)s')
-
-        logger_handler = logging.FileHandler(
-            filename=f'{str(LOGS_PATH)}/token_usage.log',
-            mode='a',
-            encoding='utf-8'
-        )
-        logger_handler.setLevel(logging.DEBUG)
-        logger_handler.setFormatter(formatter)
-
-        self.token_logger.setLevel(logging.DEBUG)
-        self.token_logger.addHandler(logger_handler)
-
     def query(
         self,
-        session_id: int,
-        user_input: str
+        conversation: Conversation
     ) -> Generator:
         """Handles the input from the user and generates responses in a
         streaming manner.
 
-        :param session_id: The session identifier.
-        :param user_input: The user's input query.
+        :param conversation: current conversation
 
         :returns: Generator with response text in chunks."""
-        # TODO: yield (chunk, context_length)
-        # create a new conversation if not exists
-        if not self.memory[session_id]:
-            self.new_session(session_id)
+        if conversation.messages[-1].role != Role.USER:
+            raise ValueError("last message in conversation not a user message")
+
+        user_input = conversation.messages[-1].content
 
         # route query
         assistant_index = self.__get_assistant_index(user_input)
 
         # RESPONSE
-        prompt = self.__prompts['general']
+        prompt = self.__prompts.general_prompt
         user_input_with_tool_call = f'{user_input}'
         if assistant_index == 2:
-            prompt = self.__prompts['reasoning']
+            prompt = self.__prompts.reasoning_prompt
         elif assistant_index == 3:
             # Execute tool call and temporarily concatenate output to user
             # message, but the tool call result is thrown away (for simplicity)
@@ -150,7 +126,7 @@ class DefaultArchitecture(AgentArchitecture):
             tool_call_str: str | None = None
             for tool_call_execution in self.__tool_call(
                 user_input,
-                self.memory[session_id],
+                conversation,
             ):
                 tool_call_state = tool_call_execution['state']
                 if tool_call_state == 'error':
@@ -170,7 +146,6 @@ class DefaultArchitecture(AgentArchitecture):
                 assistant_index = 1
 
         # Replace system prompt with the one built for specific assistant type
-        conversation = self.memory[session_id]
         conversation.messages[0] = Message(role=Role.SYS, content=prompt)
         conversation += Message(
             role=Role.USER,
@@ -209,16 +184,6 @@ class DefaultArchitecture(AgentArchitecture):
         conversation.messages[-1].set_tokens(response_tokens)
         logger.debug(f'CONVERSATION: {conversation}')
 
-    def new_session(self, session_id: int, name: str):
-        """Create a new conversation if not exists"""
-        # logger.debug('Creating new session')
-        if session_id not in self.memory:
-            self.memory[session_id] = Conversation(name=name)
-        self.memory[session_id] += Message(
-            role=Role.SYS,
-            content=self.__prompts['general']
-        )
-
     def __get_assistant_index(
         self,
         user_input: str
@@ -231,7 +196,7 @@ class DefaultArchitecture(AgentArchitecture):
         route_messages = Conversation(
             name='get_assistant_index',
             messages=[
-                {'role': 'system', 'content': self.__prompts['router']},
+                {'role': 'system', 'content': self.__prompts.router_prompt},
                 {'role': 'user', 'content': user_input}
             ]
         )
@@ -262,7 +227,7 @@ class DefaultArchitecture(AgentArchitecture):
         # replace system prompt and generate tool call
         conversation.messages[0] = Message(
             role='system',
-            content=self.__prompts['tool']
+            content=self.__prompts.tool_prompt
         )
         conversation += Message(
             role='user',
