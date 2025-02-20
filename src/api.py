@@ -4,7 +4,6 @@ API Interface for AI-OPS:
 - **Chat** (`/conversations`): Agent related operations including chat and conversation management.
 """
 from fastapi import FastAPI, status
-from fastapi.middleware.cors import CORSMiddleware
 
 from src.config import API_SETTINGS
 from src.chat import router as chat_router
@@ -16,14 +15,6 @@ logger = get_logger(__name__)
 app = FastAPI()
 app.include_router(chat_router)
 
-# TODO: implement proper CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=API_SETTINGS.ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 if API_SETTINGS.PROFILE:
     try:
