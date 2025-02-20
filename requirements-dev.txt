@@ -1,3 +1,4 @@
+pytest
 isort
 pylint
 google-generativeai
