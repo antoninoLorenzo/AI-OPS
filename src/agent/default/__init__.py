@@ -3,8 +3,8 @@ from pathlib import Path
 from tool_parse import ToolRegistry
 
 from src.core import LLM
-from src.agent.architectures.default.architecture import DefaultArchitecture
-from src.agent.architectures.default.prompt import DefaultPrompt
+from src.agent.default.architecture import DefaultArchitecture
+from src.agent.default.prompt import DefaultPrompt
 
 
 def init_default_architecture(

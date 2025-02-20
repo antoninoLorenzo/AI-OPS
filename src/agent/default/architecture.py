@@ -8,8 +8,8 @@ from src.agent import Architecture
 from src.core import Conversation
 from src.core.llm import LLM
 from src.core.memory import Message, Role
-from src.utils import get_logger, LOGS_PATH
-from src.agent.architectures.default.prompt import DefaultPrompt
+from src.utils import get_logger
+from src.agent.default.prompt import DefaultPrompt
 
 logger = get_logger(__name__)
 
