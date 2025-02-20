@@ -1,11 +1,12 @@
 from typing import List
 
-from src.core.memory import Memory, Conversation
 from src.agent import Agent, build_agent
 from src.chat.model import AGENT_SETTINGS
+from src.core.memory import Conversation, Memory
 
 
 class ConversationService:
+    """Manages an instance of conversational Memory."""
 
     def __init__(self):
         self.__memory = Memory()
@@ -45,10 +46,12 @@ CONVERSATION_SERVICE = ConversationService()
 
 
 def get_agent() -> Agent:
+    """Agent DI"""
     return AGENT
 
 
 def get_conversation_service() -> ConversationService:
+    """Conversation DI"""
     return CONVERSATION_SERVICE
 
 

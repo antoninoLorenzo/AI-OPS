@@ -1,16 +1,23 @@
+"""
+Chat Endpoints:
+
+- `GET /conversation`                         : load conversations
+- `POST /conversation`                        : create conversation
+- `GET /conversation/<conversation_id>`       : get conversation
+- `POST /conversation/<conversation_id>`      : rename conversation
+- `PUT /conversation/<conversation_id>`       : save conversation
+- `DELETE /conversation/<conversation_id>`    : delete conversation
+- `POST /conversation/<conversation_id>/chat` : stream response for message
+"""
 from typing import List
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
 from src.agent import Agent
-from src.core import Conversation, Role, Message
-from src.chat.service import (
-    ConversationService,
-    get_agent,
-    get_conversation_service,
-    query_generator
-)
+from src.chat.service import (ConversationService, get_agent,
+                              get_conversation_service, query_generator)
+from src.core import Conversation, Message, Role
 
 router = APIRouter(prefix='/conversations')
 

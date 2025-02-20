@@ -1,9 +1,10 @@
 import os
+
 from pydantic_settings import BaseSettings
 
 
 class AgentSettings(BaseSettings):
-    """Setup for AI Agent"""
+    """Setup for AI Assistant"""
     MODEL: str = os.environ.get('MODEL', 'mistral')
     ENDPOINT: str = os.environ.get('ENDPOINT', 'http://localhost:11434')
     PROVIDER: str = os.environ.get('PROVIDER', 'ollama')
