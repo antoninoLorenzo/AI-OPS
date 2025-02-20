@@ -5,7 +5,6 @@ python-dotenv
 pydantic_settings
 httpx
 tool-parse
-playwright
 newspaper3k
 lxml_html_clean
 spacy[lookups]
