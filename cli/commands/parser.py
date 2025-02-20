@@ -48,14 +48,14 @@ class CommandParser:
             exit_on_error=False,
             usage="conversation load [conversation_id]"
         )
-        load_parser.add_argument('conversation_id', type=str)
+        load_parser.add_argument('conversation_id', type=int)
 
         rename_parser = conversation_subparsers.add_parser(
             'rename',
             exit_on_error=False,
             usage="conversation rename [conversation_id] [new_name]"
         )
-        rename_parser.add_argument('conversation_id', type=str)
+        rename_parser.add_argument('conversation_id', type=int)
         rename_parser.add_argument('new_name', type=str)
 
         save_parser = conversation_subparsers.add_parser(
@@ -63,14 +63,14 @@ class CommandParser:
             exit_on_error=False,
             usage="conversation save [conversation_id]"
         )
-        save_parser.add_argument('conversation_id', type=str)
+        save_parser.add_argument('conversation_id', type=int)
 
         delete_parser = conversation_subparsers.add_parser(
             'delete',
             exit_on_error=False,
             usage="conversation delete [conversation_id]"
         )
-        delete_parser.add_argument('conversation_id', type=str)
+        delete_parser.add_argument('conversation_id', type=int)
 
     def parse(self, user_input: str) -> CommandSchema:
         try:
