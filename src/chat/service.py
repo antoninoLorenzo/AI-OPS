@@ -1,7 +1,8 @@
 from typing import List
 
-from src.agent import Agent
 from src.core.memory import Memory, Conversation
+from src.agent import Agent, build_agent
+from src.chat.model import AGENT_SETTINGS
 
 
 class ConversationService:
@@ -34,7 +35,17 @@ class ConversationService:
         self.__memory.delete(conversation_id)
 
 
+AGENT = build_agent(
+    model=AGENT_SETTINGS.MODEL,
+    inference_endpoint=AGENT_SETTINGS.ENDPOINT,
+    provider=AGENT_SETTINGS.PROVIDER,
+    provider_key=AGENT_SETTINGS.PROVIDER_KEY
+)
 CONVERSATION_SERVICE = ConversationService()
+
+
+def get_agent() -> Agent:
+    return AGENT
 
 
 def get_conversation_service() -> ConversationService:

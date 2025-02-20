@@ -5,8 +5,12 @@ from fastapi.responses import StreamingResponse
 
 from src.agent import Agent
 from src.core import Conversation, Role, Message
-from src.dependencies import get_agent
-from src.chat.service import ConversationService, get_conversation_service, query_generator
+from src.chat.service import (
+    ConversationService,
+    get_agent,
+    get_conversation_service,
+    query_generator
+)
 
 router = APIRouter(prefix='/conversations')
 
