@@ -67,6 +67,7 @@ class Conversation(BaseModel):
             return -1, None
 
         session = Conversation(
+            conversation_id=data['conversation_id'],
             name=data['name'],
             messages=[
                 Message(role=Role.from_str(msg['role']), content=msg['content'])
@@ -74,5 +75,5 @@ class Conversation(BaseModel):
             ],
         )
 
-        return data['id'], session
+        return data['conversation_id'], session
 

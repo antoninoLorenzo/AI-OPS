@@ -9,10 +9,10 @@ from src.utils import get_logger
 
 logger = get_logger(__name__)
 
-SESSIONS_PATH = Path(Path.home() / '.aiops' / 'sessions')
-if not SESSIONS_PATH.exists():
-    SESSIONS_PATH.mkdir(parents=True, exist_ok=True)
-    logger.info(f"\tCreated {str(SESSIONS_PATH)}")
+CONVERSATION_PATH = Path(Path.home() / '.aiops' / 'conversations')
+if not CONVERSATION_PATH.exists():
+    CONVERSATION_PATH.mkdir(parents=True, exist_ok=True)
+    logger.info(f"\tCreated {str(CONVERSATION_PATH)}")
 
 
 class Memory:
@@ -52,17 +52,17 @@ class Memory:
         """
         if conversation_id not in self:
             logger.error(f'[save]: {conversation_id} not available.')
-            return
+            return False
 
         conversation = self.__conversation_map[conversation_id]
         conversation_path = (
-            SESSIONS_PATH
-            / f'{conversation_id}__{conversation.name}.json'
+                CONVERSATION_PATH
+                / f'{conversation_id}__{conversation.name}.json'
         )
         with open(str(conversation_path), 'w+', encoding='utf-8') as fp:
             try:
                 data = {
-                    'id': conversation_id,
+                    'conversation_id': conversation_id,
                     'name': conversation.name,
                     'messages': [message.model_dump() for message in conversation.messages]
                 }
@@ -72,17 +72,19 @@ class Memory:
                     f'[save]: failed saving conversation {conversation_id}. {save_error}'
                 )
 
+        return True
+
     def delete(self, conversation_id: int):
         """Removes Conversation object from internal map and from persistent
         files. In case `conversation_id` is not in memory, the error is logged.
         """
         if conversation_id not in self:
             logger.error(f'[delete]: {conversation_id} not available.')
-            return
+            return False
 
         conversation_path = (
-            SESSIONS_PATH
-            / f'{conversation_id}__{self[conversation_id].name}.json'
+                CONVERSATION_PATH
+                / f'{conversation_id}__{self[conversation_id].name}.json'
         )
         if conversation_path.exists():
             conversation_path.unlink()
@@ -90,11 +92,13 @@ class Memory:
         else:
             logger.error(f'[delete]: {conversation_path} not found.')
 
+        return True
+
     def __load_conversations(self):
         """
         Populates the internal map from persistent JSON files at SESSION_PATH.
         """
-        for path in SESSIONS_PATH.iterdir():
+        for path in CONVERSATION_PATH.iterdir():
             if path.is_file() and path.suffix == '.json':
                 sid, session = Conversation.from_json(str(path))
                 if sid == -1:
