@@ -11,7 +11,7 @@ class Architecture(ABC):
     can be easily swapped or extended.
     """
     model: str
-    architecture_name: str
+    architecture_name: str = 'abstract'
 
     @abstractmethod
     def query(
@@ -49,3 +49,6 @@ class Agent:
         :returns: Generator with response text in chunks."""
         yield from self.__architecture.query(conversation)
 
+    @property
+    def architecture_name(self):
+        return self.__architecture.architecture_name

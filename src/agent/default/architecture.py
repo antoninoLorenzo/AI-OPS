@@ -70,7 +70,7 @@ class DefaultArchitecture(Architecture):
     The overall code sucks. My bad.
     """
     model: str
-    architecture_name = 'default_architecture'
+    architecture_name = 'default'
 
     def __init__(
         self,
