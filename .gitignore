@@ -1,6 +1,8 @@
 benchmarks/rag/*
 test/strategies/*
 logs/
+.coverage
+htmlcov/*
 
 # IDEs
 .idea/
