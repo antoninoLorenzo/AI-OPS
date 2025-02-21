@@ -42,7 +42,10 @@ async def get_conversation(
         conversation_id: int,
         conversation_service: ConversationService = Depends(get_conversation_service)
 ) -> Conversation:
-    return conversation_service.get_conversation(conversation_id)
+    conversation = conversation_service.get_conversation(conversation_id)
+    if conversation is None:
+        raise HTTPException(status_code=400, detail='invalid conversation id')
+    return conversation
 
 
 @router.post('/{conversation_id}')
@@ -50,6 +53,8 @@ async def rename_conversation(
         conversation_id: int, new_name: str,
         conversation_service: ConversationService = Depends(get_conversation_service)
 ) -> Conversation:
+    if len(new_name) == 0:
+        raise HTTPException(status_code=400, detail='invalid value for new_name')
     return conversation_service.rename_conversation(conversation_id, new_name)
 
 
@@ -58,7 +63,8 @@ async def save_conversation(
         conversation_id: int,
         conversation_service: ConversationService = Depends(get_conversation_service)
 ):
-    conversation_service.save_conversation(conversation_id)
+    if not conversation_service.save_conversation(conversation_id):
+        raise HTTPException(status_code=400, detail='failed saving conversation')
 
 
 @router.delete('/{conversation_id}')
@@ -66,7 +72,8 @@ async def delete_conversation(
         conversation_id: int,
         conversation_service: ConversationService = Depends(get_conversation_service)
 ):
-    conversation_service.delete_conversation(conversation_id)
+    if not conversation_service.delete_conversation(conversation_id):
+        raise HTTPException(status_code=400, detail='failed deleting conversation')
 
 
 @router.post('/{conversation_id}/chat')
@@ -77,8 +84,8 @@ async def query(
         conversation_service: ConversationService = Depends(get_conversation_service)
 ):
     usr_query = body.get("query")
-    if not usr_query:
-        raise HTTPException(status_code=400, detail="Query parameter required")
+    if not usr_query or not isinstance(usr_query, str) or len(usr_query) == 0:
+        raise HTTPException(status_code=400, detail='expected {"query": str}')
 
     conversation = conversation_service.get_conversation(conversation_id)
     conversation += Message(role=Role.USER, content=usr_query)
