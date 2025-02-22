@@ -3,9 +3,9 @@ from pathlib import Path
 from typing import Dict
 
 from pydantic import validate_call
+
 from src.core.memory.schema import Conversation
 from src.utils import get_logger
-
 
 logger = get_logger(__name__)
 
@@ -86,11 +86,14 @@ class Memory:
                 CONVERSATION_PATH
                 / f'{conversation_id}__{self[conversation_id].name}.json'
         )
+
         if conversation_path.exists():
             conversation_path.unlink()
-            self.__conversation_map.pop(conversation_id, None)
         else:
             logger.error(f'[delete]: {conversation_path} not found.')
+
+        # delete conversation from memory even if it wasn't saved
+        self.__conversation_map.pop(conversation_id, None)
 
         return True
 
