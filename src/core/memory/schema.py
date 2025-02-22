@@ -1,9 +1,9 @@
 import json
+import os
 from enum import StrEnum
-from typing import List, Literal, Any
+from typing import List
 
 from pydantic import BaseModel, validate_call
-from pydantic.main import IncEx
 
 
 class Role(StrEnum):
@@ -60,6 +60,9 @@ class Conversation(BaseModel):
         Reason for not using model_validate_json: saved JSON file contains
         ID, instead Conversation doesn't have an ID field.
         """
+        if not os.path.exists(path):
+            return -1, None
+
         try:
             with open(str(path), 'r', encoding='utf-8') as fp:
                 data = json.load(fp)
