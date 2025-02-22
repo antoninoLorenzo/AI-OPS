@@ -7,7 +7,7 @@ from rich.console import Console
 from rich.prompt import Prompt
 
 
-from commands import Command, CommandParser, CommandRegistry, ParserException
+from cli.commands import Command, CommandParser, CommandRegistry, ParserException
 
 
 class AppContext:

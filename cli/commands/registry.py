@@ -1,6 +1,6 @@
 from typing import List, Union, Iterable, Optional
 
-from .model import CommandSchema, Command
+from cli.commands.model import CommandSchema, Command
 
 
 class CommandRegistry:

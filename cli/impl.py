@@ -10,7 +10,7 @@ from prompt_toolkit.lexers import PygmentsLexer
 from pygments.lexers import MarkdownLexer
 from prompt_toolkit.keys import Keys
 
-from app import AppContext
+from cli.app import AppContext
 
 
 def build_input_multiline():

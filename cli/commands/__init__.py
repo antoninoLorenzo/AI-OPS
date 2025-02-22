@@ -1,3 +1,3 @@
-from .model import CommandParameter, CommandSchema, Command, ParserException
-from .parser import CommandParser
-from .registry import CommandRegistry
+from cli.commands.model import CommandParameter, CommandSchema, Command, ParserException
+from cli.commands.parser import CommandParser
+from cli.commands.registry import CommandRegistry

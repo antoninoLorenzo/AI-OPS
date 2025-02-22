@@ -2,9 +2,9 @@ import sys
 import argparse
 from urllib.parse import urlparse
 
-from commands import Command, CommandSchema, CommandParameter
-from app import App
-from impl import (
+from cli.commands import Command, CommandSchema, CommandParameter
+from cli.app import App
+from cli.impl import (
     __help,
     __clear,
     __chat,

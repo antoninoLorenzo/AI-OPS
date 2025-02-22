@@ -2,7 +2,7 @@ import io
 import sys
 import argparse
 
-from .model import CommandParameter, CommandSchema, ParserException
+from cli.commands.model import CommandParameter, CommandSchema, ParserException
 
 
 class CommandParser:
