@@ -44,7 +44,7 @@ class ConversationService:
         return self.__memory.delete(conversation_id)
 
 
-def __build_agent_default_architecture() -> Agent:
+def build_agent_default_architecture() -> Agent:
     provider = AGENT_SETTINGS.PROVIDER
     if provider not in AVAILABLE_PROVIDERS.keys():
         raise RuntimeError(f'{provider} not supported.')
@@ -70,7 +70,7 @@ def __build_agent_default_architecture() -> Agent:
     return Agent(architecture)
 
 
-AGENT = __build_agent_default_architecture()
+AGENT = build_agent_default_architecture()
 CONVERSATION_SERVICE = ConversationService()
 
 

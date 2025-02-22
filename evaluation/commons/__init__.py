@@ -3,7 +3,8 @@ import os
 import google.generativeai as genai
 
 from src.core.llm import LLM
-from src.agent import build_agent, Agent
+from src.agent import Agent
+from src.chat.service import build_agent_default_architecture
 from src.utils import get_logger
 from evaluation.commons.gemini import GeminiLLM
 
@@ -35,13 +36,8 @@ def setup_system_test_resources() -> tuple[Agent, GeminiLLM]:
     from dotenv import load_dotenv
 
     load_dotenv()
-    MODEL = os.getenv('MODEL')
-    ENDPOINT = os.getenv('ENDPOINT')
 
-    AGENT = build_agent(
-        model=MODEL,
-        inference_endpoint=ENDPOINT
-    )
+    AGENT = build_agent_default_architecture()
     # for _ in AGENT.query(0, 'Hi'):
     #     pass
 
