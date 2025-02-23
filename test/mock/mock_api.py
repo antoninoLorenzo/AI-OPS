@@ -38,6 +38,9 @@ async def new_conversation(name: str) -> Conversation:
 
 @app.get('/conversations/{conversation_id}')
 async def get_conversation(conversation_id: int) -> Conversation:
+    if conversation_id < 0:
+        raise HTTPException(status_code=400, detail='invalid conversation id')
+    
     return Conversation(
         conversation_id=conversation_id,
         name='untitled',
@@ -45,8 +48,13 @@ async def get_conversation(conversation_id: int) -> Conversation:
     )
 
 
-@app.post('/conversation/{conversation_id}')
+@app.post('/conversations/{conversation_id}')
 async def rename_conversation(conversation_id: int, new_name: str):
+    if len(new_name) == 0:
+        raise HTTPException(status_code=400, detail='invalid value for new_name')
+    if conversation_id < 0:
+        raise HTTPException(status_code=404, detail='conversation not found')
+    
     return Conversation(
         conversation_id=conversation_id,
         name=new_name,

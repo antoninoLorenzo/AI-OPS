@@ -102,8 +102,8 @@ def __conversation_list(app_context: AppContext):
         response = client.get('/conversations')
         response.raise_for_status()
         conversations = response.json()
-    except httpx.HTTPStatusError as status:
-        console.print(f"[bold red]Error: [/] {status}")
+    except httpx.HTTPStatusError as _:
+        console.print(f"[bold red]Error: [/]failed getting conversation list")
         return
 
     if len(conversations) == 0:
@@ -126,8 +126,8 @@ def __conversation_new(app_context: AppContext, conversation_name: str):
         )
         response.raise_for_status()
         conversation = response.json()
-    except httpx.HTTPError as status:
-        console.print(f"[bold red]Error: [/] {status}")
+    except httpx.HTTPError as err:
+        console.print(f"[bold red]Error: [/]{err.response.status_code}")
         return
 
     console.print(f'[{conversation["conversation_id"]}]: {conversation["name"]}')
@@ -143,8 +143,9 @@ def __conversation_load(app_context: AppContext, conversation_id: int):
         response = client.get(f'/conversations/{conversation_id}')
         response.raise_for_status()
         conversation = response.json()
-    except httpx.HTTPError as status:
-        console.print(f"[bold red]Error: [/] {status}")
+    except httpx.HTTPError as _:
+        # optional: consider implementing logging
+        console.print(f"[bold red]Error: [/]invalid conversation_id: {conversation_id}")
         return
 
     for message in conversation['messages']:
@@ -161,13 +162,19 @@ def __conversation_rename(app_context: AppContext, conversation_id: int, new_nam
     client = app_context.client
     console = app_context.console
     try:
-        response = client.put(
+        response = client.post(
             url=f'/conversations/{conversation_id}',
             params={'new_name': new_name}
         )
         response.raise_for_status()
-    except httpx.HTTPError as status:
-        console.print(f"[bold red]Error: [/] {status}")
+    except httpx.HTTPError as exc:
+        try:
+            error_data = exc.response.json()
+            error_detail = error_data.get("detail")
+        except ValueError:
+            error_detail = 'failed renaming conversation'
+
+        console.print(f"[bold red]Error: [/]{error_detail}")
         return
 
 
@@ -177,8 +184,8 @@ def __conversation_save(app_context: AppContext, conversation_id: int):
     try:
         response = client.put(f'/conversations/{conversation_id}')
         response.raise_for_status()
-    except httpx.HTTPError as status:
-        console.print(f"[bold red]Error: [/] {status}")
+    except httpx.HTTPError as _:
+        console.print(f"[bold red]Error: [/]failed saving conversation")
         return
 
 
@@ -188,6 +195,6 @@ def __conversation_delete(app_context: AppContext, conversation_id: int):
     try:
         response = client.delete(f'/conversations/{conversation_id}')
         response.raise_for_status()
-    except httpx.HTTPError as status:
-        console.print(f"[bold red]Error: [/] {status}")
+    except httpx.HTTPError as _:
+        console.print(f"[bold red]Error: [/]failed saving conversation")
         return
