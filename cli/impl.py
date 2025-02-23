@@ -64,9 +64,12 @@ def __chat(app_context: AppContext):
     client = app_context.client
     console = app_context.console
 
+    # when user directly invokes chat just create an 'untitled' conversation
     if not app_context.current_conversation_id:
-        __conversation_new(app_context, conversation_name='chat convo')
+        __conversation_new(app_context, conversation_name='untitled')
         return
+    elif app_context.current_conversation_id < 0:
+        console.print(f"[bold red]Error: [/]invalid conversation id")
 
     multiline_input = build_input_multiline()
     conversation_id = app_context.current_conversation_id
@@ -76,14 +79,20 @@ def __chat(app_context: AppContext):
             break
 
         with client.stream(
-                method='POST',
-                url=f'/conversations/{conversation_id}/chat',
-                json={'message': user_input}
+            method='POST',
+            url=f'/conversations/{conversation_id}/chat',
+            json={'query': user_input}
         ) as response_stream:
+            # handle errors:
+            # - invalid conversation_id (404)
+            # - empty message (400)
             try:
                 response_stream.raise_for_status()
-            except Exception:
-                console.print('[bold red]Error[/] : something went wrong.')
+            except httpx.HTTPError as exc:
+                # Trying to get the detail is a bit tricky with response stream.
+                # httpx.ResponseNotRead: 
+                # Attempted to access streaming response content, without having called `read()`. 
+                console.print(f"[bold red]Error: [/]failed sending message")
                 break
 
             console.print('[bold blue]Assistant[/]: ')

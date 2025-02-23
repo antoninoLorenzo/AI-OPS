@@ -12,8 +12,6 @@ from cli.impl import (
     __chat,                     # how do I test chat since its a REPL itself?
     __conversation_new,
     __conversation_load,
-    __conversation_save,
-    __conversation_delete,
     __conversation_rename
 )
 from test.mock.mock_cli_prompt import build_input_mock
@@ -34,6 +32,15 @@ def app_context():
 
     yield context
 
+@fixture(scope="session")
+def expected_regex():
+    expected_success_regex = re.compile(r'^\[\d+\]:\s?\S.*') # [digit]: non-empty-string
+    expected_failure_regex = re.compile(r'^Error:\s\S+.*')   # Error: non-empty-string
+    yield {
+        'success': expected_success_regex,
+        'error': expected_failure_regex
+    }
+
 
 # TODO: add test cases (what could go wrong?)
 @mark.parametrize('parameters', [
@@ -41,6 +48,7 @@ def app_context():
 ])
 def test_conversation_new(
     app_context: AppContext,
+    expected_regex,
     capfd,
     monkeypatch,
     parameters
@@ -51,13 +59,10 @@ def test_conversation_new(
         'cli.impl.build_input_multiline', 
         functools.partial(build_input_mock, user_input='back')
     )
-    expected_success_regex = re.compile(r'^\[\d+\]:\s?\S.*') # [digit]: non-empty-string
-    expected_failure_regex = re.compile(r'^Error:\s\S+.*') 
 
     __conversation_new(app_context, parameters['conversation_name'])
-
     capture = capfd.readouterr()
-    assert re.match(expected_success_regex, capture.out)
+    assert re.match(expected_regex['success'], capture.out)
 
 
 @mark.parametrize('parameters', [
@@ -66,6 +71,7 @@ def test_conversation_new(
 ])
 def test_conversation_load(
     app_context: AppContext,
+    expected_regex,
     monkeypatch,
     capfd,
     parameters
@@ -74,12 +80,10 @@ def test_conversation_load(
         'cli.impl.build_input_multiline', 
         functools.partial(build_input_mock, user_input='back')
     )
-    expected_failure_regex = re.compile(r'^Error:\s\S+.*') 
 
     __conversation_load(app_context, parameters['conversation_id'])
-
     capture = capfd.readouterr()
-    assert re.match(expected_failure_regex, capture.out)
+    assert re.match(expected_regex['error'], capture.out)
 
 
 @mark.parametrize('parameters', [
@@ -89,11 +93,10 @@ def test_conversation_load(
 ])
 def test_conversation_rename(
     app_context: AppContext,
+    expected_regex,
     capfd,
     parameters
 ):
-    expected_failure_regex = re.compile(r'^Error:\s\S+.*') 
-
     __conversation_rename(
         app_context, 
         parameters['conversation_id'],
@@ -101,4 +104,31 @@ def test_conversation_rename(
     )
 
     capture = capfd.readouterr()
-    assert re.match(expected_failure_regex, capture.out)
+    assert re.match(expected_regex['error'], capture.out)
+
+
+@mark.parametrize('parameters', [
+    {'conversation_id': None, 'user_input': 'back', 'expected': 'success'},    
+    {'conversation_id': -1, 'user_input': 'back', 'expected': 'error'},      
+    {'conversation_id': 1, 'user_input': '', 'expected': 'error'}            
+])
+def test_chat(
+    app_context: AppContext,
+    expected_regex,
+    capfd,
+    monkeypatch,
+    parameters
+):
+    monkeypatch.setattr(
+        'cli.impl.build_input_multiline', 
+        functools.partial(
+            build_input_mock, 
+            user_input=parameters['user_input']
+        )
+    )
+
+    app_context.current_conversation_id = parameters['conversation_id']
+    __chat(app_context)
+    capture = capfd.readouterr()
+    expected = parameters['expected']
+    assert re.match(expected_regex[expected], capture.out)

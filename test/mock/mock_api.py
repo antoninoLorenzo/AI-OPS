@@ -82,9 +82,12 @@ def query_generator(conversation_id: int, usr_query: str):
 
 @app.post('/conversations/{conversation_id}/chat')
 async def query(conversation_id: int, body: dict = Body(...)):
-    usr_query = body.get("message")
-    if not usr_query:
-        raise HTTPException(status_code=400, detail="Required 'message' parameter.")
+    usr_query = body.get("query")
+    if not usr_query or not isinstance(usr_query, str) or len(usr_query) == 0:
+        raise HTTPException(status_code=400, detail='expected {"query": str}')
+    if conversation_id < 0:
+        raise HTTPException(status_code=404, detail='conversation not found')
+
     return StreamingResponse(query_generator(conversation_id, usr_query))
 
 
