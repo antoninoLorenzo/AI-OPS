@@ -55,7 +55,11 @@ async def rename_conversation(
 ) -> Conversation:
     if len(new_name) == 0:
         raise HTTPException(status_code=400, detail='invalid value for new_name')
-    return conversation_service.rename_conversation(conversation_id, new_name)
+    
+    renamed = conversation_service.rename_conversation(conversation_id, new_name)
+    if not renamed:
+        raise HTTPException(status_code=404, detail='conversation not found')
+    return renamed
 
 
 @router.put('/{conversation_id}')

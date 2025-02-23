@@ -34,8 +34,10 @@ class ConversationService:
         return self.__memory[conversation_id]
 
     def rename_conversation(self, conversation_id: int, new_name: str):
-        self.__memory[conversation_id].name = new_name
-        return self.__memory[conversation_id]
+        if conversation_id in self:
+            self.__memory[conversation_id].name = new_name
+            return self.__memory[conversation_id]
+        return None
 
     def save_conversation(self, conversation_id: int) -> bool:
         return self.__memory.save(conversation_id)
