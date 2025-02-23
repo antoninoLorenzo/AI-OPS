@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from src.agent import Agent, init_default_architecture
 from src.chat.model import AGENT_SETTINGS
@@ -30,7 +30,10 @@ class ConversationService:
         )
         return self.__memory[new_conversation_id]
 
-    def get_conversation(self, conversation_id: int) -> Conversation:
+    def get_conversation(self, conversation_id: int) -> Optional[Conversation]:
+        """
+        :return: a Conversation or None
+        """
         return self.__memory[conversation_id]
 
     def rename_conversation(self, conversation_id: int, new_name: str):

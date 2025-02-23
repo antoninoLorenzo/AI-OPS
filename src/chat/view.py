@@ -92,6 +92,8 @@ async def query(
         raise HTTPException(status_code=400, detail='expected {"query": str}')
 
     conversation = conversation_service.get_conversation(conversation_id)
+    if not conversation:
+        raise HTTPException(status_code=404, detail='conversation not found')
+    
     conversation += Message(role=Role.USER, content=usr_query)
-
     return StreamingResponse(query_generator(agent, conversation))
