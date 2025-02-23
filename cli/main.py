@@ -88,6 +88,7 @@ COMMANDS = [
 
 
 def validate_endpoint(api_endpoint: str):
+    """The url should follow the format `http://address:port`."""
     parsed_endpoint = urlparse(api_endpoint)
     protocol = parsed_endpoint.scheme
 
@@ -98,6 +99,7 @@ def validate_endpoint(api_endpoint: str):
 
 
 def main():
+    """Application entrypoint."""
     startup_parser = argparse.ArgumentParser()
 
     startup_parser.add_argument(
@@ -117,4 +119,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

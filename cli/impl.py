@@ -1,3 +1,4 @@
+"""Implements logic for each command."""
 import os
 
 import httpx
@@ -7,8 +8,8 @@ from rich.tree import Tree
 from prompt_toolkit import PromptSession
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.lexers import PygmentsLexer
-from pygments.lexers import MarkdownLexer
 from prompt_toolkit.keys import Keys
+from pygments.lexers import MarkdownLexer
 
 from cli.app import AppContext
 
@@ -61,6 +62,11 @@ def __clear():
 
 
 def __chat(app_context: AppContext):
+    """
+    Chat Read-Eval-Print Loop
+
+    :param app_context: chat requires the API client, the console and the current conversation_id.
+    """
     client = app_context.client
     console = app_context.console
 
@@ -68,8 +74,8 @@ def __chat(app_context: AppContext):
     if not app_context.current_conversation_id:
         __conversation_new(app_context, conversation_name='untitled')
         return
-    elif app_context.current_conversation_id < 0:
-        console.print(f"[bold red]Error: [/]invalid conversation id")
+    if app_context.current_conversation_id < 0:
+        console.print("[bold red]Error: [/]invalid conversation id")
 
     multiline_input = build_input_multiline()
     conversation_id = app_context.current_conversation_id
@@ -88,11 +94,11 @@ def __chat(app_context: AppContext):
             # - empty message (400)
             try:
                 response_stream.raise_for_status()
-            except httpx.HTTPError as exc:
+            except httpx.HTTPError as _:
                 # Trying to get the detail is a bit tricky with response stream.
-                # httpx.ResponseNotRead: 
-                # Attempted to access streaming response content, without having called `read()`. 
-                console.print(f"[bold red]Error: [/]failed sending message")
+                # httpx.ResponseNotRead:
+                # Attempted to access streaming response content, without having called `read()`.
+                console.print("[bold red]Error: [/]failed sending message")
                 break
 
             console.print('[bold blue]Assistant[/]: ')
@@ -105,6 +111,7 @@ def __chat(app_context: AppContext):
 
 
 def __conversation_list(app_context: AppContext):
+    """Prints existing conversations."""
     client = app_context.client
     console = app_context.console
     try:
@@ -112,11 +119,11 @@ def __conversation_list(app_context: AppContext):
         response.raise_for_status()
         conversations = response.json()
     except httpx.HTTPStatusError as _:
-        console.print(f"[bold red]Error: [/]failed getting conversation list")
+        console.print("[bold red]Error: [/]failed getting conversation list")
         return
 
     if len(conversations) == 0:
-        console.print(f"No Conversations.")
+        console.print("No Conversations.")
         return
 
     tree = Tree("Conversations:")
@@ -146,6 +153,10 @@ def __conversation_new(app_context: AppContext, conversation_name: str):
 
 
 def __conversation_load(app_context: AppContext, conversation_id: int):
+    """
+    Opens a conversation by conversation_id, sets it as current conversation 
+    and calls __chat REPL.
+    """
     client = app_context.client
     console = app_context.console
     try:
@@ -184,7 +195,6 @@ def __conversation_rename(app_context: AppContext, conversation_id: int, new_nam
             error_detail = 'failed renaming conversation'
 
         console.print(f"[bold red]Error: [/]{error_detail}")
-        return
 
 
 def __conversation_save(app_context: AppContext, conversation_id: int):
@@ -194,8 +204,7 @@ def __conversation_save(app_context: AppContext, conversation_id: int):
         response = client.put(f'/conversations/{conversation_id}')
         response.raise_for_status()
     except httpx.HTTPError as _:
-        console.print(f"[bold red]Error: [/]failed saving conversation")
-        return
+        console.print("[bold red]Error: [/]failed saving conversation")
 
 
 def __conversation_delete(app_context: AppContext, conversation_id: int):
@@ -205,5 +214,4 @@ def __conversation_delete(app_context: AppContext, conversation_id: int):
         response = client.delete(f'/conversations/{conversation_id}')
         response.raise_for_status()
     except httpx.HTTPError as _:
-        console.print(f"[bold red]Error: [/]failed saving conversation")
-        return
+        console.print("[bold red]Error: [/]failed saving conversation")

@@ -30,7 +30,7 @@ class CommandParser:
         )
 
         # that's so manual
-        list_parser = conversation_subparsers.add_parser(
+        _ = conversation_subparsers.add_parser(
             'list',
             exit_on_error=False,
             usage="conversation list"
@@ -112,4 +112,3 @@ class CommandParser:
             return CommandSchema(**command_schema)
         except (argparse.ArgumentError, SystemExit) as arg_err:
             raise ParserException(str(arg_err))
-

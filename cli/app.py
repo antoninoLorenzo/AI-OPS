@@ -11,6 +11,7 @@ from cli.commands import Command, CommandParser, CommandRegistry, ParserExceptio
 
 
 class AppContext:
+    """Stores App objects that are injected into commands."""
 
     def __init__(self, client: httpx.Client, console: Console):
         # most commands need either access to stdout or api client
@@ -20,6 +21,7 @@ class AppContext:
 
 
 class App:
+    """Implements Read-Eval-Print Loop to interact with AI-OPS Assistant."""
 
     def __init__(
             self,
@@ -39,7 +41,7 @@ class App:
 
             response = self.__context.client.get('/ping', timeout=5)
             response.raise_for_status()
-            self.__context.console.print(f"Backend: [blue]online[/]")
+            self.__context.console.print("Backend: [blue]online[/]")
             self.__context.console.print(
                 "[bold cyan]ℹ️  Tip:[/bold cyan] Press [bold green]Ctrl + ↓ (Down Arrow)[/bold green] to move to the next line while typing.",
                 style="italic"
@@ -74,7 +76,6 @@ class App:
                     f"[red]Error:[/] command {user_input} not found."
                 )
                 continue
-            
             # bind context (if required) and parameters to command function
             if command.requires_app_context:
                 command.command_callback = partial(
