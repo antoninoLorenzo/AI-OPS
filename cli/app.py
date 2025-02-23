@@ -69,7 +69,12 @@ class App:
                 continue
 
             command: Command = self.__registry.search(command_schema)
-
+            if not command:
+                self.__context.console.print(
+                    f"[red]Error:[/] command {user_input} not found."
+                )
+                continue
+            
             # bind context (if required) and parameters to command function
             if command.requires_app_context:
                 command.command_callback = partial(
