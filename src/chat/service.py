@@ -37,7 +37,7 @@ class ConversationService:
         return self.__memory[conversation_id]
 
     def rename_conversation(self, conversation_id: int, new_name: str):
-        if conversation_id in self:
+        if conversation_id in self.__memory:
             self.__memory[conversation_id].name = new_name
             return self.__memory[conversation_id]
         return None
