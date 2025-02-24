@@ -214,4 +214,4 @@ def __conversation_delete(app_context: AppContext, conversation_id: int):
         response = client.delete(f'/conversations/{conversation_id}')
         response.raise_for_status()
     except httpx.HTTPError as _:
-        console.print("[bold red]Error: [/]failed saving conversation")
+        console.print("[bold red]Error: [/]failed deleting conversation")
