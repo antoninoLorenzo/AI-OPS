@@ -12,3 +12,4 @@ prometheus_client
 deepeval
 playwright
 lxml_html_clean
+psutil
