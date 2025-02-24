@@ -24,10 +24,11 @@ jobs:
         with:
           python-version: "3.12"
       - name: "Install Requirements"
-        run: | 
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install jq -y > /dev/null
           pip install -r requirements-api.txt > /dev/null
           pip install -r requirements-dev.txt > /dev/null
-          apt install jq -y > /dev/null
       - name: "Run Tests"
         run: pytest ./test/api/ --ignore=./test/cli/ --cov=src --cov-report=json
       - name: "Extract Coverage"
@@ -59,10 +60,11 @@ jobs:
           python-version: "3.12"
       - name: "Install Requirements"
         run: | 
+          sudo apt-get update -y
+          sudo apt-get install jq -y > /dev/null
           pip install -r cli/requirements.txt  > /dev/null
           pip install -r requirements-dev.txt  > /dev/null
           pip install fastapi[standard]  # needed for mock_api
-          apt install jq -y
       - name: "Run Tests"
         run: |
           fastapi dev ./test/mock/mock_api.py &
