@@ -68,6 +68,16 @@ jobs:
       - name: "Run Tests"
         run: |
           fastapi dev ./test/mock/mock_api.py &
+
+          echo "Waiting for the API server to be available on 127.0.0.1:8000..."
+          for i in {1..15}; do
+            if curl --fail --silent http://127.0.0.1:8000/ping; then
+              echo "API server is up!"
+              break
+            fi
+            sleep 2
+          done
+
           pytest ./test/cli/ --ignore=./test/api/ --cov=cli --cov-report=json
         shell: bash
       - name: "Extract Coverage"
