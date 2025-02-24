@@ -1,0 +1,206 @@
+name: "Development CI"
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [dev]
+    paths:
+      - '.github/workflows/development-ci.yml'
+    
+jobs:
+  api-tests:
+    name: "API Test"
+    runs-on: ubuntu-latest
+    env:
+      CI: true
+    outputs:
+      coverage: ${{ steps.set_coverage.outputs.coverage }}
+    steps:
+      - name: "Checkout Repository"
+        uses: actions/checkout@v3
+      - name: "Setup Python"
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+      - name: "Install Requirements"
+        run: | 
+          pip install -r requirements-api.txt > /dev/null
+          pip install -r requirements-dev.txt > /dev/null
+          apt install jq -y > /dev/null
+      - name: "Run Tests"
+        run: pytest ./test/api/ --ignore=./test/cli/ --cov=src --cov-report=json
+      - name: "Extract Coverage"
+        id: set_coverage
+        run: |
+          percent=$(jq '.totals.percent_covered_display' coverage.json)
+          percent=${percent:1:2}
+          echo "API Test Coverage: ${percent}%"
+          echo "coverage=${percent}" >> $GITHUB_OUTPUT
+
+  # api-build:
+  #   name: "API Build"
+  #   runs-on: ubuntu-latest
+  #   needs: [api-tests]
+
+  cli-tests:
+    name: "CLI Test"
+    runs-on: ubuntu-latest
+    env:
+      CI: true
+    outputs:
+      coverage: ${{ steps.set_coverage.outputs.coverage }}
+    steps:
+      - name: "Checkout Repository"
+        uses: actions/checkout@v3
+      - name: "Setup Python"
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+      - name: "Install Requirements"
+        run: | 
+          pip install -r cli/requirements.txt  > /dev/null
+          pip install -r requirements-dev.txt  > /dev/null
+          pip install fastapi[standard]  # needed for mock_api
+          apt install jq -y
+      - name: "Run Tests"
+        run: |
+          fastapi dev ./test/mock/mock_api.py &
+          pytest ./test/cli/ --ignore=./test/api/ --cov=cli --cov-report=json
+        shell: bash
+      - name: "Extract Coverage"
+        id: set_coverage
+        run: |
+          percent=$(jq '.totals.percent_covered_display' coverage.json)
+          percent=${percent:1:2}
+          echo "CLI Test Coverage: ${percent}%"
+          echo "coverage=${percent}" >> $GITHUB_OUTPUT
+
+  # cli-build:
+  #   name: "CLI Build"
+  #   runs-on: ubuntu-latest
+  #   needs: [cli-tests]
+  #   steps:
+  #     - name: "Checkout Repository"
+  #       uses: actions/checkout@v3
+  #     - name: "Setup Python"
+  #       uses: actions/setup-python@v4
+  #       with:
+  #         python-version: "3.12"
+  #     - name: "Install CLI"
+  #       run: pip install .
+
+  coverage-badge:
+    name: "Code Coverage Badge"
+    needs: [api-tests, cli-tests]
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout Repository"
+        uses: actions/checkout@v3
+      - name: "Calculate Average Coverage"
+        id: calc
+        run: |
+          api_cov=${{ needs.api-tests.outputs.coverage }}
+          cli_cov=${{ needs.cli-tests.outputs.coverage }}
+          echo "API Coverage: $api_cov, CLI Coverage: $cli_cov"
+
+          avg=$(( (api_cov + cli_cov) / 2 ))
+          echo "Code Coverage: $avg%"
+          echo "avg_coverage=${avg}" >> $GITHUB_OUTPUT
+        shell: bash
+      - name: "Update README Badge"
+        run: |
+          avg=${{ steps.calc.outputs.avg_coverage }}
+          echo "Calculated average coverage: ${avg}%"
+          # Determine badge color based on avg
+          if [ "$avg" -gt 70 ]; then
+            color="green"
+          elif [ "$avg" -gt 50 ]; then
+            color="yellow"
+          elif [ "$avg" -gt 40 ]; then
+            color="orange"
+          else
+            color="red"
+          fi
+
+          new_badge_url="https://img.shields.io/badge/coverage-${avg}%25-${color}"
+          echo "New badge URL: ${new_badge_url}"
+          sed -i "s|https://img.shields.io/badge/coverage-[^)]*|${new_badge_url}|g" README.md
+
+          head README.md
+        shell: bash
+      - name: "Commit updated README"
+        uses: EndBug/add-and-commit@v9
+        with:
+          message: "Update coverage badge to ${{ steps.calc.outputs.avg_coverage }}%"
+
+  linting:
+    name: "Linting"
+    runs-on: ubuntu-latest
+    needs: [api-tests, cli-tests]
+    env:
+      SRC_PATH: 'src'
+      # missing: cli linting
+      README_PATH: 'README.md'
+      REQUIREMENTS_PATH: 'requirements.txt'
+      P_SCORE: 'green'
+      G_SCORE: 'yellow'
+      O_SCORE: 'orange'
+      B_SCORE: 'red'
+      BADGE_TEXT: 'Code Quality'
+    steps:
+      -
+        name: "Checkout Repository - PR"
+        uses: actions/checkout@v3
+        if: github.event_name == 'pull_request'
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      -
+        name: "Checkout Repository - PUSH"
+        uses: actions/checkout@v3
+        if: github.event_name != 'pull_request'
+      -
+        name: "Setup python"
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ inputs.python-version }}
+      -
+        name: "Setup installation requirements"
+        run: |
+          pip install --upgrade pip
+          pip install wheel pylint
+          pip install -r ${{env.REQUIREMENTS_PATH}}
+        shell: bash
+      -
+        name: "Lint package(s)"
+        run: |
+          pkgs_pth=$(python3 -c 'import re; print(" ".join(re.findall("([^\s]+)", ${{ toJSON(env.SRC_PATH) }})))')
+          pylint --exit-zero --output-format=text:pylint_score.txt,colorized $pkgs_pth
+        shell: bash
+      -
+        name: "Get numeric pylint score and badge color"
+        id: parameters-badge
+        run: |
+          python static/get_score_color.py \
+          ${{ env.B_SCORE }} \
+          ${{ env.O_SCORE }} \
+          ${{ env.G_SCORE }} \
+          ${{ env.P_SCORE }}
+        shell: bash
+      -
+        name: "Create badge and substitute it in README.md"
+        run: |
+          python static/create_subs_badge.py \
+          ${{ env.README_PATH }} \
+          ${{ steps.parameters-badge.outputs.pylint_score }} \
+          $(echo ${{ env.BADGE_TEXT }} | sed 's/ /%20/g') \
+          ${{ steps.parameters-badge.outputs.badge_color }}
+        shell: bash
+      -
+        name: "Push README with changed badge to origin"
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: 'README.md'
+          default_author: github_actions
+          message: 'Updated pylint badge'
+          push: 'true'
