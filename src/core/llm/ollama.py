@@ -5,8 +5,8 @@ import httpx
 from ollama import Client, ResponseError
 from pydantic import validate_call
 
+from src.core.memory import Conversation, Role
 from src.core.llm.schema import Provider, ProviderError
-from src.core.memory import Conversation
 from src.utils import get_logger
 
 
@@ -60,35 +60,49 @@ class Ollama(Provider):
         try:
             self.client = Client(host=self.inference_endpoint)
         except Exception as err:
-            raise RuntimeError('Initialization Failed') from err
+            raise RuntimeError('Ollama: invalid endpoint') from err
 
     @staticmethod
     def user_message_token_length(
         conversation: Conversation,
         full_input_tokens: int,
-        system_prompt_tokens: int
     ) -> int:
-        # assumes conversation contains at least system prompt and usr message
-        if len(conversation) < 2:
-            return 0
+        print(f'conversation: {conversation}, ({len(conversation)})')
+        print(f'counting tokens, full input length: {full_input_tokens}')
+        # if conversation contains a system prompt its length must be subtracted
+        subtract = 0
+        if conversation.messages[0].role == Role.SYS:
+            print('system prompt found')
+            subtract = int(len(conversation.messages[0].content) / 4)
 
+        # considering User + Assistant
         if len(conversation) == 2:
-            return full_input_tokens - system_prompt_tokens
+            return full_input_tokens - subtract
+        
         else:
-            user_message_tokens = full_input_tokens - system_prompt_tokens
-            # currently conversation.messages contains all messages
-            # except the assistant response, so last message must be excluded
-            for message in conversation.messages[:-1]:
+            user_message_tokens = full_input_tokens - subtract
+            print(f'{full_input_tokens} - {subtract} = {user_message_tokens}')
+            # exclude system prompt
+            for message in conversation.messages[1:]:
+                prev = user_message_tokens
                 user_message_tokens -= message.get_tokens()
+                print(f'{prev} - {message.get_tokens()} = {user_message_tokens}')
             return user_message_tokens
 
     @validate_call
     def query(
         self,
         conversation: Conversation
-    ) -> Tuple[str, int, int]:
+    ):
         """Generator that returns a tuple containing:
          (response_chunk, user message tokens, assistant message tokens)"""
+        # validation: conversation should contain messages
+        if not conversation.messages:
+            raise ProviderError('Error: empty conversation')
+        last_message = conversation.messages[-1]
+        if not last_message.role == Role.USER or not last_message.content:
+            raise ProviderError('Error: last message is not user message')
+        
         try:
             options = AVAILABLE_MODELS[self.__match_model()]['options']
             stream = self.client.chat(
@@ -106,11 +120,9 @@ class Ollama(Provider):
             # - `prompt_eval_count` -> input prompt tokens
             # - `eval_count` -> output tokens
             # The input prompt contains system prompt + entire conversation.
-            system_prompt_length_estimate = int(len(conversation.messages[0].content) / 4)
             user_msg_tokens = Ollama.user_message_token_length(
                 conversation=conversation,
-                full_input_tokens=c['prompt_eval_count'],
-                system_prompt_tokens=system_prompt_length_estimate
+                full_input_tokens=c['prompt_eval_count']
             )
             assistant_msg_tokens = c['eval_count']
 

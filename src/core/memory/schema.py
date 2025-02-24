@@ -26,17 +26,17 @@ class Message(BaseModel):
     """Message object"""
     role: Role
     content: str
-    __token_length: int = 0
+    token_length: int = 0
 
     def model_dump(self, **kwargs):
         return {'role': str(self.role), 'content': self.content}
 
     # using @property causes issues with BaseModel
     def get_tokens(self) -> int:
-        return self.__token_length
+        return self.token_length
 
     def set_tokens(self, val: int):
-        self.__token_length = val
+        self.token_length = val
 
 
 class Conversation(BaseModel):
