@@ -159,7 +159,7 @@ jobs:
       G_SCORE: 'yellow'
       O_SCORE: 'orange'
       B_SCORE: 'red'
-      BADGE_TEXT: 'Code Quality'
+      BADGE_TEXT: 'Code%20Quality'
     steps:
       -
         name: "Checkout Repository - PR"
