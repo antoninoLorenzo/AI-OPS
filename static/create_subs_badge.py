@@ -19,7 +19,7 @@ with open(README_PATH, "r", encoding="utf8") as f:
 query = f"{BADGE_TEXT}-{NUMERIC_SCORE}-{BADGE_COLOR}"  # ?logo=python&logoColor=white
 badge_url = f"https://img.shields.io/badge/{query}"
 
-patt = r"(?<=!\[pylint]\()(.*?)(?=\))"
+patt = r"(?<=!\[Code Quality]\()(.*?)(?=\))"
 if re.search(patt, content) is None:
     raise ValueError("Pylint badge not found! Be sure to put an empty one which acts as a placeholder "
                      "if this is your first run. Check README.md for examples!")
