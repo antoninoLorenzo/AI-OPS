@@ -6,7 +6,7 @@
   
   [![license](https://img.shields.io/badge/LICENSE-MIT-<COLOR>.svg)](https://shields.io/)
   ![GitHub last commit (branch)](https://img.shields.io/github/last-commit/antoninoLorenzo/AI-OPS/main)
-  ![pylint](https://img.shields.io/badge/PyLint-8.54-yellow) 
+  ![pylint](https://img.shields.io/badge/Code%20Quality-8.52-yellow) 
   ![Code Coverage](https://img.shields.io/badge/coverage-61%25-yellow)
 
 </div>
