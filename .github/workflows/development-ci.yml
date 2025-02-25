@@ -64,13 +64,13 @@ jobs:
           sudo apt-get install jq -y > /dev/null
           pip install -r cli/requirements.txt  > /dev/null
           pip install -r requirements-dev.txt  > /dev/null
-          pip install fastapi[standard]  # needed for mock_api
+          pip install -r requirements-api.txt  > /dev/null
       - name: "Run Tests"
         run: |
           fastapi dev ./test/mock/mock_api.py &
 
           echo "Waiting for the API server to be available on 127.0.0.1:8000..."
-          for i in {1..15}; do
+          for i in {1..5}; do
             if curl --fail --silent http://127.0.0.1:8000/ping; then
               echo "API server is up!"
               break
