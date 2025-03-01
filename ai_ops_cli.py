@@ -77,7 +77,8 @@ class AgentClient:
             self.model_name
         )
 
-        self.show_thinking = True
+        self.show_thinking = "deepseek" in self.model_name.lower()
+
         self.commands = {
             'help': self.help,
             'clear': AgentClient.clear_terminal,
