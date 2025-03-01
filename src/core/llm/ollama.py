@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Generator
 from dataclasses import dataclass
 
 import httpx
@@ -8,6 +8,7 @@ from pydantic import validate_call
 from src.core.llm.schema import Provider, ProviderError
 from src.core.memory import Conversation
 from src.utils import get_logger
+import json
 
 
 AVAILABLE_MODELS = {
@@ -32,19 +33,14 @@ AVAILABLE_MODELS = {
         },
         'tools': False
     },
-    # The version `deepseek-r1:14b-qwen-distill-q4_K_M` seems promising.
-    # This also thanks to the ollama system prompt for deepseek-r1 that
-    # generate reasoning in `<think>...</think>` tags.
-    # However, those tags content should be masked from the user and, the
-    # current code isn't flexible enough in order to handle custom outputs
-    # for a specific model.
-    # 'deepseek-r1': {
-    #     'options': {
-    #         'temperature': 0.5,
-    #         'num_ctx': 16384
-    #     },
-    #     'tools': False
-    # }
+    # Added proper configuration for deepseek-r1:14b
+    'deepseek-r1': {
+        'options': {
+            'temperature': 0.5,
+            'num_ctx': 16384
+        },
+        'tools': False
+    }
 }
 logger = get_logger(__name__)
 
@@ -54,12 +50,20 @@ class Ollama(Provider):
     """Client for Ollama."""
     client: Client | None = None
 
+
+
     def __post_init__(self):
         if self.__match_model() is None:
             raise ValueError(f'Model {self.model} is not supported.')
         try:
+            # Use the configured endpoint and model instead of hardcoding
+            # self.inference_endpoint is already set from the parent class
+            # self.model is already set from the parent class
             self.client = Client(host=self.inference_endpoint)
+            logger.info(f"Connected to Ollama at {self.inference_endpoint}")
+            logger.info(f"Using model: {self.model}")
         except Exception as err:
+            logger.error(f"Failed to connect to Ollama: {str(err)}")
             raise RuntimeError('Initialization Failed') from err
 
     @staticmethod
@@ -86,36 +90,107 @@ class Ollama(Provider):
     def query(
         self,
         messages: Conversation
-    ) -> Tuple[str, int, int]:
+    ) -> Generator[Tuple[str, int, int], None, None]:
         """Generator that returns a tuple containing:
          (response_chunk, user message tokens, assistant message tokens)"""
         try:
-            options = AVAILABLE_MODELS[self.__match_model()]['options']
-            stream = self.client.chat(
-                model=self.model,
-                messages=messages.model_dump(),
-                stream=True,
-                options=options
-            )
-            c = None
-            for chunk in stream:
-                c = chunk
-                yield chunk['message']['content'], 0, 0
+            # Get model options
+            base_model = self.__match_model()
+            options = AVAILABLE_MODELS[base_model]['options']
 
-            # The last chunk in the ollama stream contains:
-            # - `prompt_eval_count` -> input prompt tokens
-            # - `eval_count` -> output tokens
-            # The input prompt contains system prompt + entire conversation.
-            system_prompt_length_estimate = int(len(messages.messages[0].content) / 4)
-            user_msg_tokens = Ollama.user_message_token_length(
-                conversation=messages,
-                full_input_tokens=c['prompt_eval_count'],
-                system_prompt_tokens=system_prompt_length_estimate
-            )
-            assistant_msg_tokens = c['eval_count']
-
-            yield "", user_msg_tokens, assistant_msg_tokens
+            # Add these lines before your connections
+            print(f"Attempting to connect to Ollama at: {self.inference_endpoint}")
+            print(f"Using model: {self.model}")
+            print(f"Request payload: {json.dumps(messages.model_dump())[:500]}...")
+            
+            # Log query attempt
+            logger.debug(f"Sending query to {self.model} with {len(messages)} messages")
+            
+            try:
+                # Create a streaming request
+                stream = self.client.chat(
+                    model=self.model,
+                    messages=messages.model_dump(),
+                    stream=True,
+                    options=options
+                )
+                
+                c = None  # Last chunk for token counting
+                for chunk in stream:
+                    c = chunk
+                    # Handle different response formats
+                    if 'message' in chunk and 'content' in chunk['message']:
+                        # Standard format
+                        yield chunk['message']['content'], 0, 0
+                    elif 'response' in chunk:
+                        # Older format
+                        yield chunk['response'], 0, 0
+                    else:
+                        # Log unexpected chunk format
+                        logger.warning(f"Unexpected chunk format: {chunk}")
+                
+                # The last chunk in the ollama stream contains:
+                # - `prompt_eval_count` -> input prompt tokens
+                # - `eval_count` -> output tokens
+                if c:
+                    # Check if token counts are available
+                    prompt_tokens = c.get('prompt_eval_count', 0)
+                    response_tokens = c.get('eval_count', 0)
+                    
+                    # Calculate user message tokens
+                    system_prompt_length_estimate = int(len(messages.messages[0].content) / 4)
+                    user_msg_tokens = Ollama.user_message_token_length(
+                        conversation=messages,
+                        full_input_tokens=prompt_tokens,
+                        system_prompt_tokens=system_prompt_length_estimate
+                    )
+                    
+                    # Final yield with token counts
+                    yield "", user_msg_tokens, response_tokens
+                    
+                    # Log token usage
+                    logger.debug(f"Query completed. Tokens: {prompt_tokens} input, {response_tokens} output")
+                else:
+                    # No chunks were received
+                    logger.warning("No response chunks received from Ollama")
+                    yield "", 0, 0
+                    
+            except Exception as e:
+                # Handle specific errors
+                error_msg = str(e)
+                logger.error(f"Error during streaming: {error_msg}")
+                
+                # Try fallback to non-streaming for some models
+                if "deepseek" in self.model.lower():
+                    logger.info("Attempting fallback to non-streaming mode for deepseek model")
+                    try:
+                        response = self.client.chat(
+                            model=self.model,
+                            messages=messages.model_dump(),
+                            stream=False,
+                            options=options
+                        )
+                        
+                        # Return the complete response
+                        if 'message' in response and 'content' in response['message']:
+                            yield response['message']['content'], 0, 0
+                            
+                            # Add token counts if available
+                            prompt_tokens = response.get('prompt_eval_count', 0)
+                            response_tokens = response.get('eval_count', 0)
+                            yield "", prompt_tokens, response_tokens
+                        else:
+                            logger.warning(f"Unexpected response format in fallback: {response}")
+                            yield "", 0, 0
+                    except Exception as fallback_err:
+                        logger.error(f"Fallback also failed: {str(fallback_err)}")
+                        raise ProviderError(f"Streaming and fallback failed: {str(e)} -> {str(fallback_err)}")
+                else:
+                    # Re-raise the original error
+                    raise
+                    
         except (ResponseError, httpx.ConnectError) as err:
+            logger.error(f"Provider error: {str(err)}")
             raise ProviderError(err) from err
 
     @validate_call
@@ -143,14 +218,18 @@ class Ollama(Provider):
         if not tools:
             raise ValueError('Empty tool list')
 
-        tool_response = self.client.chat(
-            model=self.model,
-            messages=messages.model_dump(),
-            tools=tools
-        )
+        try:
+            tool_response = self.client.chat(
+                model=self.model,
+                messages=messages.model_dump(),
+                tools=tools
+            )
 
-        return tool_response if tool_response['message'].get('tool_calls') \
-            else None
+            return tool_response if tool_response['message'].get('tool_calls') \
+                else None
+        except Exception as err:
+            logger.error(f"Tool query error: {str(err)}")
+            raise ProviderError(f"Tool query failed: {str(err)}") from err
 
     def __match_model(self) -> str | None:
         """Check if a model is supported, the model availability on Ollama
