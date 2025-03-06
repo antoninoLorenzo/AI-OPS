@@ -192,7 +192,6 @@ class DefaultArchitecture(Architecture):
         )
 
         conversation.messages[-1].set_tokens(response_tokens)
-        logger.debug(f'CONVERSATION: {conversation}')
 
     def __get_assistant_index(
         self,
@@ -204,6 +203,7 @@ class DefaultArchitecture(Architecture):
         :return: An index to choose the proper prompt.
         """
         route_messages = Conversation(
+            conversation_id=999,
             name='get_assistant_index',
             messages=[
                 {'role': 'system', 'content': self.__prompts['router']},
