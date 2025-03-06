@@ -12,8 +12,8 @@ documentation or participate in the development process.
 **Base your work on the `development` branch**—the main branch might be outdated. Ensure you update your local branch before any updates.
 
 ```bash
-git checkout development
-git pull origin development
+git checkout dev
+git pull origin dev
 ```
 
 **Branching Strategy**: create a new feature branch for your changes using a descriptive name (`fix/something`, `feature/other_thing`), for example:
