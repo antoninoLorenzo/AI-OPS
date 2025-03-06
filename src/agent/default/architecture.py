@@ -9,7 +9,7 @@ from src.core import Conversation
 from src.core.llm import LLM
 from src.core.memory import Message, Role
 from src.utils import get_logger
-from src.agent.default.prompt import DefaultPrompt
+
 
 logger = get_logger(__name__)
 
@@ -76,15 +76,25 @@ class DefaultArchitecture(Architecture):
         self,
         llm: LLM,
         tools: ToolRegistry,
-        prompts: DefaultPrompt
+        prompts: Dict[str, str]
     ):
         super().__init__()
         self.llm: LLM = llm
         self.model = llm.model
         self.__tool_registry: ToolRegistry = tools
         self.__tools: tuple = tuple(self.__tool_registry.marshal('base'))
-        self.__prompts = DefaultPrompt
+        self.__prompts = prompts
 
+        # check they contain expected prompts 
+        prompt_list = list(prompts.keys())
+        route, general, reason, tool = \
+            'router' in prompt_list, \
+            'general' in prompt_list, \
+            'reasoning' in prompt_list, \
+            'tool' in prompt_list
+        if not (route and general and reason and tool):
+            raise ValueError('error initializing default architecture: prompts not found')
+        
         self.__thought_parser: State = State()
         self.__tool_pattern = r"\s*({[^}]*(?:{[^}]*})*[^}]*}|\[[^\]]*(?:\[[^\]]*\])*[^\]]*\])\s*$"
         tool_names = ', '.join([
@@ -114,10 +124,10 @@ class DefaultArchitecture(Architecture):
         assistant_index = self.__get_assistant_index(user_input)
 
         # RESPONSE
-        prompt = self.__prompts.general_prompt
+        prompt = self.__prompts['general']
         user_input_with_tool_call = f'{user_input}'
         if assistant_index == 2:
-            prompt = self.__prompts.reasoning_prompt
+            prompt = self.__prompts['reasoning']
         elif assistant_index == 3:
             # Execute tool call and temporarily concatenate output to user
             # message, but the tool call result is thrown away (for simplicity)
@@ -196,7 +206,7 @@ class DefaultArchitecture(Architecture):
         route_messages = Conversation(
             name='get_assistant_index',
             messages=[
-                {'role': 'system', 'content': self.__prompts.router_prompt},
+                {'role': 'system', 'content': self.__prompts['router']},
                 {'role': 'user', 'content': user_input}
             ]
         )
@@ -227,7 +237,7 @@ class DefaultArchitecture(Architecture):
         # replace system prompt and generate tool call
         conversation.messages[0] = Message(
             role='system',
-            content=self.__prompts.tool_prompt
+            content=self.__prompts['tool']
         )
         conversation += Message(
             role='user',

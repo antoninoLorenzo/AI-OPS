@@ -1,0 +1,11 @@
+{
+    "architecture": {
+        "prompt": {"path": "src/agent/templates/path (not ending with `/`!)", "version": 0}
+    },
+    "default": {
+        "router": {"path": "router", "version": 0},
+        "general": {"path": "general", "version": 0},
+        "reasoning": {"path": "reasoning", "version": 0},
+        "tool": {"path": "tool", "version": 0}
+    }
+}
