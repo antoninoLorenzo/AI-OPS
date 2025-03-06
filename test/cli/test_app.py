@@ -1,4 +1,5 @@
 import re
+import functools
 
 from pytest import mark, fixture, fail
 
@@ -23,10 +24,15 @@ def test_commands_parsing(
     capfd,
     parameters
 ):
+    # Create a persistent mock instance.
+    persistent_mock = build_input_mock(user_input='')
+    
+    # Patch the PromptSession in the module where it's used to always return the same instance.
     monkeypatch.setattr(
-        'cli.app.Prompt',
-        build_input_mock('help')
+        'cli.app.PromptSession',
+        lambda *args, **kwargs: persistent_mock
     )
+
     expected_failure_regex = re.compile(r'^Error:\S+.*')
 
     app = App(
