@@ -25,6 +25,6 @@ class MockCLIInput:
         except StopIteration:
             return 'exit'
 
-def build_input_mock(user_input):
+def build_input_mock(user_input, **kwargs):
     return MockCLIInput(user_input)
 

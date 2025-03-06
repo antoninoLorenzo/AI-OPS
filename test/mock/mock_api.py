@@ -9,7 +9,7 @@ conversation_counter = 0
 
 @app.get('/ping')
 def ping():
-    return status.HTTP_200_OK
+    return {'model': 'mistral'}
 
 
 @app.get('/conversations')

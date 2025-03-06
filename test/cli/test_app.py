@@ -27,7 +27,7 @@ def test_commands_parsing(
         'cli.app.Prompt',
         build_input_mock('help')
     )
-    expected_failure_regex = re.compile(r'^Error:\s\S+.*')
+    expected_failure_regex = re.compile(r'^Error:\S+.*')
 
     app = App(
         api_url='http://127.0.0.1:8000',

@@ -108,8 +108,9 @@ def test_conversation_rename(
 
 
 @mark.parametrize('parameters', [
-    {'conversation_id': None, 'user_input': 'back', 'expected': 'success'},    
-    {'conversation_id': -1, 'user_input': 'back', 'expected': 'error'},      
+    # if conversation id is not provided a new 'untitled' conversation should be made
+    {'conversation_id': None, 'user_input': '', 'expected': 'success'},    
+    {'conversation_id': -1, 'user_input': '', 'expected': 'error'},      
     {'conversation_id': 1, 'user_input': '', 'expected': 'error'}            
 ])
 def test_chat(
@@ -127,7 +128,10 @@ def test_chat(
         )
     )
 
-    app_context.current_conversation_id = parameters['conversation_id']
+    if parameters['conversation_id'] is None:
+        app_context.current_conversation = None
+    else:
+        app_context.current_conversation = {'conversation_id': parameters['conversation_id']}
     __chat(app_context)
     capture = capfd.readouterr()
     expected = parameters['expected']
