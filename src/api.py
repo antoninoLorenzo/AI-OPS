@@ -3,7 +3,8 @@ API Interface for AI-OPS:
 
 - **Chat** (`/conversations`): Agent related operations including chat and conversation management.
 """
-from fastapi import FastAPI, status
+import os
+from fastapi import FastAPI
 
 from src.config import API_SETTINGS
 from src.chat import router as chat_router
@@ -26,6 +27,6 @@ if API_SETTINGS.PROFILE:
 
 @app.get('/ping')
 def ping():
-    """Used to check if API is on"""
-    return status.HTTP_200_OK
+    """Used by CLI to ensure API is running/reachable and acquire environment information"""
+    return {'model': os.environ.get('MODEL', 'mistral')}
 

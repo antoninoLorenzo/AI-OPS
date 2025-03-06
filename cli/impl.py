@@ -8,18 +8,15 @@ from rich.tree import Tree
 from prompt_toolkit import PromptSession
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.lexers import PygmentsLexer
+from prompt_toolkit.formatted_text import ANSI
 from prompt_toolkit.keys import Keys
 from pygments.lexers import MarkdownLexer
 
 from cli.app import AppContext
 
 
-def build_input_multiline():
-    """Creates an input prompt that can handle:
-    - Multiline input
-    - Copy-Paste
-    - Press Enter to complete input
-    - Press Ctrl+DownArrow to go next line"""
+def build_input_multiline(current_conversation, api_url, model_name):
+    """Creates an input prompt that includes conversation name, API URL and model name"""
     bindings = KeyBindings()
 
     @bindings.add(Keys.ControlDown, eager=True)
@@ -27,7 +24,11 @@ def build_input_multiline():
         event.current_buffer.newline()
 
     return PromptSession(
-        "> ",
+        ANSI(
+            f"\033[38;5;124m {current_conversation.get('name', 'unknown')}\033[38;5;245m@\033[38;5;246m{api_url} :: "
+            f"\033[38;5;160m[{model_name}]\n"
+            f"\033[38;5;196m> \033[0m"
+        ),
         key_bindings=bindings,
         lexer=PygmentsLexer(MarkdownLexer)
     )
@@ -71,14 +72,18 @@ def __chat(app_context: AppContext):
     console = app_context.console
 
     # when user directly invokes chat just create an 'untitled' conversation
-    if not app_context.current_conversation_id:
+    if app_context.current_conversation is None:
         __conversation_new(app_context, conversation_name='untitled')
         return
-    if app_context.current_conversation_id < 0:
+    if app_context.current_conversation.get('conversation_id', -2) < 0:
         console.print("[bold red]Error: [/]invalid conversation id")
 
-    multiline_input = build_input_multiline()
-    conversation_id = app_context.current_conversation_id
+    multiline_input = build_input_multiline(
+        current_conversation=app_context.current_conversation,
+        api_url=client.base_url,
+        model_name=app_context.model_name
+    )
+    conversation_id = app_context.current_conversation.get('conversation_id')
     while True:
         user_input = multiline_input.prompt()
         if user_input.startswith('back'):
@@ -99,6 +104,9 @@ def __chat(app_context: AppContext):
                 # httpx.ResponseNotRead:
                 # Attempted to access streaming response content, without having called `read()`.
                 console.print("[bold red]Error: [/]failed sending message")
+                break
+            except httpx.ReadTimeout as _:
+                console.print("[bold red]Error: [/]timeout reached")
                 break
 
             console.print('[bold blue]Assistant[/]: ')
@@ -148,7 +156,7 @@ def __conversation_new(app_context: AppContext, conversation_name: str):
 
     console.print(f'[{conversation["conversation_id"]}]: {conversation["name"]}')
     # new conversation makes transition to chat
-    app_context.current_conversation_id = conversation["conversation_id"]
+    app_context.current_conversation = conversation
     __chat(app_context)
 
 
@@ -174,7 +182,7 @@ def __conversation_load(app_context: AppContext, conversation_id: int):
         )
 
     # load conversation makes transition to chat
-    app_context.current_conversation_id = conversation["conversation_id"]
+    app_context.current_conversation = conversation
     __chat(app_context)
 
 

@@ -17,7 +17,8 @@ class AppContext:
         # most commands need either access to stdout or api client
         self.client = client
         self.console = console
-        self.current_conversation_id: Optional[int] = None
+        self.model_name = 'unspecified'
+        self.current_conversation: Optional[dict] = None
 
 
 class App:
@@ -35,12 +36,15 @@ class App:
         # health-check
         try:
             self.__context = AppContext(
-                httpx.Client(base_url=api_url),
-                Console()
+                httpx.Client(base_url=api_url, timeout=15.0),
+                Console(force_terminal=True)
             )
 
             response = self.__context.client.get('/ping', timeout=5)
             response.raise_for_status()
+            # fetch model name from API, wheter it is running locally or remotely
+            self.__context.model_name = response.json()['model']
+
             self.__context.console.print("Backend: [blue]online[/]")
             self.__context.console.print(
                 "[bold cyan]ℹ️  Tip:[/bold cyan] Press [bold green]Ctrl + ↓ (Down Arrow)[/bold green] to move to the next line while typing.",
