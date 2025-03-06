@@ -8,6 +8,10 @@ from src.core import (
     AVAILABLE_PROVIDERS,
     TOOL_REGISTRY,
 )
+from src.utils.log import get_logger
+
+
+LOGGER = get_logger(__name__)
 
 
 class ConversationService:
@@ -28,6 +32,7 @@ class ConversationService:
             conversation_id=new_conversation_id,
             name=name
         )
+        LOGGER.debug(f'new conversation: {self.__memory[new_conversation_id]}')
         return self.__memory[new_conversation_id]
 
     def get_conversation(self, conversation_id: int) -> Optional[Conversation]:
@@ -50,6 +55,7 @@ class ConversationService:
 
 
 def build_agent_default_architecture() -> Agent:
+    LOGGER.debug(f'building default architecture with: {AGENT_SETTINGS}')
     provider = AGENT_SETTINGS.PROVIDER
     if provider not in AVAILABLE_PROVIDERS.keys():
         raise RuntimeError(f'{provider} not supported.')
@@ -60,7 +66,6 @@ def build_agent_default_architecture() -> Agent:
         raise RuntimeError(
             f'Missing PROVIDER_KEY environment variable for {provider}.'
         )
-
     llm = LLM(
         model=AGENT_SETTINGS.MODEL,
         inference_endpoint=AGENT_SETTINGS.ENDPOINT,

@@ -18,8 +18,11 @@ from src.agent import Agent
 from src.chat.service import (ConversationService, get_agent,
                               get_conversation_service, query_generator)
 from src.core import Conversation, Message, Role
+from src.utils import get_logger
+
 
 router = APIRouter(prefix='/conversations')
+LOGGER = get_logger(__name__)
 
 
 @router.get('')
@@ -93,7 +96,8 @@ async def query(
         raise HTTPException(status_code=400, detail='expected {"query": str}')
 
     conversation = conversation_service.get_conversation(conversation_id)
-    if not conversation:
+    LOGGER.debug(f'query to conversation: {conversation}')
+    if conversation is None:
         raise HTTPException(status_code=404, detail='conversation not found')
     
     conversation += Message(role=Role.USER, content=usr_query)
