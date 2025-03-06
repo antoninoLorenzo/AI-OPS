@@ -83,39 +83,44 @@ def __chat(app_context: AppContext):
         api_url=client.base_url,
         model_name=app_context.model_name
     )
+
+    app_context.in_chat = True
     conversation_id = app_context.current_conversation.get('conversation_id')
-    while True:
-        user_input = multiline_input.prompt()
-        if user_input.startswith('back'):
-            break
-
-        with client.stream(
-            method='POST',
-            url=f'/conversations/{conversation_id}/chat',
-            json={'query': user_input}
-        ) as response_stream:
-            # handle errors:
-            # - invalid conversation_id (404)
-            # - empty message (400)
-            try:
-                response_stream.raise_for_status()
-            except httpx.HTTPError as _:
-                # Trying to get the detail is a bit tricky with response stream.
-                # httpx.ResponseNotRead:
-                # Attempted to access streaming response content, without having called `read()`.
-                console.print("[bold red]Error: [/]failed sending message")
-                break
-            except httpx.ReadTimeout as _:
-                console.print("[bold red]Error: [/]timeout reached")
+    try:
+        while True:
+            user_input = multiline_input.prompt()
+            if user_input.startswith('back'):
                 break
 
-            console.print('[bold blue]Assistant[/]: ')
-            response_text = ''
-            with Live(console=console, refresh_per_second=10) as live_console:
-                live_console.update(Markdown(response_text))
-                for chunk in response_stream.iter_text():
-                    response_text += chunk
+            with client.stream(
+                method='POST',
+                url=f'/conversations/{conversation_id}/chat',
+                json={'query': user_input}
+            ) as response_stream:
+                # handle errors:
+                # - invalid conversation_id (404)
+                # - empty message (400)
+                try:
+                    response_stream.raise_for_status()
+                except httpx.HTTPError as _:
+                    # Trying to get the detail is a bit tricky with response stream.
+                    # httpx.ResponseNotRead:
+                    # Attempted to access streaming response content, without having called `read()`.
+                    console.print("[bold red]Error: [/]failed sending message")
+                    break
+                except httpx.ReadTimeout as _:
+                    console.print("[bold red]Error: [/]timeout reached")
+                    break
+
+                console.print('[bold blue]Assistant[/]: ')
+                response_text = ''
+                with Live(console=console, refresh_per_second=10) as live_console:
                     live_console.update(Markdown(response_text))
+                    for chunk in response_stream.iter_text():
+                        response_text += chunk
+                        live_console.update(Markdown(response_text))
+    finally:
+        app_context.in_chat = False
 
 
 def __conversation_list(app_context: AppContext):

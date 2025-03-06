@@ -4,10 +4,17 @@ from typing import List,Optional
 
 import httpx
 from rich.console import Console
-from rich.prompt import Prompt
+from prompt_toolkit import PromptSession
+from prompt_toolkit.formatted_text import ANSI
+from prompt_toolkit.history import InMemoryHistory
 
-
-from cli.commands import Command, CommandParser, CommandRegistry, ParserException
+from cli.commands import (
+    Command, 
+    CommandParser, 
+    CommandRegistry, 
+    CommandCompleter,
+    ParserException
+)
 
 
 class AppContext:
@@ -17,8 +24,10 @@ class AppContext:
         # most commands need either access to stdout or api client
         self.client = client
         self.console = console
+        # runtime settings
         self.model_name = 'unspecified'
         self.current_conversation: Optional[dict] = None
+        self.in_chat = False
 
 
 class App:
@@ -32,6 +41,7 @@ class App:
         self.__parser = CommandParser()
         self.__registry = CommandRegistry()
         self.__registry.register(commands)
+        self.__command_completer = CommandCompleter(commands)
 
         # health-check
         try:
@@ -55,13 +65,23 @@ class App:
             sys.exit(-1)
 
     def run(self):
+        history = InMemoryHistory()
         while True:
-            user_input = Prompt.ask(
-                '[underline]ai-ops[/] >',
-                console=self.__context.console,
-                default='help',
-                show_default=False
-            )
+            user_input = PromptSession(
+                    history=history,
+                    completer=self.__command_completer,
+                    complete_while_typing=True
+            ).prompt(self.prompt_text())
+
+            # Remove any control characters
+            user_input = ''.join(ch for ch in user_input if ord(ch) >= 32)
+
+            # user_input = Prompt.ask(
+            #     '[underline]ai-ops[/] >',
+            #     console=self.__context.console,
+            #     default='help',
+            #     show_default=False
+            # )
             if user_input == 'exit':
                 break
 
@@ -93,3 +113,13 @@ class App:
             }
 
             command.command_callback(**parameters)
+
+    def prompt_text(self):
+        """Returns a stylized prompt text"""
+        if hasattr(self.__context, 'in_chat') and self.__context.in_chat:
+            conversation = self.__context.current_conversation
+            conversation_name = conversation.get('name', 'Unknown')
+            conversation_id = conversation.get('conversation_id', '?')
+            return ANSI(f"\033[38;5;196m\033[1m {conversation_name} \033[0m (\033[90m{conversation_id}\033[0m) > ")
+        else:
+            return ANSI("\033[38;5;196m\033[1m ai-ops \033[0m > ")
