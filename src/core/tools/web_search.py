@@ -1,15 +1,11 @@
-"""
-# TODO: add multiple search engine support
-# TODO: improve web search with filters and stuff
-"""
 import random
 from functools import lru_cache
 from urllib.parse import urlparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-import httpx
-import newspaper
-from bs4 import BeautifulSoup
+from newspaper import Article, ArticleException
+from googlesearch import search as google_search
+from requests import HTTPError
 
 from src.utils import get_logger
 
@@ -63,16 +59,18 @@ class Search:
         :return: Parsed content of the search results as a formatted string.
         """
         links = self.__google_search(search_query)
-
-        results = []
         if not links:
-            logger.error('\tNo links found')
+            logger.error(f'no links found for {search_query}')
             return ''
-
+        
+        links = [link for link in links if not self.__exclude(link)]
+        results = []
         if len(links) == 1:
             title, content, _ = self.__parse(links[0])
+            if len(content) == 0:
+                return ''
             results = [f"# {title} ({links[0]})\n{content}"]
-        else:
+        elif len(links) > 1:
             with ThreadPoolExecutor(max_workers=self.num_threads) as executor:
                 futures = [
                     executor.submit(self.__parse, link)
@@ -80,54 +78,40 @@ class Search:
                 ]
 
                 for future in as_completed(futures):
-                    title, content, _, link = future.result()
+                    title, content, link = future.result()
                     if title and content:
                         results.append(f"# {title} ({link})\n{content}")
-
+        else:
+            logger.warning(f'all links were excluded from search')
+            return ''
+        
         return '\n\n'.join(results)
 
     def __google_search(
         self,
         search_query,
-        results=3,
-        timeout: int = 3
+        num_results=3
     ) -> list:
         """
         Conducts a Google search and retrieves links from the result page.
 
         :param search_query: Query string for Google search.
         :param results: Number of links to retrieve. Default is 3.
-        :param timeout: Request timeout in seconds. Default is 3 seconds.
 
         :returns: a list of links."""
         try:
-            response: httpx.Response = httpx.get(
-                url="https://www.google.com/search",
-                headers=self.headers,
-                params={
-                    "q": search_query,
-                    "num": results,
-                    "start": 0,
-                    "safe": "active",
-                    "hl": "en"
-                },
-                timeout=timeout,
+            return list(
+                google_search(
+                    search_query,
+                    num_results=num_results,
+                    unique=True,
+                    region="us",
+                    lang="en"
+                )
             )
-            if 400 <= response.status_code < 600:
-                raise httpx.HTTPError(f'{response.status_code}: {response.reason_phrase}')
-        except httpx.HTTPError as req_err:
-            print(f'[!] Error: {req_err}')
+        except HTTPError as err:
+            logger.error(f'googlesearch raised {err.response.status_code}: {err}')
             return []
-
-        # Parse
-        links = set()
-        soup = BeautifulSoup(response.text, "html.parser")
-        result_blocks = soup.find_all("div", attrs={"class": "g"})
-        for block in result_blocks:
-            link = block.find("a", href=True)
-            if link and not self.__exclude(link['href']):
-                links.add(link["href"])
-        return list(links)
 
     def __exclude(self, link: str):
         """Check if a link is blacklisted.
@@ -144,14 +128,17 @@ class Search:
         if domain.endswith('/'):
             domain = domain.replace('/', '')
 
-        return domain in self.__exclusions
+        exclude = domain in self.__exclusions
+        if exclude:
+            logger.info(f'found blacklisted link: {link}')
+        return exclude
 
     @lru_cache(maxsize=64)  # the number is "random"
     def __parse(self, link: str) -> tuple:
         """Downloads a web page and parses it with `newspaper3k` library.
 
         :returns: tuple(title: str, content: str, tags: list, link: str)"""
-        page = newspaper.Article(
+        page = Article(
             link,
             headers=self.headers,
             fetch_images=False
@@ -159,9 +146,9 @@ class Search:
         try:
             page.download()
             page.parse()
-        except newspaper.ArticleException:
-            return '', '', []
-        return page.title, page.text, page.tags, link
+        except (ArticleException, Exception):
+            return '', '', ''
+        return page.title, page.text, link
 
     @staticmethod
     def __user_agent() -> str:
