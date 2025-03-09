@@ -10,3 +10,4 @@ lxml_html_clean
 spacy[lookups]
 psutil
 uvicorn
+googlesearch-python 
