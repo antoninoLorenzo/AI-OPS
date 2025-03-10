@@ -42,8 +42,9 @@ def __help(app_context: AppContext):
     console.print("- [bold blue]exit[/]   : Exit the program")
 
     console.print("\n[bold white]Assistant[/]")
-    console.print("- [bold blue]chat[/]   : Open chat with the agent.")
-    console.print("- [bold blue]back[/]   : Exit chat")
+    console.print("- [bold blue]chat[/]         : Open chat with the agent.")
+    console.print("- [bold blue]back[/]         : Exit chat")
+    console.print("- [bold blue]toggle-think[/] : Show thinking ([italic]deepseek-r1 only[/]).")
 
     console.print("\n[bold white]Conversation[/]")
     cmd = '[italic]conversation[/]'
@@ -85,42 +86,70 @@ def __chat(app_context: AppContext):
     )
 
     app_context.in_chat = True
-    conversation_id = app_context.current_conversation.get('conversation_id')
     try:
         while True:
             user_input = multiline_input.prompt()
             if user_input.startswith('back'):
                 break
-
-            with client.stream(
-                method='POST',
-                url=f'/conversations/{conversation_id}/chat',
-                json={'query': user_input}
-            ) as response_stream:
-                # handle errors:
-                # - invalid conversation_id (404)
-                # - empty message (400)
-                try:
-                    response_stream.raise_for_status()
-                except httpx.HTTPError as _:
-                    # Trying to get the detail is a bit tricky with response stream.
-                    # httpx.ResponseNotRead:
-                    # Attempted to access streaming response content, without having called `read()`.
-                    console.print("[bold red]Error: [/]failed sending message")
-                    break
-                except httpx.ReadTimeout as _:
-                    console.print("[bold red]Error: [/]timeout reached")
-                    break
-
-                console.print('[bold blue]Assistant[/]: ')
-                response_text = ''
-                with Live(console=console, refresh_per_second=10) as live_console:
-                    live_console.update(Markdown(response_text))
-                    for chunk in response_stream.iter_text():
-                        response_text += chunk
-                        live_console.update(Markdown(response_text))
+            __generate_response(app_context, user_input)
+    except RuntimeError:
+        pass
     finally:
         app_context.in_chat = False
+
+
+def __toggle_thinking(app_context: AppContext):
+    console = app_context.console
+    if 'deepseek-r1' not in app_context.model_name:
+        console.print(f"[yellow]Can't set thinking for {app_context.model_name}[/]")
+        return
+    
+    app_context.show_thinking = not app_context.show_thinking
+    status = "on" if app_context.show_thinking else "off"
+    status_color = "green" if app_context.show_thinking else "red"
+
+    console.print(f"Thinking mode: [{status_color}]{status}[/]")
+
+
+def __generate_response(
+    app_context: AppContext,
+    user_input: str
+):
+    """Generate a response from API chat endpoint and handles response stream rendering."""
+    client = app_context.client
+    console = app_context.console
+    conversation_id = app_context.current_conversation.get('conversation_id')
+
+    try:
+        with client.stream(
+            method='POST',
+            url=f'/conversations/{conversation_id}/chat',
+            json={'query': user_input}
+        ) as response_stream:
+            # handle errors
+            try:
+                response_stream.raise_for_status()
+            except httpx.HTTPError as _:
+                console.print("[bold red]Error: [/]failed sending message")
+                raise RuntimeError()
+            except httpx.ReadTimeout as _:
+                console.print("[bold red]Error: [/]timeout reached")
+                raise RuntimeError()
+
+            # variables to track thinking blocks
+            # in_thinking = False
+            # thinking_buffer = ""
+
+            response_text = ''
+            console.print('[bold blue]Assistant[/]: ')
+            with Live(console=console, refresh_per_second=10) as live_console:
+                live_console.update(Markdown(response_text))
+                for chunk in response_stream.iter_text():
+                    response_text += chunk
+                    live_console.update(Markdown(response_text))
+    except KeyboardInterrupt:
+        console.print("[red]Interrupted[/]: exiting chat... to quit use [bold blue]exit[/].")
+        raise RuntimeError()
 
 
 def __conversation_list(app_context: AppContext):

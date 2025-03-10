@@ -12,7 +12,8 @@ from cli.impl import (
     __chat,                     # how do I test chat since its a REPL itself?
     __conversation_new,
     __conversation_load,
-    __conversation_rename
+    __conversation_rename,
+    __toggle_thinking
 )
 from test.mock.mock_cli_prompt import build_input_mock
 
@@ -136,3 +137,23 @@ def test_chat(
     capture = capfd.readouterr()
     expected = parameters['expected']
     assert re.match(expected_regex[expected], capture.out)
+
+
+@mark.parametrize('parameters', [
+    {'model': 'mistral', 'expected': 'Can\'t set thinking for mistral'},
+    {'model': 'deepseek-r1', 'expected': 'Thinking mode: on'}
+])
+def test_toggle_thinking(
+    app_context: AppContext,
+    capfd,
+    parameters
+):
+    model = parameters['model']
+
+    app_context.model_name = model
+    _ = app_context.client.post('/settings', params={'model': model})
+
+    __toggle_thinking(app_context)
+    capture = capfd.readouterr()
+    expected = parameters['expected']
+    assert expected in capture.out

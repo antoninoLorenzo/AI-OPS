@@ -1,6 +1,6 @@
 import re
-import functools
 
+import httpx
 from pytest import mark, fixture, fail
 
 from cli.app import App
@@ -51,3 +51,14 @@ def test_commands_parsing(
     
     assert re.match(expected_failure_regex, out)
 
+
+def test_init_deepseek():
+    response = httpx.post('http://127.0.0.1:8000/settings', params={'model': 'deepseek-r1'})
+    response.raise_for_status()
+
+    app = App(
+        api_url='http://127.0.0.1:8000',
+        commands=[]
+    )
+    assert app.model_name == 'deepseek-r1'
+    assert app.show_thinking == True

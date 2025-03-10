@@ -13,7 +13,8 @@ from cli.impl import (
     __conversation_load,
     __conversation_save,
     __conversation_delete,
-    __conversation_rename
+    __conversation_rename,
+    __toggle_thinking
 )
 
 
@@ -32,6 +33,10 @@ COMMANDS = [
     Command(
         command_schema=CommandSchema(command_name='chat'),
         command_callback=__chat
+    ),
+    Command(
+        command_schema=CommandSchema(command_name='toggle-think'),
+        command_callback=__toggle_thinking
     ),
     # CONVERSATION MANAGEMENT
     Command(

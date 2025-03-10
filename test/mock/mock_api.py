@@ -5,11 +5,19 @@ from src.core.memory.schema import Conversation, Message, Role
 
 app = FastAPI()
 conversation_counter = 0
+model_name = 'mistral'
 
 
 @app.get('/ping')
 def ping():
-    return {'model': 'mistral'}
+    global model_name
+    return {'model': model_name}
+
+
+@app.post('/settings')
+def update_model(model: str = model_name):
+    global model_name
+    model_name = model
 
 
 @app.get('/conversations')

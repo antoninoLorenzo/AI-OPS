@@ -11,7 +11,7 @@ class CommandParser:
         self.base_parser = argparse.ArgumentParser(exit_on_error=False)
         self.base_parser.add_argument(
             'command',
-            choices=['help', 'clear', 'exit', 'chat', 'conversation']
+            choices=['help', 'clear', 'exit', 'chat', 'toggle-think', 'conversation']
         )
 
         # conversation commands

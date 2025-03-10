@@ -28,6 +28,7 @@ class AppContext:
         self.model_name = 'unspecified'
         self.current_conversation: Optional[dict] = None
         self.in_chat = False
+        self.show_thinking = False  # deepseek only
 
 
 class App:
@@ -52,8 +53,11 @@ class App:
 
             response = self.__context.client.get('/ping', timeout=5)
             response.raise_for_status()
+
             # fetch model name from API, wheter it is running locally or remotely
+            # - if its a deepseek-r1 model set show_thinking to True in AppContext.
             self.__context.model_name = response.json()['model']
+            self.__context.show_thinking = "deepseek-r1" in self.__context.model_name.lower()
 
             self.__context.console.print("Backend: [blue]online[/]")
             self.__context.console.print(
@@ -63,6 +67,14 @@ class App:
         except Exception:
             self.__context.console.print('Backend: [red]offline[/]\n')
             sys.exit(-1)
+
+    @property
+    def model_name(self):
+        return self.__context.model_name
+    
+    @property
+    def show_thinking(self):
+        return self.__context.show_thinking
 
     def run(self):
         history = InMemoryHistory()
