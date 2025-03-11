@@ -37,9 +37,16 @@ def app_context():
 def expected_regex():
     expected_success_regex = re.compile(r'^\[\d+\]:\s?\S.*') # [digit]: non-empty-string
     expected_failure_regex = re.compile(r'^Error:\s\S+.*')   # Error: non-empty-string
+    deepseek_show_thinking_regex = re.compile(
+        r'^Assistant.*Thinking.*End of thinking.*', 
+        re.DOTALL
+    )
+    deepseek_hide_thinking_regex = re.compile(r'^(?!Thinking).*$', re.DOTALL)
     yield {
         'success': expected_success_regex,
-        'error': expected_failure_regex
+        'error': expected_failure_regex,
+        'deepseek_show_thinking': deepseek_show_thinking_regex,
+        'deepseek_hide_thinking': deepseek_hide_thinking_regex
     }
 
 
@@ -112,7 +119,22 @@ def test_conversation_rename(
     # if conversation id is not provided a new 'untitled' conversation should be made
     {'conversation_id': None, 'user_input': '', 'expected': 'success'},    
     {'conversation_id': -1, 'user_input': '', 'expected': 'error'},      
-    {'conversation_id': 1, 'user_input': '', 'expected': 'error'}            
+    {'conversation_id': 1, 'user_input': '', 'expected': 'error'},
+    # test deepseek response parsing
+    {
+        'conversation_id': 1, 
+        'user_input': ['hi', 'back'], 
+        'expected': 
+        'deepseek_show_thinking', 
+        'thinking': True
+    },
+    {
+        'conversation_id': 1, 
+        'user_input': ['hi', 'back'], 
+        'expected': 
+        'deepseek_hide_thinking', 
+        'thinking': False
+    }               
 ])
 def test_chat(
     app_context: AppContext,
@@ -133,6 +155,13 @@ def test_chat(
         app_context.current_conversation = None
     else:
         app_context.current_conversation = {'conversation_id': parameters['conversation_id']}
+    
+    if 'thinking' in parameters:
+        # set model to deepseek-r1 in api
+        app_context.model_name = 'deepseek-r1'
+        app_context.show_thinking = parameters['thinking']
+        _ = app_context.client.post('/settings', params={'model': 'deepseek-r1'})
+        
     __chat(app_context)
     capture = capfd.readouterr()
     expected = parameters['expected']
@@ -150,7 +179,9 @@ def test_toggle_thinking(
 ):
     model = parameters['model']
 
+    # set model to deepseek-r1 in api
     app_context.model_name = model
+    app_context.show_thinking = False # reset show_thinking to false
     _ = app_context.client.post('/settings', params={'model': model})
 
     __toggle_thinking(app_context)

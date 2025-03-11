@@ -82,9 +82,15 @@ async def delete_conversation(conversation_id: int):
 
 def query_generator(conversation_id: int, usr_query: str):
     import time
-    response = f'\n# Conversation **{conversation_id}**\nResponse for: *{usr_query}*'
+
+    global model_name
+    
+    if 'deepseek-r1' in model_name:
+        response = f'<think>I\'m thinking about {usr_query}...</think>\nResponse for {usr_query}'
+    else:
+        response = f'\n# Conversation **{conversation_id}**\nResponse for: *{usr_query}*'
     for c in response:
-        time.sleep(0.1)
+        time.sleep(0.01)
         yield c
 
 
