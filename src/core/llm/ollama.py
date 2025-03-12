@@ -1,5 +1,4 @@
-import json
-from typing import Tuple, Generator
+from typing import Tuple, Generator, List, Optional
 from dataclasses import dataclass
 
 import httpx
@@ -8,6 +7,7 @@ from pydantic import validate_call
 
 from src.core.llm.schema import Provider, ProviderError
 from src.core.memory import Conversation, Role
+from src.core.tools import ToolCall
 from src.utils import get_logger
 
 
@@ -64,6 +64,13 @@ class Ollama(Provider):
         except Exception as err:
             logger.error(f"Failed to connect to Ollama: {str(err)}")
             raise RuntimeError('Initialization Failed') from err
+
+    @property
+    def supports_tools(self) -> bool:
+        base_model = self.__match_model()
+        if base_model is not None:
+            return AVAILABLE_MODELS[base_model].get('tools', False)
+        return False
 
     @staticmethod
     def user_message_token_length(
@@ -201,7 +208,7 @@ class Ollama(Provider):
         self,
         messages: Conversation,
         tools: list | None = None
-    ):
+    ) -> Optional[List[ToolCall]]:
         """Implements LLM tool calling.
         :param messages:
             The current conversation provided as a list of messages in the
@@ -229,8 +236,19 @@ class Ollama(Provider):
                 tools=tools
             )
 
-            return tool_response if tool_response['message'].get('tool_calls') \
-                else None
+            tool_calls = tool_response['message'].get('tool_calls', None)
+            if tool_calls is not None:
+                return [
+                    ToolCall(
+                        name=call['function']['name'], 
+                        parameters={
+                            name: value 
+                            for name, value in call['function']['arguments']
+                        }
+                    )
+                    for call in tool_calls
+                ]
+            return None
         except Exception as err:
             logger.error(f"Tool query error: {str(err)}")
             raise ProviderError(f"Tool query failed: {str(err)}") from err
