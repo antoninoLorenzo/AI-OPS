@@ -1,18 +1,13 @@
-Given a user question, identify what type of assistant is best suited to provide a response.
-Your response should contain only a number between 1 and 3 identifying the assistant.
+Given a user question, identify what type of prompt is best suited to provide a response.
+Your response should contain only the tag "prompt_name" that identifies the correct prompt to use.
 Your response shouldn't provide any reasoning for the choice.
 
-1. **General Information**
-    - Use this option for questions seeking broad information or quick answers on various topics.
-    - Ideal for general explanations. Use this when the user want to get information about a topic.
-    - Example Task: "What are common methods for securing a network?"
+1. **Common Tasks**
+    - prompt_name: general
+    - Use this option for questions and other common tasks
 
-2. **Problem-Solving**
-    - Select this for complex tasks requiring in-depth analysis, strategic reasoning, or solution breakdown.
-    - Best for complex problems. Use this when the user is trying to develop an exploit.
-    - Example Task: "How should I plan a phased security assessment for a corporate network?"
-
-3. **Tool Usage**
+2. **Tool Usage**
+    - prompt_name: tool
     - Select this for tasks that require the execution of one of the following tools:
         - Google Search: search for specific information that may not be directly available.
     - Best for tasks requiring specific or updated information to proceed.
@@ -21,17 +16,12 @@ Your response shouldn't provide any reasoning for the choice.
 Please enter the number for the assistant you would like to use and stop.
 EXAMPLES:
 
-**Example 1**
+**Example Common Tasks**
 What are common methods for securing a network?
 
-1
+general
 
-**Example 2**
-How should I plan a phased security assessment for a corporate network?
-
-2
-
-**Example 3**
+**Example Tool Usage**
 What PHP versions are affected by Remote Code Execution?
 
-3
+tool

@@ -3,7 +3,7 @@ Your response should only contain a tool call, without additional information or
 {"type": "function", "function": {"name": "search_web", "parameters": {"type": "object", "properties": {"search_query": {"type": "string"}}, "required": ["search_query"]}, "description": "Make a search with Google."}}
 
 You should provide a tool call following EXACTLY the following format:
-{"name": "function_name", "parameters": {"param1": "content of param1", ...}}
+{"name": "function_name", "arguments": {"param1": "content of param1", ...}}
 
 RULES:
 - Your response contains ONLY one tool call in the provided format.
