@@ -53,6 +53,12 @@ class Conversation(BaseModel):
 
     def __len__(self):
         return len(self.messages)
+    
+    def set_system_prompt(self, prompt: Message):
+        if self.messages[0].role == Role.SYS:
+            self.messages[0] = prompt
+        else:
+            self.messages.insert(0, prompt)
 
     @staticmethod
     def from_json(path: str):
