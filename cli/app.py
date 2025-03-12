@@ -47,7 +47,7 @@ class App:
         # health-check
         try:
             self.__context = AppContext(
-                httpx.Client(base_url=api_url, timeout=15.0),
+                httpx.Client(base_url=api_url, timeout=30.0),
                 Console(force_terminal=True)
             )
 
