@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Generator
 from dataclasses import dataclass
 
 from src.core.llm.schema import Provider
@@ -21,10 +21,14 @@ class LLM:
             api_key=self.api_key
         )
 
+    @property
+    def support_tools(self):
+        return self.provider.supports_tools
+
     def query(
         self,
         messages: Conversation
-    ) -> Tuple[str, int, int]:
+    ) -> Generator:
         """Generator that returns LLM response in a tuple containing:
         (chunk, token_usage).
 

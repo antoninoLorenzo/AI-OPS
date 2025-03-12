@@ -21,6 +21,11 @@ class Provider(ABC):
     def tool_query(self, messages: Conversation, tools: list | None = None):
         """Implement for LLM tool calling"""
 
+    @property
+    @abstractmethod
+    def supports_tools(self):
+        return False
+
 
 class ProviderError(Exception):
     """Just a wrapper to Exception for error handling
