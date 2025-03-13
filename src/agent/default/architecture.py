@@ -140,7 +140,7 @@ class Default(Architecture):
             tool_call = self.tool_call(user_message)
             if tool_call is not None:
                 # execute tool and append its output to user message
-                tool_output = self.__run_tool(tool_call)
+                tool_output = self.run_tool(tool_call)
                 if tool_output is not None:
                     tool_result = (
                         f'\n\nadditional context: \n'
@@ -257,7 +257,7 @@ class Default(Architecture):
             LOGGER.error(err)
             return None
         
-    def __run_tool(
+    def run_tool(
         self, 
         tool_call: ToolCall
     ) -> Optional[str]:
