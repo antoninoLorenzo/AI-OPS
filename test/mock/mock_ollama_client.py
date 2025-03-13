@@ -4,11 +4,26 @@ from src.core.llm import ProviderError
 
 
 class MockOllamaClient:
-    def __init__(self, host: str, valid_host = True):
-        # valid_host is used to see how application handles Ollam not running on host
+    def __init__(
+        self, 
+        host: str, 
+        valid_host = True, 
+        default_message: str = '',
+        raise_provider_error: bool = False
+    ):
+        # valid_host is used to see how application handles Ollama not running on host
         self.__host = host
         if not valid_host:
             raise ProviderError('Ollama: invalid endpoint')
+        
+        # default_message is used to set an expected response
+        if default_message == '':
+            self.reseponse_message = 'response for: '
+        else:
+            self.reseponse_message = default_message
+
+        # raise_provider_error is used to see how inference Ollama errors are handled
+        self.raise_provider_error = raise_provider_error
 
     def chat(
         self,
@@ -20,9 +35,14 @@ class MockOllamaClient:
     ):
         if not model or not messages:  
             raise ResponseError("Model and messages are required")  
-        
+        if self.raise_provider_error:
+            raise ProviderError('something went wrong')
+
         last_message = messages[-1]['content']
-        response_message = f'response for: {last_message}\n'
+        if self.reseponse_message == 'response for: ':
+            response_message = f'response for: {last_message}'
+        else:
+            response_message = self.reseponse_message
 
         full_input_tokens, eval_count = 0, 0
         for i, char in enumerate(response_message): 
