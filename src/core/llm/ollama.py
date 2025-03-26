@@ -45,6 +45,54 @@ AVAILABLE_MODELS = {
 logger = get_logger(__name__)
 
 
+def check_ollama_endpoint(inference_endpoint: str, expected_model: str, log_info: bool = False):
+    """
+    Check if LLM Provider inference endpoint is up and running.
+
+    :param inference_endpoint: the URL where Ollama should be hosted.
+    :param model: model expected to be available on the specified endpoint.
+    :param log_info: print the hosted model details, useful for debugging.
+    """
+    client = Client(host=inference_endpoint)
+
+    # get hosted models, if available, also checking if the inference_endpoint is correct
+    response = {}
+    try:
+        response = client.list()
+    except Exception:
+        raise ProviderError('Invalid Ollama endpoint: set ENDPOINT environment variable properly.')
+
+    # search model
+    found = False
+    models = response.get('models', [])
+    for model in models:
+        if model['name'] == expected_model:
+            found = True
+            if not log_info:
+                break
+        
+        # print additional information about Ollama hosted models
+        if log_info:
+            info = (
+                f'Name : {model["model"]}\n'
+                f'Size : {(model["size"] / 1024 / 1024):.2f} MB\n'
+            )
+            
+            # load model details if available
+            details = model.get('details', None)
+            if details is not None:
+                info += (
+                    f'* Format         : {details["format"]}\n'
+                    f'* Family         : {details["family"]}\n'
+                    f'* Parameter Size : {details["parameter_size"]}\n'
+                    f'* Quantization   : {details["quantization_level"]}'
+                )
+            print(info)
+    
+    if not found:
+        raise ProviderError(f'{expected_model} not available on {inference_endpoint}')
+
+
 @dataclass
 class Ollama(Provider):
     """Client for Ollama."""
@@ -55,9 +103,9 @@ class Ollama(Provider):
         if self.__match_model() is None:
             raise ValueError(f'Model {self.model} is not supported.')
         try:
-            # Use the configured endpoint and model instead of hardcoding
-            # self.inference_endpoint is already set from the parent class
-            # self.model is already set from the parent class
+            # Validate inference endpoint and model, then initialize ollama.Client
+            # Note: inference_endpoint and model are already set from the parent class
+            check_ollama_endpoint(self.inference_endpoint, self.model)
             self.client = Client(host=self.inference_endpoint)
             logger.info(f"Connected to Ollama at {self.inference_endpoint}")
             logger.info(f"Using model: {self.model}")
