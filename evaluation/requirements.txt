@@ -1,0 +1,5 @@
+deepeval
+google-generativeai
+ratelimit 
+backoff
+joblib
