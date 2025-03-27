@@ -1,5 +1,6 @@
-from typing import Tuple, Generator, List, Optional
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Tuple, Generator, List, Optional
 
 import httpx
 from ollama import Client, ResponseError
@@ -42,7 +43,16 @@ AVAILABLE_MODELS = {
         'tools': False
     }
 }
-logger = get_logger(__name__)
+
+# setup logging
+current = str(Path(__file__))
+log_path = (
+    Path(current[:current.find('AI-OPS')])
+    / 'AI-OPS'
+    / 'logs'
+    / 'ollama.log'
+)
+logger = get_logger(__name__, output_file=log_path)
 
 
 def check_ollama_endpoint(inference_endpoint: str, expected_model: str, log_info: bool = False):
@@ -160,9 +170,6 @@ class Ollama(Provider):
             # Get model options
             base_model = self.__match_model()
             options = AVAILABLE_MODELS[base_model]['options']
-            
-            # Log query attempt
-            logger.debug(f"Sending query to {self.model} with {len(messages)} messages")
             
             try:
                 # Create a streaming request

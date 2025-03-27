@@ -1,5 +1,6 @@
 import re
 import json
+from pathlib import Path
 from typing import Dict, Generator, List, Optional
 
 from tool_parse import ToolRegistry
@@ -15,8 +16,15 @@ from src.core import (
 )
 from src.utils import get_logger
 
-
-LOGGER = get_logger(__file__)
+# setup logging
+current = str(Path(__file__))
+log_path = (
+    Path(current[:current.find('AI-OPS')])
+    / 'AI-OPS'
+    / 'logs'
+    / 'default_architecture.log'
+)
+LOGGER = get_logger(__name__, output_file=log_path)
 
 
 class Default(Architecture):
@@ -215,7 +223,6 @@ class Default(Architecture):
             tool_response = ''
             for chunk, _, _ in self.__llm.query(messages=tool_messages):
                 tool_response += chunk
-            LOGGER.debug(f'LLM tool response: {tool_response}')
             
             # search for json in LLM resposne and extract the content
             tool_match = re.search(JSON_REGEX, tool_response)
