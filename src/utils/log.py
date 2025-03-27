@@ -6,7 +6,7 @@ if not LOGS_PATH.exists():
     LOGS_PATH.mkdir(parents=True, exist_ok=True)
 
 
-def get_logger(module_name: str) -> logging.Logger:
+def get_logger(module_name: str, output_file: Path | None = None) -> logging.Logger:
     """
     :param module_name: __name__ should be passed
     """
@@ -14,7 +14,11 @@ def get_logger(module_name: str) -> logging.Logger:
 
     formatter = logging.Formatter('%(levelname)s: %(name)s: %(message)s')
 
-    logger_handler = logging.StreamHandler()
+    if output_file is not None:
+        logger_handler = logging.FileHandler(str(output_file))
+    else:
+        logger_handler = logging.StreamHandler()
+    
     logger_handler.setLevel(logging.DEBUG)
     logger_handler.setFormatter(formatter)
 
