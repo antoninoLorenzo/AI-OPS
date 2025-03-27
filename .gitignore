@@ -19,8 +19,9 @@ venv.bak/
 .pytest_cache/
 .coverage
 
-# Jupyter Checkpoints
-benchmarks/rag/.ipynb_checkpoints
+# logs
+logs/
+evaluation/logs/
 
 
 # Distribution / packaging
