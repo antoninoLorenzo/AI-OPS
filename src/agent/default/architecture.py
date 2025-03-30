@@ -35,6 +35,8 @@ class Default(Architecture):
 
     Function Calling is implemented even if the LLM model doesn't natively support tool usage.
     """
+    model: str
+    architecture_name: str = 'default'
 
     def __init__(
         self,
@@ -57,6 +59,7 @@ class Default(Architecture):
         
         # default architecture components
         self.__llm: LLM = llm
+        self.model = self.__llm.model
         self.__prompts: Dict[str, str] = prompts
         self.__tool_registry: ToolRegistry = tool_registry
 
