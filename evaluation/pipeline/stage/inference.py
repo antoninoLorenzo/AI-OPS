@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Dict, Optional
+from pathlib import Path
+from typing import Dict, Optional, List
+from dataclasses import dataclass
 
 from pydantic import ConfigDict
 from tool_parse import ToolRegistry
@@ -10,13 +12,37 @@ from src.agent.default import Default, init_default_architecture
 from src.core import LLM, TOOL_REGISTRY, Conversation
 from src.utils import get_logger
 
-LOGGER = get_logger(__name__)
+
+current = str(Path(__file__))
+log_path = (
+    Path(current[:current.find('evaluation')])
+    / 'evaluation'
+    / 'logs'
+    / 'inference.log'
+)
+LOGGER = get_logger(__name__, output_file=log_path)
+
+
+@dataclass
+class InferenceSettings:
+    architecture: str
+    models: List[str]
+    inference_endpoint: str
+
+    def __str__(self):
+        mdls = ', '.join(self.models)
+        return (
+            f"architecture: {self.architecture}; endpoint: {self.inference_endpoint}; "
+            f"models: {mdls}"
+        )
 
 
 class InferenceExecutor(ABC):
     """
     Models a generic LLM based component that must be evaluated.  
     """
+    model: str
+    architecture_name: str
 
     @abstractmethod
     def query(self, conversation: Conversation):
@@ -30,7 +56,9 @@ class AssistantFactory(ABC):
 
     @abstractmethod
     def build_assistant(self, *args, **kwargs) -> InferenceExecutor:
-        pass
+        """
+        Setup an InferenceExecutor and sets its `model` name and `architecture_name`.
+        """
 
 
 class DefaultAssistant(InferenceExecutor):
@@ -51,6 +79,9 @@ class DefaultAssistant(InferenceExecutor):
             self.architecture = init_default_architecture(llm=llm, tool_registry=tool_registry)
         else:
             self.architecture = Default(llm=llm, prompts=prompts, tool_registry=tool_registry)
+        
+        self.model = self.architecture.model
+        self.architecture_name = self.architecture.architecture_name
 
     def query(self, conversation: Conversation):
         response = ''
@@ -111,6 +142,8 @@ class Inference(Stage):
             for task in task_stream:
                 if not isinstance(task, InferenceTask):
                     raise ValueError(f'expected InferenceTask: got {type(task)}')
+                
+                LOGGER.debug(f'inference stage: received conversation id {task.conversation.conversation_id}')
                 
                 if task.conversation_type == ConversationType.MultiTurn:
                     raise NotImplementedError('logic to generate an entire conversation is missing.')

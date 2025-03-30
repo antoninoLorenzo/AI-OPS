@@ -67,15 +67,12 @@ class QueueStream(Stream):
         :param timeout: set in seconds, ensures that QueueStream doesn't run indefinetly
         """
         self.__stream = queue.Queue()
-        self.__stop = False
         self.__timeout = timeout 
 
     def __iter__(self):
         return self
 
     def __next__(self):
-        if self.__stop:
-            raise StopIteration()
         try:
             item = self.__stream.get(timeout=self.__timeout)
             if item is None:
@@ -89,7 +86,6 @@ class QueueStream(Stream):
         self.__stream.put(result)
 
     def stop(self):
-        self.__stop = True
         # when stop is set after the consumer called __next__ it will wait indefinetly because
         # the stop flag is already checked, so a None sentinel value is put to stop the iteration
         self.__stream.put(None)

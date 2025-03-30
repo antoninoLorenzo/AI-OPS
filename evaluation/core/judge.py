@@ -17,7 +17,6 @@ LOGGER = get_logger(__name__)
 MINUTE = 60
 JSON_MARKDWON = r'^```json\s*([\s\S]*?)\s*```$'
 
-
 def backoff_ratelimit_logger(details):
     LOGGER.warning(
         '{target}: RateLimitException: backoff {wait:0.1f}s; tries={tries}'.format(**details)
@@ -82,8 +81,8 @@ class GeminiLLM(DeepEvalBaseLLM):
     """
     Implement a wrapper to Google Gemini LLM that is used as judge for evaluation.
     """
-    def __init__(self, *args, **kwargs):
-        self.model_name = 'gemini-2.0-flash'
+    def __init__(self, model: str = 'gemini-2.0-flash', *args, **kwargs):
+        self.model_name = model
 
         # needed to perform evaluation of hacking related content
         self.safety_settings = {

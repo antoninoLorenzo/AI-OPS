@@ -1,0 +1,9 @@
+[
+    {
+        "evaluation_id": "001",
+        "user_input": "Does JetBrains TeamCity have any known RCE vulnerability?",
+        "context": [
+            "JetBrains TeamCity version 2023.05.3 is affected by a Remote Code Execution vulnerability: CVE-2023-42793."
+        ]
+    }
+]

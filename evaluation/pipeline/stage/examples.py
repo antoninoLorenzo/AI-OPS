@@ -8,10 +8,13 @@ from deepeval.metrics import HallucinationMetric
 from dotenv import load_dotenv
 
 from evaluation.core import GeminiLLM, QueueStream
-from evaluation.stage.evaluation import Evaluation, EvaluationTask
-from evaluation.stage.inference import (ConversationType,
-                                        DefaultAssistantFactory, Inference,
-                                        InferenceTask)
+from evaluation.pipeline.stage.evaluation import Evaluation, EvaluationTask
+from evaluation.pipeline.stage.inference import (
+    ConversationType,
+    DefaultAssistantFactory, 
+    Inference,
+    InferenceTask
+)
 from src.core.memory import Conversation, Message, Role
 from src.utils import get_logger
 

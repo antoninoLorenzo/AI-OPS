@@ -1,15 +1,42 @@
 from pathlib import Path
-from typing import Any, Dict, Union
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, Union, List
 
 from deepeval.metrics import BaseConversationalMetric, BaseMetric
 from pydantic import ConfigDict
 
-from evaluation.core import (JSONFileStream, QueueStream, Stage, Task,
-                             conversation_to_test_case)
+from evaluation.core import (
+    JSONFileStream, 
+    QueueStream, 
+    Stage, 
+    Task,
+    conversation_to_test_case
+)
 from src.core.memory import Conversation
 from src.utils import get_logger
 
-LOGGER = get_logger(__name__)
+current = str(Path(__file__))
+log_path = (
+    Path(current[:current.find('evaluation')])
+    / 'evaluation'
+    / 'logs'
+    / 'evaluation.log'
+)
+LOGGER = get_logger(__name__, output_file=log_path)
+
+
+@dataclass
+class EvaluationSettings:
+    judge_model: str
+    metrics: List[str]
+
+    def __str__(self):
+        mtrcs = ', '.join(self.metrics)
+        return (
+            f"model: {self.judge_model}; "
+            f"metrics: {mtrcs}"
+        )
 
 
 class EvaluationTask(Task):
@@ -58,14 +85,17 @@ class Evaluation(Stage):
                     metric.measure(test_case)
 
                     # write output to json file
-                    output = {
+                    output = {}
+                    output.update(task.metadata)
+                    output.update({
                         'metric_name': task.metric_name,
                         'score': metric.score,
-                        'reason': metric.reason
-                    }
-                    output.update(task.metadata)
+                        'reason': metric.reason,
+                        'conversation': task.conversation.model_dump()
+                    })
                     
                     # note: JSONStream takes in input a list of dicitonaries
+                    LOGGER.debug(f'evaluation: writing {output}')
                     output_stream.send([output])
             except Exception as err:
                 # if (when...) measuring a metric fails, for example because of rate limiting

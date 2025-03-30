@@ -1,0 +1,1 @@
+[{"metric_name": "hallucination", "score": 1.0, "reason": "The score is 1.00 because the actual output discusses CVE-2024-27198 and CVE-2024-27199, while the context discusses CVE-2023-42793, indicating a contradiction and thus a high hallucination score.", "evaluation_id": "001"}]
