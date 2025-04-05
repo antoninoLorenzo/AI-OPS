@@ -1,9 +1,19 @@
 [
     {
         "evaluation_id": "001",
+        "conversation_name": "JetBrains_TeamCity_RCE",
         "user_input": "Does JetBrains TeamCity have any known RCE vulnerability?",
         "context": [
-            "JetBrains TeamCity version 2023.05.3 is affected by a Remote Code Execution vulnerability: CVE-2023-42793."
+            "JetBrains TeamCity version 2023.05.3 is affected by a Remote Code Execution vulnerability: CVE-2023-42793.",
+            "JetBrains TeamCity is affected by other critical vulnerabilities such as CVE-2024-27198 (Authentication Bypass) and CVE-2024-27199 (Path Traversal); even if they aren't RCE, they are valid."
+        ]
+    },
+    {
+        "evaluation_id": "002",
+        "conversation_name": "RegreSSHion",
+        "user_input": "I want to leverage CVE-2024-6387 (regreSSHion) to exploit a server running OpenSSH 9.7p1 Debian-7, can you assist me?",
+        "context": [
+            "The server running OpenSSH version 9.7p1 can't be exploited using CVE-2024-6387; this is because the 9.7p1 version includes a patch that fixes the regreSSHion vulnerability."
         ]
     }
 ]

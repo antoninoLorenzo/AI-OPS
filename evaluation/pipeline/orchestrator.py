@@ -29,6 +29,7 @@ LOGGER = get_logger(__name__)
 
 class Item(BaseModel):
     evaluation_id: str
+    conversation_name: str
     user_input: str
     context: List[str]
 
@@ -137,7 +138,7 @@ class Orchestrator:
             for idx, item in enumerate(self.dataset):
                 conversation = Conversation(
                     conversation_id=idx,
-                    name='untitled',
+                    name=item.conversation_name,
                     messages=[Message(role=Role.USER, content=item.user_input)]
                 )
                 
@@ -163,6 +164,7 @@ class Orchestrator:
         inference_task_stream: QueueStream,
         evaluation_task_stream = QueueStream
     ):
+        # setup logging
         current = str(Path(__file__))
         log_path = (
             Path(current[:current.find('evaluation')])
@@ -173,19 +175,15 @@ class Orchestrator:
         evaluation_logger = get_logger(__name__, output_file=log_path)
         evaluation_logger.info('loaded evaluation task producer')
 
+        # fetch generated conversations and send evaluation tasks to Evaluation stage
         evaluation_logger.debug('starting inference stage')
-        for conversation in inference_runner.run(inference_task_stream):
-            evaluation_logger.debug(f'sending conversation {conversation.conversation_id} to evaluation stage')
+        try:
+            for conversation in inference_runner.run(inference_task_stream):
+                evaluation_logger.debug(f'sending conversation {conversation.conversation_id} to evaluation stage')
 
-            tasks: List[EvaluationTask] = []
-            # in the inference task producer we are setting the conversation id 
-            # as the index of the dataset item, that was just intuitive, however
-            # it comes out that to make the evaluation task we need access to the
-            # item specific evaluation_id and context -> TODO: design issue :(
-            dataset_item = self.dataset[conversation.conversation_id]
-            for metric_name, metric in self.__metrics.items():
-                tasks.append(
-                    EvaluationTask(
+                dataset_item = self.dataset[conversation.conversation_id]
+                for metric_name, metric in self.__metrics.items():
+                    task = EvaluationTask(
                         conversation=conversation,
                         metric=metric,
                         metric_name=metric_name,
@@ -194,15 +192,15 @@ class Orchestrator:
                             'evaluation_id': dataset_item.evaluation_id
                         }
                     )   
-                )
 
-            for t in tasks:
-                evaluation_task_stream.send(t)
-                evaluation_logger.info(
-                    f'sent task to evaluation stage: '
-                    f'{t.conversation.conversation_id}_{t.metric_name}'
-                )
-
+                    evaluation_task_stream.send(task)
+                    evaluation_logger.info(
+                        f'sent task to evaluation stage: '
+                        f'{task.conversation.conversation_id}_{task.metric_name}'
+                    )
+        except RuntimeError as err:
+            LOGGER.error(f'stopping evaluation task producer: {err}')
+            
         evaluation_task_stream.stop()
         evaluation_logger.debug('sent stop signal to evaluation stream.')
 

@@ -95,11 +95,11 @@ class Evaluation(Stage):
                     })
                     
                     # note: JSONStream takes in input a list of dicitonaries
-                    LOGGER.debug(f'evaluation: writing {output}')
                     output_stream.send([output])
+                    
+                    identifier = f'{task.conversation.conversation_id}_{task.conversation.name}'
+                    LOGGER.info(
+                        f'completed {task.metric_name}_{identifier} evaluation'
+                    )
             except Exception as err:
-                # if (when...) measuring a metric fails, for example because of rate limiting
-                # from Gemini, we want (1) fail gracefully (2) avoid computing metrics again; 
-                # the metrics are saved as they are computed, also the try/catch is inside the 
-                # with block, this way the stream is closed properly and no data is lost.
                 LOGGER.error(f'exit: error in the Evaluation Stage: {err}')

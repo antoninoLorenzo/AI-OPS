@@ -1,3 +1,4 @@
+import json
 from abc import ABC, abstractmethod
 from enum import Enum
 from pathlib import Path
@@ -137,24 +138,61 @@ class Inference(Stage):
     Implements the Inference Stage execution logic.
     """
 
+    def __init__(self):
+        current = str(Path(__file__))
+        self.__checkpoints_path = (
+            Path(current[:current.find('evaluation')])
+            / 'evaluation'
+            / 'resources'
+            / 'checkpoints'
+        )
+        if not self.__checkpoints_path.exists():
+            self.__checkpoints_path.mkdir()
+
     def run(self, task_stream: QueueStream):
         try:
             for task in task_stream:
                 if not isinstance(task, InferenceTask):
                     raise ValueError(f'expected InferenceTask: got {type(task)}')
                 
-                LOGGER.debug(f'inference stage: received conversation id {task.conversation.conversation_id}')
+                conversation = task.conversation
+                conversation_identifier = (
+                    f'{task.assistant.architecture_name}_'
+                    f'{conversation.conversation_id}_{conversation.name}_{task.conversation_type}'
+                )
+                conversation_checkpoint = Path(
+                    self.__checkpoints_path 
+                    / f'{conversation_identifier}.json'
+                )
+                LOGGER.debug(f'inference stage: received conversation id {conversation_identifier}')
                 
+                # check if conversation is already generated
+                if conversation_checkpoint.exists():
+                    LOGGER.info(f'loading conversation checkpoint: {conversation_checkpoint}')
+                    with open(str(conversation_checkpoint), 'r') as fp:
+                        conversation = Conversation.model_validate(json.load(fp))
+                    
+                    yield conversation
+                    continue
+
+                # generate multi-turn conversation
                 if task.conversation_type == ConversationType.MultiTurn:
                     raise NotImplementedError('logic to generate an entire conversation is missing.')
                 
-                conversation = task.conversation
-                response = task.assistant.query(conversation=conversation)
-
-                # maybe should use a Stream, but for now let's work with Generators
+                # generate single-turn conversation
+                # note: Assistant query method handles adding response to the conversation itself.
+                _ = task.assistant.query(conversation=conversation)
                 yield conversation
+
+                # save conversation as checkpoint
+                with open(str(conversation_checkpoint), 'w') as fp:
+                    LOGGER.info(f'saving conversation checkpoint: {conversation_checkpoint}')
+                    json.dump(conversation.model_dump(), fp)
         except Exception as err:
-            # If anything goes wrong there we want to (1) fail gracefully (2) save checkpoints.
-            # Note: all of that is handled by the pipeline orchestrator (not Stage responsibility).
             raise RuntimeError(f'exit: error in the Inference Stage: {err}')
+
+    def get_conversation_checkpoint(self, task: InferenceTask):
+        """
+        Given a task it determines if a conversation is already generated.
+        """
 
