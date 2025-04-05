@@ -143,24 +143,28 @@ class Default(Architecture):
 
         :returns: Generator with tuples (text, user_message_tokens, output_tokens)
         """
+        conv_id = conversation.conversation_id
         user_message = conversation.messages[-1]
         system_prompt_key = self.get_assistant_prompt(user_message)
-        
+        LOGGER.debug(f'{conv_id}: router selected {system_prompt_key}')
+
         if system_prompt_key == 'tool':
             # query llm to determine tool and parameters
             tool_call = self.tool_call(user_message)
+
+            LOGGER.debug(f'{conv_id}: generated tool call: {tool_call}')
             if tool_call is not None:
                 # execute tool and append its output to user message
                 tool_output = self.run_tool(tool_call)
                 if tool_output is not None:
                     tool_result = (
-                        f'\n\nadditional context: \n'
+                        f'\n\n# CONTEXT: \n'
                         f'{tool_call.name}: {tool_call.parameters}\n{tool_output}'
                     )
                     conversation.messages[-1].content += tool_result
-        
-        # set system prompt
-        system_prompt = self.__prompts[system_prompt_key]
+            
+        # reset system prompt to general after tool call
+        system_prompt = self.__prompts['general']
         conversation.set_system_prompt(Message(role=Role.SYS, content=system_prompt))
 
         # run query
@@ -196,7 +200,6 @@ class Default(Architecture):
             assistant_prompt_key = assistant_prompt_key.strip() 
             
             # default to general if selected key isn't correct 
-            LOGGER.debug(f'router selected {assistant_prompt_key}')
             return assistant_prompt_key                             \
                 if assistant_prompt_key in self.__prompts.keys()    \
                 else 'general'
@@ -216,6 +219,7 @@ class Default(Architecture):
         :return: a single ToolCall or None
         """
         try:
+            # make conversation that requires function call result
             tool_prompt = self.__prompts['tool']
             tool_messages = Conversation(
                 conversation_id=999,
@@ -255,7 +259,6 @@ class Default(Architecture):
                         for name, value in parameters.items()
                     }
                 )
-
             except (json.JSONDecodeError, KeyError) as json_extract_err:
                 error_message = (
                     f'Tool call failed: not found in LLM response: {tool_response}'

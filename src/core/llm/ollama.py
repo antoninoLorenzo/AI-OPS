@@ -121,7 +121,7 @@ class Ollama(Provider):
             logger.info(f"Using model: {self.model}")
         except Exception as err:
             logger.error(f"Failed to connect to Ollama: {str(err)}")
-            raise RuntimeError('Initialization Failed') from err
+            raise RuntimeError(f'Ollama initialization failed: {str(err)}') from err
 
     @property
     def supports_tools(self) -> bool:

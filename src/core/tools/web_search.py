@@ -85,7 +85,8 @@ class Search:
             logger.warning(f'all links were excluded from search')
             return ''
         
-        return '\n\n'.join(results)
+        # TODO: for now just return back a single result to limit context length.
+        return results[0]
 
     def __google_search(
         self,
