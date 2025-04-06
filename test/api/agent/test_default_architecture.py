@@ -117,7 +117,7 @@ def test_tool_call(
         'assistant_prompt_result': 'tool',
         'tool_call_result': ToolCall(
             name='search_web', 
-            parameters={'search_query': 'FastAPI CVEs'}
+            arguments={'search_query': 'FastAPI CVEs'}
         ),
         'tool_execution_result': None,
         'expected': 'response for: What are recent FastAPI CVEs?'
