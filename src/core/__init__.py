@@ -7,8 +7,8 @@ from src.core.memory import (
 from src.core.tools import (
     ToolCall,
     Search,
-    TOOL_REGISTRY,
-    JSON_REGEX
+    get_tool_call,
+    TOOL_REGISTRY
 )
 from src.core.llm import (
     LLM,

@@ -12,7 +12,7 @@ from src.core import (
     Message, 
     Role, 
     ToolCall, 
-    JSON_REGEX
+    get_tool_call
 )
 from src.utils import get_logger
 
@@ -231,41 +231,14 @@ class Default(Architecture):
             for chunk, _, _ in self.__llm.query(messages=tool_messages):
                 tool_response += chunk
             
-            # search for json in LLM resposne and extract the content
-            tool_match = re.search(JSON_REGEX, tool_response)
-            if not tool_match:
-                error_message = (
-                    f'Tool call failed: '
-                    f'not found in LLM response: {tool_response}'
-                )
-                LOGGER.error(error_message)
-                return None
             
-            try:
-                # fix response to be JSON
-                tool_call_json = tool_match     \
-                    .group(1)                   \
-                    .replace("'", '"')          \
-                    .strip()
-
-                tool_call_dict = json.loads(tool_call_json)
-                
-                name: str = tool_call_dict['name']
-                parameters: dict = tool_call_dict['arguments']
-                return ToolCall(
-                    name=name, 
-                    parameters={
-                        name: value 
-                        for name, value in parameters.items()
-                    }
-                )
-            except (json.JSONDecodeError, KeyError) as json_extract_err:
+            tool_call = get_tool_call(tool_response)
+            if tool_call is None:
                 error_message = (
-                    f'Tool call failed: not found in LLM response: {tool_response}'
-                    f'\nError: {json_extract_err}'
+                    f'Tool call not found in LLM response: {tool_response}'
                 )
                 LOGGER.error(error_message)
-                return None
+            return tool_call
         except Exception as err:
             LOGGER.error(err)
             return None
