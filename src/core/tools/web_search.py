@@ -82,7 +82,7 @@ class Search:
                     if title and content:
                         results.append(f"# {title} ({link})\n{content}")
         else:
-            logger.warning(f'all links were excluded from search')
+            logger.warning('all links were excluded from search')
             return ''
         
         # TODO: for now just return back a single result to limit context length.

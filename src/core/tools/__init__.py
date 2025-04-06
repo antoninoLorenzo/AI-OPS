@@ -11,5 +11,5 @@ SEARCH = Search(max_results=1)
 
 @TOOL_REGISTRY.register(description=SEARCH.usage)
 def search_web(search_query: str):
+    """Wraps web search with ToolRegistry"""
     return SEARCH.run(search_query)
-

@@ -1,7 +1,6 @@
 import re
-import json
 
-from src.core.tools import ToolCall
+from src.core.tools.schema import ToolCall
 
 # identifies a JSON block until the text ends with JSON
 JSON_REGEX = r"\s*({[^}]*(?:{[^}]*})*[^}]*}|\[[^\]]*(?:\[[^\]]*\])*[^\]]*\])\s*$"

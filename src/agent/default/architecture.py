@@ -1,25 +1,26 @@
-import re
-import json
+"""
+Implementation of AI-OPS Assistant default architecture.
+"""
 from pathlib import Path
-from typing import Dict, Generator, List, Optional
+from typing import Dict, Generator, Optional
 
 from tool_parse import ToolRegistry
 
 from src.agent import Architecture
 from src.core import (
-    LLM, 
-    Conversation, 
-    Message, 
-    Role, 
-    ToolCall, 
+    LLM,
+    Conversation,
+    Message,
+    Role,
+    ToolCall,
     get_tool_call
 )
 from src.utils import get_logger
 
 # setup logging
-current = str(Path(__file__))
+current_path = str(Path(__file__))
 log_path = (
-    Path(current[:current.find('AI-OPS')])
+    Path(current_path[:current_path.find('AI-OPS')])
     / 'AI-OPS'
     / 'logs'
     / 'default_architecture.log'
@@ -98,11 +99,11 @@ class Default(Architecture):
 
         # note: input_tokens refers to the estimated size of last user message
         assistant_response = ''
-        last_input_tokens, last_output_tokens = 0, 0
+        last_input_tokens, _ = 0, 0
         for chunk, input_tokens, output_tokens in response_stream:
             yield chunk
             assistant_response += chunk
-            last_input_tokens, last_output_tokens = input_tokens, output_tokens
+            last_input_tokens, _ = input_tokens, output_tokens
 
         # reset user message (-> remove tool result) to reduce token consumption
         conversation.messages[-1] = user_message
@@ -110,8 +111,8 @@ class Default(Architecture):
         # store result in conversation
         conversation.messages[-1].set_tokens(last_input_tokens) # !!!: this includes the tool result
         conversation += Message(
-            role=Role.ASSISTANT, 
-            content=assistant_response, 
+            role=Role.ASSISTANT,
+            content=assistant_response,
             token_length=output_tokens
         )
 
@@ -247,6 +248,7 @@ class Default(Architecture):
         self, 
         tool_call: ToolCall
     ) -> Optional[str]:
+        """Execute tool call and return result"""
         try:
             LOGGER.info(f'calling {tool_call}')
             tool_call_dump = tool_call.model_dump()

@@ -1,3 +1,6 @@
+"""
+Abstract LLM class.
+"""
 from typing import Generator
 from dataclasses import dataclass
 
@@ -23,18 +26,22 @@ class LLM:
 
     @property
     def support_tools(self):
+        """
+        Used to check if the specific model supports function calling.
+        """
         return self.provider.supports_tools
 
     def query(
         self,
         messages: Conversation
     ) -> Generator:
-        """Generator that returns LLM response in a tuple containing:
-        (chunk, token_usage).
+        """
+        Generator that returns LLM response in a tuple containing: (chunk, token_usage).
 
         :param messages:
             The current conversation provided as a list of messages in the
-            format [{"role": "assistant/user/system", "content": "..."}, ...]"""
+            format [{"role": "assistant/user/system", "content": "..."}, ...]
+        """
         yield from self.provider.query(messages)
 
     def tool_query(
@@ -50,4 +57,3 @@ class LLM:
             A list of tools in the format specified by `ollama-python`,
             the conversion is managed by `tool-parse` library."""
         return self.provider.tool_query(messages, tools)
-

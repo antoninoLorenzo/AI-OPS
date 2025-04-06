@@ -45,9 +45,9 @@ AVAILABLE_MODELS = {
 }
 
 # setup logging
-current = str(Path(__file__))
+current_path = str(Path(__file__))
 log_path = (
-    Path(current[:current.find('AI-OPS')])
+    Path(current_path[:current_path.find('AI-OPS')])
     / 'AI-OPS'
     / 'logs'
     / 'ollama.log'
@@ -144,13 +144,12 @@ class Ollama(Provider):
         if len(conversation) == 2:
             return full_input_tokens - subtract
         
-        else:
-            user_message_tokens = full_input_tokens - subtract
-            # exclude system prompt
-            for message in conversation.messages[1:]:
-                prev = user_message_tokens
-                user_message_tokens -= message.get_tokens()
-            return user_message_tokens
+        user_message_tokens = full_input_tokens - subtract
+        # exclude system prompt
+        for message in conversation.messages[1:]:
+            prev = user_message_tokens
+            user_message_tokens -= message.get_tokens()
+        return user_message_tokens
 
     @validate_call
     def query(
@@ -213,15 +212,17 @@ class Ollama(Provider):
                     yield "", user_msg_tokens, response_tokens
                     
                     # Log token usage
-                    logger.debug(f"Query completed. Tokens: {prompt_tokens} input, {response_tokens} output")
+                    logger.debug(
+                        f"token consumption: input={prompt_tokens}; output={response_tokens}"
+                    )
                 else:
                     # No chunks were received
                     logger.warning("No response chunks received from Ollama")
                     yield "", 0, 0
                     
-            except Exception as e:
+            except Exception as gen_err:
                 # Handle specific errors
-                error_msg = str(e)
+                error_msg = str(gen_err)
                 logger.error(f"Error during streaming: {error_msg}")
                 
                 # Try fallback to non-streaming for some models
@@ -249,7 +250,9 @@ class Ollama(Provider):
                             yield "", 0, 0
                     except Exception as fallback_err:
                         logger.error(f"Fallback also failed: {str(fallback_err)}")
-                        raise ProviderError(f"Streaming and fallback failed: {str(e)} -> {str(fallback_err)}")
+                        raise ProviderError(
+                            f"Streaming and fallback failed: {str(gen_err)} -> {str(fallback_err)}"
+                        )
                 else:
                     # Re-raise the original error
                     raise

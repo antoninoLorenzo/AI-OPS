@@ -1,3 +1,4 @@
+"""Business logic for chat view"""
 from typing import List, Optional
 
 from src.agent import Agent, init_default_architecture
@@ -21,13 +22,21 @@ class ConversationService:
         self.__memory = Memory()
 
     def load_conversations(self) -> List[Conversation]:
+        """
+        :return: list of conversations in memory.
+        """
         return list(self.__memory.conversations.values())
 
     def new_conversation(self, name: str) -> Conversation:
+        """
+        :param name: the name of the conversation to create.
+        """
+        # get conversation id for new covnersation
         if len(self.__memory.conversations) > 0:
             new_conversation_id = max(self.__memory.conversations.keys()) + 1
         else:
             new_conversation_id = 0
+        
         self.__memory[new_conversation_id] = Conversation(
             conversation_id=new_conversation_id,
             name=name
@@ -42,19 +51,32 @@ class ConversationService:
         return self.__memory[conversation_id]
 
     def rename_conversation(self, conversation_id: int, new_name: str):
+        """
+        :param conversation_id: id of the conversation to rename
+        :param new_name: new name for conversation
+        """
         if conversation_id in self.__memory:
             self.__memory[conversation_id].name = new_name
             return self.__memory[conversation_id]
         return None
 
     def save_conversation(self, conversation_id: int) -> bool:
+        """
+        :param conversation_id: id of the conversation to save
+        """
         return self.__memory.save(conversation_id)
 
     def delete_conversation(self, conversation_id: int) -> bool:
+        """
+        :param conversation_id: id of the conversation to delete
+        """
         return self.__memory.delete(conversation_id)
 
 
 def build_agent_default_architecture() -> Agent:
+    """
+    Initializes the default architecture for AI Assistant.
+    """
     LOGGER.debug(f'building default architecture with: {AGENT_SETTINGS}')
     provider = AGENT_SETTINGS.PROVIDER
     if provider not in AVAILABLE_PROVIDERS.keys():
@@ -95,4 +117,5 @@ def get_conversation_service() -> ConversationService:
 
 
 def query_generator(agent: Agent, conversation: Conversation):
+    """Helper function for query method in view"""
     yield from agent.query(conversation)

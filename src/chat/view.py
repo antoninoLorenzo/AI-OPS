@@ -15,8 +15,12 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
 from src.agent import Agent
-from src.chat.service import (ConversationService, get_agent,
-                              get_conversation_service, query_generator)
+from src.chat.service import (
+    ConversationService,
+    get_agent,
+    get_conversation_service,
+    query_generator
+)
 from src.core import Conversation, Message, Role
 from src.utils import get_logger
 
@@ -91,6 +95,11 @@ async def query(
         agent: Agent = Depends(get_agent),
         conversation_service: ConversationService = Depends(get_conversation_service)
 ):
+    """
+    Endpoint to chat with AI Assistant.
+
+    A POST request to `/{conversation_id}/chat` expects a "query" parameter in the body.
+    """
     usr_query = body.get("query")
     if not usr_query or not isinstance(usr_query, str) or len(usr_query) == 0:
         raise HTTPException(status_code=400, detail='expected {"query": str}')

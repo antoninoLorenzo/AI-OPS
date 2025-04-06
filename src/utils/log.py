@@ -1,3 +1,4 @@
+"""Logging utilities"""
 import logging
 from pathlib import Path
 
