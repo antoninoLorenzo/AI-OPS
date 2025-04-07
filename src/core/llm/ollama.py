@@ -1,3 +1,4 @@
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Tuple, Generator, List, Optional
@@ -169,7 +170,8 @@ class Ollama(Provider):
             # Get model options
             base_model = self.__match_model()
             options = AVAILABLE_MODELS[base_model]['options']
-            
+            logger.debug(f'query: conversation_id={messages.conversation_id}; model={base_model}')
+
             try:
                 # Create a streaming request
                 stream = self.client.chat(
@@ -180,27 +182,32 @@ class Ollama(Provider):
                     options=options
                 )
                 
-                c = None  # Last chunk for token counting
+                last_chunk = None  # for token counting
+                stream_start = time.time()
                 for chunk in stream:
-                    c = chunk
-                    # Handle different response formats
+                    last_chunk = chunk
+                    # handle different response formats
                     if 'message' in chunk and 'content' in chunk['message']:
-                        # Standard format
                         yield chunk['message']['content'], 0, 0
                     elif 'response' in chunk:
-                        # Older format
+                        # support for: format
                         yield chunk['response'], 0, 0
                     else:
-                        # Log unexpected chunk format
                         logger.warning(f"Unexpected chunk format: {chunk}")
+                
+                stream_end = time.time()
+                logger.info(
+                    f'conversation_id={messages.conversation_id}; '
+                    f'model={base_model}; total_time={(stream_end-stream_start):.2f}s'
+                )
                 
                 # The last chunk in the ollama stream contains:
                 # - `prompt_eval_count` -> input prompt tokens
                 # - `eval_count` -> output tokens
-                if c:
+                if last_chunk:
                     # Check if token counts are available
-                    prompt_tokens = c.get('prompt_eval_count', 0)
-                    response_tokens = c.get('eval_count', 0)
+                    prompt_tokens = last_chunk.get('prompt_eval_count', 0)
+                    response_tokens = last_chunk.get('eval_count', 0)
                     
                     # Calculate user message tokens
                     user_msg_tokens = Ollama.user_message_token_length(
@@ -212,8 +219,11 @@ class Ollama(Provider):
                     yield "", user_msg_tokens, response_tokens
                     
                     # Log token usage
-                    logger.debug(
-                        f"token consumption: input={prompt_tokens}; output={response_tokens}"
+                    tokens_per_second = response_tokens / (stream_end-stream_start)
+                    logger.info(
+                        f'conversation_id={messages.conversation_id}; '
+                        f'input_tokens={prompt_tokens}; output_tokens={response_tokens}; '
+                        f'tokens_per_second={tokens_per_second:.2f}'
                     )
                 else:
                     # No chunks were received
@@ -223,7 +233,10 @@ class Ollama(Provider):
             except Exception as gen_err:
                 # Handle specific errors
                 error_msg = str(gen_err)
-                logger.error(f"Error during streaming: {error_msg}")
+                logger.error(
+                    f"error during streaming: "
+                    f"conversation_id={messages.conversation_id}; error={error_msg}"
+                )
                 
                 # Try fallback to non-streaming for some models
                 if "deepseek" in self.model.lower():

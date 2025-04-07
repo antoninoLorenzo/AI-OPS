@@ -90,13 +90,12 @@ class Default(Architecture):
             )
         user_message = conversation.messages[-1]
 
-        # select query strategy and get the generator
+        LOGGER.debug(
+            f'conversation_id={conversation.conversation_id}; '
+            f'role={user_message.role}; content={user_message.content}'
+        )
         response_stream = self.__query_map['routed'](conversation)
-        # if self.__llm.support_tools:
-        #     response_stream = self.__query_map['native'](conversation)
-        # else:
-        #     response_stream = self.__query_map['routed'](conversation)
-
+        
         # note: input_tokens refers to the estimated size of last user message
         assistant_response = ''
         last_input_tokens, _ = 0, 0
@@ -147,13 +146,13 @@ class Default(Architecture):
         conv_id = conversation.conversation_id
         user_message = conversation.messages[-1]
         system_prompt_key = self.get_assistant_prompt(user_message)
-        LOGGER.debug(f'{conv_id}: router selected {system_prompt_key}')
+        LOGGER.debug(f'conversation_id={conv_id}; system_prompt_key={system_prompt_key}')
 
         if system_prompt_key == 'tool':
             # query llm to determine tool and parameters
             tool_call = self.tool_call(user_message)
 
-            LOGGER.debug(f'{conv_id}: generated tool call: {tool_call}')
+            LOGGER.info(f'conversation_id={conv_id}; tool_call={tool_call}')
             if tool_call is not None:
                 # execute tool and append its output to user message
                 tool_output = self.run_tool(tool_call)
