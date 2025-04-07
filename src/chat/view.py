@@ -105,7 +105,6 @@ async def query(
         raise HTTPException(status_code=400, detail='expected {"query": str}')
 
     conversation = conversation_service.get_conversation(conversation_id)
-    LOGGER.debug(f'query to conversation: {conversation}')
     if conversation is None:
         raise HTTPException(status_code=404, detail='conversation not found')
     

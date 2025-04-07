@@ -1,5 +1,6 @@
 import os
 
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
 
 
@@ -12,4 +13,5 @@ class AgentSettings(BaseSettings):
     USE_RAG: bool = os.environ.get('USE_RAG', False)
 
 
+load_dotenv()
 AGENT_SETTINGS = AgentSettings()
