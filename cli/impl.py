@@ -147,43 +147,47 @@ def __generate_response(
             console.print('[bold blue]Assistant[/]: ')
             with Live(console=console, refresh_per_second=10) as live_console:
                 live_console.update(Markdown(response_text))
-                for chunk in response_stream.iter_text():
-                    # common case print tokens as arrive
-                    if not process_response:
-                        response_text += chunk
-                        live_console.update(Markdown(response_text))
-                        continue
-                    
-                    # deepseek model <think> tags processing
-                    for char in chunk:
-                        if not in_thinking:
-                            # Look for start of thinking tag
-                            if response_text.endswith("<think"):
-                                response_text += char
-                                if response_text.endswith("<think>"):
-                                    in_thinking = True
+                try:
+                    for chunk in response_stream.iter_text():
+                        # common case print tokens as arrive
+                        if not process_response:
+                            response_text += chunk
+                            live_console.update(Markdown(response_text))
+                            continue
+                        
+                        # deepseek model <think> tags processing
+                        for char in chunk:
+                            if not in_thinking:
+                                # Look for start of thinking tag
+                                if response_text.endswith("<think"):
+                                    response_text += char
+                                    if response_text.endswith("<think>"):
+                                        in_thinking = True
+                                        thinking_buffer = ""
+                                        # Remove the tag from visible response
+                                        response_text = response_text[:-7]
+                                else:
+                                    response_text += char
+                            else:  # We're inside a thinking block
+                                thinking_buffer += char
+                                # Check for end of thinking tag
+                                if thinking_buffer.endswith("</think>"):
+                                    in_thinking = False
+                                    # Extract the thinking content without the end tag
+                                    thinking_content = thinking_buffer[:-8]
+                                    
+                                    # Display thinking if enabled
+                                    if app_context.show_thinking:
+                                        console.print("\n[bold yellow]Thinking:[/bold yellow]", style="yellow")
+                                        console.print(thinking_content, style="dim yellow")
+                                        console.print("[yellow]End of thinking[/yellow]\n")
+                                    
                                     thinking_buffer = ""
-                                    # Remove the tag from visible response
-                                    response_text = response_text[:-7]
-                            else:
-                                response_text += char
-                        else:  # We're inside a thinking block
-                            thinking_buffer += char
-                            # Check for end of thinking tag
-                            if thinking_buffer.endswith("</think>"):
-                                in_thinking = False
-                                # Extract the thinking content without the end tag
-                                thinking_content = thinking_buffer[:-8]
-                                
-                                # Display thinking if enabled
-                                if app_context.show_thinking:
-                                    console.print("\n[bold yellow]Thinking:[/bold yellow]", style="yellow")
-                                    console.print(thinking_content, style="dim yellow")
-                                    console.print("[yellow]End of thinking[/yellow]\n")
-                                
-                                thinking_buffer = ""
-                                live_console.update(Markdown(response_text))
-                        live_console.update(Markdown(response_text))
+                                    live_console.update(Markdown(response_text))
+                            live_console.update(Markdown(response_text))
+                except httpx.ReadTimeout as _:
+                    console.print("[bold red]Error: [/]timeout reached")
+                    raise RuntimeError()
     except KeyboardInterrupt:
         console.print("[red]Interrupted[/]: exiting chat... to quit use [bold blue]exit[/].")
         raise RuntimeError()
