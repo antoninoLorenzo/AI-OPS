@@ -1,0 +1,38 @@
+You have detected a possible Server-Side Template Injection (SSTI) vulnerability.  
+To determine which template engine is being used, follow a series of payload-based tests.  
+
+**Only one of the following identification processes is correct.**  
+Your task: select the correct process that can accurately differentiate between the following engines: **Smarty, Jinja2, Mako, Twig**.
+
+---
+
+### 1. Process 1
+
+a. Send the payload `${7*7}`. If the output is `49`, the engine might be **Smarty** or **Jinja2**.  
+  - Then try `a{*comment*}b`. If it returns `ab`, assume it's **Jinja2**.  
+  - Otherwise, try `${"z".join("ab")}`. If it returns `azb`, it's **Smarty**.
+
+b. If `${7*7}` does **not** evaluate to `49`, the engine is either **Mako** or **Twig**.  
+- Send the payload `{{7*'7'}}`. If it evaluates to `49`, it is **Twig**. If it evaluates to `'7777777'`, it is **Mako**.
+
+---
+
+### 2. Process 2
+
+a. Send the payload `${7*7}`. If the result is `49`, the engine could be **Smarty** or **Mako**.  
+  - Next, try `a{*comment*}b`. If it returns `ab`, it’s **Smarty**.  
+  - Otherwise, try `${"z".join("ab")}`. If the result is `azb`, it’s **Mako**.
+
+b. If `${7*7}` does **not** evaluate to `49`, the engine is either **Jinja2** or **Twig**.  
+  - Send the payload `{{7*'7'}}`. If it evaluates to `49`, it’s **Twig**; if it evaluates to `'7777777'`, it’s **Jinja2**.
+
+---
+
+### 3. Process 3
+
+a. Send the payload `${7*7}`. If the result is `49`, the engine could be **Smarty** or **Mako**.  
+  - Try `a{*comment*}b`. If it returns `ab`, it’s **Mako**.  
+  - Otherwise, if `${"z".join("ab")}` returns `azb`, it’s **Smarty**.
+
+b. If `${7*7}` does **not** evaluate to `49`, the engine is either **Jinja2** or **Twig**.  
+  - Try the payload `{{7*7}}`. If it evaluates to `49`, it is **Twig**; if it evaluates to `'7777777'`, it is **Jinja2**.
