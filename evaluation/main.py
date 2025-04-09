@@ -45,12 +45,18 @@ def main():
         required=False
     )
 
+    parser.add_argument(
+        '--overwrite-checkpoints', 
+        action=argparse.BooleanOptionalAction
+    )
+
     arguments = parser.parse_args(sys.argv[1:])
 
     inference_settings = InferenceSettings(
         architecture=arguments.architecture,
         models=[model.strip() for model in arguments.models.split(',')],
-        inference_endpoint=arguments.inference_endpoint
+        inference_endpoint=arguments.inference_endpoint,
+        overwrite_checkpoints=arguments.overwrite_checkpoints
     )
     LOGGER.debug(f'inference settings: {inference_settings}')
 

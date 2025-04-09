@@ -12,7 +12,11 @@ from deepeval.metrics import (
 from evaluation.core.judge import GeminiLLM
 from evaluation.core.schema import Stage, Stream, Task
 from evaluation.core.stream import JSONFileStream, QueueStream
-from evaluation.core.utils import conversation_to_test_case
+from evaluation.core.utils import (
+    conversation_to_test_case, 
+    gen_checkpoint_id, 
+    verify_checkpoint_id
+)
 
 os.environ['DEEPEVAL_TELEMETRY_OPT_OUT'] = 'YES'
 
@@ -58,4 +62,6 @@ __all__ = [
     "conversation_to_test_case",
     "get_judge",
     "get_metrics"
+    "gen_checkpoint_id", 
+    "verify_checkpoint_id"
 ]

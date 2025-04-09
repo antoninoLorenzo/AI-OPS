@@ -29,6 +29,7 @@ LOGGER = get_logger(__name__)
 
 class Item(BaseModel):
     evaluation_id: str
+    activity_type: str
     conversation_name: str
     user_input: str
     context: List[str]
@@ -57,6 +58,19 @@ class Orchestrator:
                 data = json.load(fp)
                 self.dataset = [Item.model_validate(item) for item in data]
             
+            # load user inputs
+            for item in self.dataset:
+                user_input_path = (
+                    Path(current_path[:current_path.find('evaluation')])
+                    / 'evaluation'
+                    / 'resources'
+                    / 'test_cases'
+                    / item.user_input
+                )
+                with open(str(user_input_path), 'r', encoding='utf-8') as fp:
+                    prompt = fp.read()
+                    item.user_input = prompt
+
             # specify output path to pass in Evaluation Stage
             self.output_path = (
                 Path(current_path[:current_path.find('evaluation')])
@@ -79,6 +93,7 @@ class Orchestrator:
                         inference_endpoint=inference_settings.inference_endpoint
                     )
                 )
+            self.__overwrite_checkpoints = inference_settings.overwrite_checkpoints
 
             # initialize evaluation related resources
             self.__judge_llm = get_judge(evaluation_settings.judge_model)
@@ -89,7 +104,7 @@ class Orchestrator:
 
     def run(self):
         # initialize components
-        inference_runner = Inference()
+        inference_runner = Inference(self.__overwrite_checkpoints)
         inference_task_stream = QueueStream()
 
         evaluation = Evaluation(str(self.output_path))
@@ -136,6 +151,7 @@ class Orchestrator:
             )
 
             for idx, item in enumerate(self.dataset):
+                # create input conversation
                 conversation = Conversation(
                     conversation_id=idx,
                     name=item.conversation_name,
@@ -144,6 +160,8 @@ class Orchestrator:
                 
                 inference_task = InferenceTask(
                     assistant=assistant,
+                    assistant_type=assistant.architecture_name,
+                    assistant_model=assistant.model,
                     conversation=conversation,
                     conversation_type=ConversationType.SingleTurn
                 )
@@ -178,7 +196,7 @@ class Orchestrator:
         # fetch generated conversations and send evaluation tasks to Evaluation stage
         evaluation_logger.debug('starting inference stage')
         try:
-            for conversation in inference_runner.run(inference_task_stream):
+            for conversation, assistant_type, assistant_model in inference_runner.run(inference_task_stream):
                 evaluation_logger.debug(f'sending conversation {conversation.conversation_id} to evaluation stage')
 
                 dataset_item = self.dataset[conversation.conversation_id]
@@ -189,7 +207,10 @@ class Orchestrator:
                         metric_name=metric_name,
                         test_case_parameters={'context': dataset_item.context},
                         metadata={
-                            'evaluation_id': dataset_item.evaluation_id
+                            'evaluation_id': dataset_item.evaluation_id,
+                            'activity': dataset_item.activity_type,
+                            'assistant': assistant_type,
+                            'model': assistant_model
                         }
                     )   
 
@@ -200,7 +221,7 @@ class Orchestrator:
                     )
         except RuntimeError as err:
             LOGGER.error(f'stopping evaluation task producer: {err}')
-            
+
         evaluation_task_stream.stop()
         evaluation_logger.debug('sent stop signal to evaluation stream.')
 

@@ -1,3 +1,4 @@
+import hashlib
 from itertools import pairwise
 from typing import Any, Dict, List, Union
 
@@ -75,21 +76,25 @@ def conversation_to_test_case(
     )
 
 
-def conversion():
-    convo = Conversation(
-        conversation_id=1,
-        name='untitled',
-        messages=[
-            Message(role=Role.SYS, content='you are an useful AI Assistant'),
-            Message(role=Role.USER, content='What is 2 + 2?'),
-            Message(role=Role.ASSISTANT, content='that\'s 4 man')
-        ]
-    )
-
-    out = conversation_to_test_case(convo)
-    print(out)
+def gen_checkpoint_id(
+    architecture: str, 
+    model: str, 
+    conversation_name: str, 
+    conversation_type: str
+):
+    m = hashlib.sha1()
+    raw = f'{conversation_name}_{architecture}-{model}_{conversation_type}'
+    m.update(raw.encode())
+    return m.hexdigest()
 
 
-if __name__ == "__main__":
-    pass
-
+def verify_checkpoint_id(
+    architecture: str, 
+    model: str, 
+    conversation_name: str, 
+    conversation_type: str, 
+    hash: str
+):
+    h = gen_checkpoint_id(architecture, model, conversation_name, conversation_type)
+    return h == hash
+    

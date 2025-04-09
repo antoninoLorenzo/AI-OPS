@@ -1,6 +1,6 @@
 import json
 from abc import ABC, abstractmethod
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Dict, Optional, List
 from dataclasses import dataclass
@@ -9,6 +9,7 @@ from pydantic import ConfigDict
 from tool_parse import ToolRegistry
 
 from evaluation.core import QueueStream, Stage, Task
+from evaluation.core import gen_checkpoint_id, verify_checkpoint_id
 from src.agent.default import Default, init_default_architecture
 from src.core import LLM, TOOL_REGISTRY, Conversation
 from src.utils import get_logger
@@ -29,6 +30,7 @@ class InferenceSettings:
     architecture: str
     models: List[str]
     inference_endpoint: str
+    overwrite_checkpoints: bool = False
 
     def __str__(self):
         mdls = ', '.join(self.models)
@@ -102,7 +104,7 @@ class DefaultAssistantFactory(AssistantFactory):
         return DefaultAssistant(llm=llm, tool_registry=TOOL_REGISTRY)
 
 
-class ConversationType(Enum):
+class ConversationType(StrEnum):
     """
     Specifies the scenario for the InferenceTask, there are two evaluation scenarios:
     - single-turn: 
@@ -127,6 +129,8 @@ class InferenceTask(Task):
     # The inference stage is completely decoupled from the specific component being
     # tested, also it shouldn't be responsible for creation of the said component.
     assistant: InferenceExecutor
+    assistant_type: str
+    assistant_model: str
     conversation: Conversation
     conversation_type: ConversationType
 
@@ -138,7 +142,7 @@ class Inference(Stage):
     Implements the Inference Stage execution logic.
     """
 
-    def __init__(self):
+    def __init__(self, overwrite_checkpoints: bool = False):
         current = str(Path(__file__))
         self.__checkpoints_path = (
             Path(current[:current.find('evaluation')])
@@ -146,33 +150,52 @@ class Inference(Stage):
             / 'resources'
             / 'checkpoints'
         )
+        self.__overwrite_checkpoints = overwrite_checkpoints if overwrite_checkpoints is True else False
+        LOGGER.info(f'inference stage: skipping checkpoints: {self.__overwrite_checkpoints}')
+        
         if not self.__checkpoints_path.exists():
             self.__checkpoints_path.mkdir()
+        
+        # remove checkpoints if overwrite is specified
+        if self.__overwrite_checkpoints:
+            for p in self.__checkpoints_path.iterdir():
+                p.unlink()
+            LOGGER.info(f'inference stage: deleted checkpoints in {self.__checkpoints_path}')
 
     def run(self, task_stream: QueueStream):
+        # TODO: there information about assistant is yielded with conversation, however its getting out of hand
         try:
             for task in task_stream:
                 if not isinstance(task, InferenceTask):
                     raise ValueError(f'expected InferenceTask: got {type(task)}')
+                LOGGER.debug(f'inference stage: received conversation {task.conversation.name}')
                 
                 conversation = task.conversation
-                conversation_identifier = (
-                    f'{task.assistant.architecture_name}_'
-                    f'{conversation.conversation_id}_{conversation.name}_{task.conversation_type}'
+                architecture_name = task.assistant.architecture_name
+                architecture_model = task.assistant.model
+                conversation_type = task.conversation_type
+
+                # generate a unique identifier for the current converstaion taking
+                # into account assistant architecture, model and the conversation type
+                conversation_identifier = gen_checkpoint_id(
+                    architecture_name, 
+                    architecture_model, 
+                    conversation.name, 
+                    conversation_type
                 )
+
                 conversation_checkpoint = Path(
                     self.__checkpoints_path 
                     / f'{conversation_identifier}.json'
                 )
-                LOGGER.debug(f'inference stage: received conversation id {conversation_identifier}')
                 
                 # check if conversation is already generated
-                if conversation_checkpoint.exists():
-                    LOGGER.info(f'loading conversation checkpoint: {conversation_checkpoint}')
+                if conversation_checkpoint.exists() and not self.__overwrite_checkpoints:
                     with open(str(conversation_checkpoint), 'r') as fp:
-                        conversation = Conversation.model_validate(json.load(fp))
+                        c_conversation = Conversation.model_validate(json.load(fp))
+                    LOGGER.info(f'loaded checkpoint for conversation : {c_conversation.name}')
                     
-                    yield conversation
+                    yield c_conversation, task.assistant_type, task.assistant_model
                     continue
 
                 # generate multi-turn conversation
@@ -182,17 +205,12 @@ class Inference(Stage):
                 # generate single-turn conversation
                 # note: Assistant query method handles adding response to the conversation itself.
                 _ = task.assistant.query(conversation=conversation)
-                yield conversation
+                yield conversation, task.assistant_type, task.assistant_model
 
                 # save conversation as checkpoint
                 with open(str(conversation_checkpoint), 'w') as fp:
-                    LOGGER.info(f'saving conversation checkpoint: {conversation_checkpoint}')
                     json.dump(conversation.model_dump(), fp)
+                    LOGGER.info(f'saved conversation {conversation.name} to {conversation_checkpoint}')
         except Exception as err:
             raise RuntimeError(f'exit: error in the Inference Stage: {err}')
-
-    def get_conversation_checkpoint(self, task: InferenceTask):
-        """
-        Given a task it determines if a conversation is already generated.
-        """
 
