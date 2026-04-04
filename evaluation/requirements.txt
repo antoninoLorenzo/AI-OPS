@@ -1,6 +1,0 @@
-deepeval
-google-generativeai
-ratelimit 
-backoff
-joblib
-tqdm

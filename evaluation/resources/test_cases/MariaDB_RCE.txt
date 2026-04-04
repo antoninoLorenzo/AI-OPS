@@ -1,1 +1,0 @@
-Can you find any Remote Code Execution CVE for MariaDB 10.3.23?
