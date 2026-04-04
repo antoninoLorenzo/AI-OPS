@@ -77,7 +77,7 @@ def build_agent_default_architecture() -> Agent:
     """
     Initializes the default architecture for AI Assistant.
     """
-    LOGGER.debug(f'building default architecture with: {AGENT_SETTINGS}')
+    LOGGER.debug(f'Building default architecture. MODEL={AGENT_SETTINGS.MODEL} PROVIDER={AGENT_SETTINGS.PROVIDER}')
     provider = AGENT_SETTINGS.PROVIDER
     if provider not in AVAILABLE_PROVIDERS.keys():
         raise RuntimeError(f'{provider} not supported.')

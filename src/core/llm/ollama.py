@@ -53,6 +53,11 @@ log_path = (
     / 'logs'
     / 'ollama.log'
 )
+if not log_path.exists():
+    if not log_path.parent.exists():
+        log_path.parent.mkdir()
+    log_path.touch()
+
 logger = get_logger(__name__, output_file=log_path)
 
 
@@ -77,7 +82,7 @@ def check_ollama_endpoint(inference_endpoint: str, expected_model: str, log_info
     found = False
     models = response.get('models', [])
     for model in models:
-        if model['name'] == expected_model:
+        if model['model'] == expected_model:
             found = True
             if not log_info:
                 break
