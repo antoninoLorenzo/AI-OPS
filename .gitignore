@@ -1,8 +1,8 @@
-benchmarks/rag/*
-test/strategies/*
-logs/
+benchmark/model_selection/*
 .coverage
 htmlcov/*
+old/
+old_test/
 
 # IDEs
 .idea/

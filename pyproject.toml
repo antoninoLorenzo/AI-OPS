@@ -1,0 +1,73 @@
+[project]
+name = "ai-ops"
+version = "0.2.0"
+description = "LLM-assisted penetration testing assistant"
+requires-python = ">=3.12"
+
+dependencies = [
+    "bashlex>=0.18",
+    "litellm>=1.49.7",
+    "mlflow>=3.11.1",
+    "pydantic>=2.0",
+    "python-dotenv",
+]
+
+[project.optional-dependencies]
+api = [
+    "fastapi[standard]",
+    "uvicorn",
+    "ollama",
+    "httpx",
+    "pydantic-settings",
+    "tool-parse",
+    "newspaper3k",
+    "lxml-html-clean",
+    "googlesearch-python",
+    "psutil",
+    "litellm",
+]
+cli = [
+    "rich>=13.9.4",
+    "prompt-toolkit",
+    "requests~=2.32.3",
+]
+dev = [
+    "ai-ops[api,cli,bench]",
+    "pytest",
+    "pytest-cov",
+    "isort",
+    "pylint",
+    "pandas~=2.2.2",
+    "numpy",
+    "matplotlib~=3.9.0",
+    "seaborn~=0.13.2",
+    "tqdm~=4.66.4",
+    "playwright"
+]
+bench = [
+    # "autopenbench @ file://${PROJECT_ROOT}/benchmark/auto-pen-bench",
+    "autopenbench"
+]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+
+[tool.isort]
+profile = "black"
+
+[tool.uv.workspace]
+exclude = [
+    "benchmark/auto-pen-bench",
+]
+
+[tool.uv.sources]
+autopenbench = { path = "benchmark/auto-pen-bench", editable = true }
+
+[dependency-groups]
+api = [
+    "pyyaml>=6.0.3",
+]
+dev = [
+    "pytest>=9.0.2",
+    "transformers>=5.5.3",
+]
