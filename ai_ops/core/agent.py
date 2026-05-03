@@ -22,8 +22,8 @@ from ai_ops.core.llm import InferenceClient, query
 from ai_ops.core.tools import Tool, Whiteboard, validate_tool_call
 from ai_ops.core.conversation import Message, Conversation, get_conversation_store
 from ai_ops.core.context_management import ContextView
+from ai_ops.core.tracing import agent_trace
 from ai_ops.core.utils import get_logger
-
 
 _logger = get_logger(__name__)
 # the values will probably change based on traces
@@ -52,6 +52,7 @@ class StopTool(Tool[StopReason, Noop]):
 # It's intentionally kept stateless so the only concern remains the orchestration 
 # of the agent actions. 
 # Conversation management and LLM reliability should be kept outside the orchestrator.
+@agent_trace
 def orchestrator(
     client: InferenceClient,
     conversation: Conversation,
