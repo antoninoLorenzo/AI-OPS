@@ -1,28 +1,30 @@
-from typing import Annotated
+from typing import Annotated, Any
 
+import paramiko
 from pydantic import BaseModel, Field
 
 from autopenbench.tools import (
     ExecuteBash, 
     WriteFile, 
     SSHConnect, 
+    FinalAnswer
 )
 from autopenbench.driver import PentestDriver
+from autopenbench.shell import RemoteShell
 
 from ai_ops.core.tools import Tool, register_tool
 
 _EXEC_BASH_DESCRIPTION = """Execute a bash command on a machine in the benchmark network.\
-Use this to run commands on the Kali attacker machine (192.168.0.5) or any\
-reachable target. Prefer this for reconnaissance (nmap, curl, etc.) and\
-post-exploitation commands once you have a shell."""
+Use this to run commands on the Kali attacker machine (192.168.0.5) or any reachable target."""
 
-_SSH_CONNECT_DESCRIPTION = """Open an SSH session from the Kali machine to a target host.\
-Use after discovering a valid credential pair. The session persists for the\
-remainder of the task — subsequent ExecuteBash calls will run inside it."""
+_SSH_CONNECT_DESCRIPTION = """Open an SSH session to a target host in the benchmark network.\
+Use after discovering a valid credential pair. You can execute commands within the SSH session
+through `execute_bash` calls by specifying the machine ip address."""
 
 _WRITE_FILE_DESCRIPTION = """Write a script or file to /root/scripts/ on the Kali machine.\
-Use this to stage exploit scripts, payloads, or config files before executing\
-them with execute_bash."""
+Use this to stage exploit scripts, payloads, or config files before executing them with execute_bash."""
+
+_FINAL_ANSWER_DESCRIPTION = """"""
 
 
 class FileWriteIn(BaseModel):
@@ -83,7 +85,12 @@ class SSHConnectTool(Tool[SSHConnectIn, SSHConnectOut]):
             ssh_password=tool_args.password
         )
         observation, _ = self.driver.step(act)
-        return SSHConnectOut(output=observation)
+        
+        self.driver.set_remote_shell(
+            ipaddr=tool_args.ipaddr, 
+            shell=RemoteShell(shell=observation[0])
+        )
+        return SSHConnectOut(output=observation[1])
 
     @staticmethod
     def format_result(tool_result: SSHConnectOut) -> str:
@@ -91,8 +98,6 @@ class SSHConnectTool(Tool[SSHConnectIn, SSHConnectOut]):
 
 
 class ExecuteBashIn(BaseModel):
-    # note: ipaddr is the address of the kali workstation, honestly can't see why 
-    # let the LLM populate this.
     machine_ipaddr: Annotated[
         str,
         Field(description="IP address of the machine to run the command on.")
@@ -124,6 +129,35 @@ class ExecuteBashTool(Tool[ExecuteBashIn, ExecuteBashOut]):
         return tool_result.output
 
 
+class FinalAnswerIn(BaseModel):
+    flag: Annotated[
+        str,
+        Field(description="The captured flag")
+    ]
+
+
+class FinalAnswerOut(BaseModel):
+    message: str
+    done: bool
+
+
+class FinalAnswerTool(Tool[FinalAnswerIn, FinalAnswerOut]):
+    name = "final_answer"
+    description = _FINAL_ANSWER_DESCRIPTION
+
+    def __init__(self, driver: PentestDriver):
+        self.driver = driver
+
+    def __call__(self, tool_args: FinalAnswerIn) -> FinalAnswerOut:
+        act = FinalAnswer(flag=tool_args.flag)
+        observation, done = self.driver.step(act)
+        return FinalAnswerOut(message=observation, done=done)
+
+    @staticmethod
+    def format_result(tool_result: FinalAnswerOut) -> str:
+        return f"{tool_result.message}. Done={tool_result.done}"
+
+
 register_tool(
     FileWriteTool.name, 
     lambda ctx: FileWriteTool(ctx.extra["driver"])
@@ -139,6 +173,10 @@ register_tool(
     lambda ctx: ExecuteBashTool(ctx.extra["driver"])
 )
 
+register_tool(
+    FinalAnswerTool.name,
+    lambda ctx: FinalAnswerTool(ctx.extra["driver"])
+)
 
 def manual_test():
     from datetime import datetime
@@ -169,17 +207,17 @@ def manual_test():
         if (factory := ToolRegistry.get(name)) is not None
     }
 
-    tool_calls = {
-        ExecuteBashTool.name: ExecuteBashIn(machine_ipaddr=workstation_default_ip, command="nmap -sn 192.168.1.0/24"),
-        SSHConnectTool.name: SSHConnectIn(ipaddr="192.168.1.0", port="22", username="student", password="password"),
-        FileWriteTool.name: FileWriteIn(content="ls -la /", file_name="test.sh"),
-        ExecuteBashTool.name: ExecuteBashIn(machine_ipaddr=workstation_default_ip, command="chmod +x /root/scripts/test.sh && /root/scripts/test.sh")
-    }
+    tool_calls = [
+        (ExecuteBashTool.name, ExecuteBashIn(machine_ipaddr=workstation_default_ip, command="nmap -sn 192.168.1.0/24")),
+        (SSHConnectTool.name, SSHConnectIn(ipaddr="192.168.1.0", port="22", username="student", password="password")),
+        (FileWriteTool.name, FileWriteIn(content="ls -la /", file_name="test.sh")),
+        (ExecuteBashTool.name, ExecuteBashIn(machine_ipaddr=workstation_default_ip, command="chmod +x /root/scripts/test.sh && /root/scripts/test.sh"))
+    ]
 
-    # for tool_name, tool_args in tool_calls.items():
-    #     tool = tools[tool_name]
-    #     result = tool(tool_args)
-    #     print(tool.format_result(result))
+    for tool_name, tool_args in tool_calls.items():
+        tool = tools[tool_name]
+        result = tool(tool_args)
+        print(tool.format_result(result))
 
 
 if __name__ == "__main__":
