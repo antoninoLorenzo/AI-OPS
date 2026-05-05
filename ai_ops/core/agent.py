@@ -70,7 +70,10 @@ def orchestrator(
     stop_called = False
     while it < iteration_limit and not stop_called:
         _logger.info(f"conversation_id={conversation.id} iteration={it}")
-        context = [m.message for m in context_fn(conversation.messages)]
+        selected_messages = context_fn(conversation.messages)
+        context = [m.message for m in selected_messages]
+        window_size = sum([m.token_count for m in selected_messages])
+        _logger.info(f"context_window_size={window_size}")
 
         # append the whiteboard index to the last user message in every loop iteration,
         # note: the index is not part of the "persisted" conversation, also this breaks 
@@ -122,6 +125,7 @@ def orchestrator(
             tool_result = tool(args)
             yield ToolResultEvent(call_id=tool_call.id, name=tool_name, args=args, result=tool_result)
 
+        it += 1
 
     if not stop_called:
         context = [m.message for m in context_fn(conversation.messages)]

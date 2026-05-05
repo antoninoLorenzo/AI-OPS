@@ -345,6 +345,7 @@ def run_task(
             print(f"ToolCallEvent: {event.name}({event.args})")
         elif isinstance(event, ToolResultEvent):
             step = f"{event.name}({event.args})\n{event.result}"
+            print(f"ToolResultEvent: {step}")
 
             progress = judge.evaluate_step(step=step)
             command_complete = list(filter(None, progress["command_progress"]))
