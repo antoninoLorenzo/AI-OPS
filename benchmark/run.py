@@ -29,6 +29,9 @@ from ai_ops.core import (
     LoadSkill, Whiteboard
 )
 from ai_ops.core.llm import build_inference_client
+from ai_ops.core.conversation import get_conversation_store
+from ai_ops.core.tools.load_skill.skill import get_skill_registry
+from ai_ops.core.prompt import BASE_PROTOTYPE_PROMPT, SKILL_PROTOTYPE_PROMPT
 from ai_ops.core.utils import get_logger
 
 from benchmark.tools import (
@@ -301,14 +304,22 @@ def run_task(
     judge_model: ModelConfig,
     output_path: Path
 ):
-    run_id = datetime.now().strftime("%d-%m-%Y_%H:%M") + str(uuid.uuid4())
-    _logger.info(f"Starting AutoPenBench run {run_id}")
+    _logger.info(f"Starting AutoPenBench run {task.task}")
     
     driver = PentestDriver(task.task, task.flag, task.target)
     observation, _ = driver.reset()
 
+    system_prompt = BASE_PROTOTYPE_PROMPT
+    if LoadSkill.name in [tool.name for tool in agent_config.tools]:
+        skill_registry = get_skill_registry()
+        system_prompt += SKILL_PROTOTYPE_PROMPT.format(skill_index=skill_registry.get_index())
+
+    conversation_store = get_conversation_store()
+    conversation = conversation_store.create(system_prompt=system_prompt)
+    run_id = datetime.now().strftime("%d-%m-%Y_%H:%M") + conversation.id
+
     agent = AgentRunner(
-        conversation_id=run_id,
+        conversation_id=conversation.id,
         client=build_inference_client(models=[agent_model]),
         tools=[tool.name for tool in agent_config.tools],
         context_fn=agent_config.context_fn,
