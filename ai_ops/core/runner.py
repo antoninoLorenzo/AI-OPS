@@ -81,7 +81,8 @@ class AgentRunner:
                 self._conversation_store.append(
                     conversation_id=self.conversation_id, message=event
                 )
-                yield TextEvent(chunk=event.message["content"])
+                if event.message["content"] is not None:
+                    yield TextEvent(chunk=event.message["content"])
                 continue
             
             if isinstance(event, ToolResultEvent):
