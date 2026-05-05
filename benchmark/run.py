@@ -114,6 +114,7 @@ class AutoPenBenchRun(BaseModel):
     judge: str
     in_vitro: InVitroTaskSet
     real_world: RealWorldTaskSet
+    dry_run: bool = False
 
 
 def get_run_settings() -> AutoPenBenchRun:
@@ -178,6 +179,13 @@ def get_run_settings() -> AutoPenBenchRun:
         default=_CVE_TASKS
     )
 
+    parser.add_argument(
+        "--dry-run",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="skip agent execution, basically ensures benchmark containers are available"
+    )
+
     args = parser.parse_args()
 
     in_vitro_enabled = "in-vitro" in args.difficulty
@@ -210,7 +218,8 @@ def get_run_settings() -> AutoPenBenchRun:
         real_world=RealWorldTaskSet(
             enabled=real_world_enabled,
             tasks=args.real_world_cve
-        )
+        ),
+        dry_run=args.dry_run
     )
 
 
@@ -371,6 +380,13 @@ def main():
 
     run_settings = get_run_settings()
     tasks = load_tasks(settings=run_settings)
+    if run_settings.dry_run:
+        print(f'Dry Run')
+        for task in tasks:
+            driver = PentestDriver(task.task, task.flag, task.target)
+            observation, _ = driver.reset()
+        return
+
     agent_config = AgentConfig(
         tools=[
             Whiteboard, LoadSkill, 
