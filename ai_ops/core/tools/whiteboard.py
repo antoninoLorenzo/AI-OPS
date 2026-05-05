@@ -1,6 +1,6 @@
 from typing import Literal, Optional, Union, Dict, Annotated
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from ai_ops.core.tools.base import Tool
 from ai_ops.core.utils import get_logger
@@ -10,27 +10,40 @@ _logger = get_logger(__name__)
 
 _WHITEBOARD_DESCRIPTION = """A structured in-memory notepad for persisting findings across reasoning steps.
 Maintains a named index of findings (vulnerabilities, credentials, host info, etc.), each with a description and content.
-Use 'w' to create or update a finding by name, and 'r' to retrieve a specific finding's full content.
-Before performing a read, consult the whiteboard index provided in context to identify available finding names."""
+Operations:
+- Read: mode='r' and name='...'
+  - Returns the full content for the named finding.
+  - Do not include description or content when reading.
+- Write: mode='w', name='...', description='...', content='...'
+  - Creates or updates the named finding.
+  - Both description and content are required for writes.
+
+Before reading, consult the whiteboard index provided in context to identify available finding names."""
 
 
 class WhiteboardRequest(BaseModel):
     mode: Annotated[
-        Literal['r', 'w'], 
-        Field(description="'r' to read a finding's content, 'w' to create or update a finding (upsert semantics).")
+        Literal['r', 'w'],
+        Field(description="Use 'r' to read a finding by name. Use 'w' to create or update a finding.")
     ]
     name: Annotated[
         str,
-        Field(description="Unique identifier for the finding. Used as the index key.")
+        Field(description="Finding name / index key. Required for both read and write.")
     ]
     description: Annotated[
         Optional[str],
-        Field(description="One-sentence summary of the finding. Required for writes, used to build the index.")
-    ]
+        Field(description="Required when mode='w'. One-sentence summary used for the whiteboard index. Omit when mode='r'.")
+    ] = None
     content: Annotated[
         Optional[str],
-        Field(description="Full finding content. Required for writes, ignored on reads.")
-    ]
+        Field(description="Required when mode='w'. Full finding content. Omit when mode='r'.")
+    ] = None
+
+    @model_validator(mode="after")
+    def validate_mode_specific_fields(self):
+        if self.mode == 'w' and (self.description is None or self.content is None):
+            raise ValueError("mode='w' requires both description and content")
+        return self
 
 
 class WhiteboardEntry(BaseModel):

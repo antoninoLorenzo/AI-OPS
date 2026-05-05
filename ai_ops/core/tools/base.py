@@ -79,13 +79,14 @@ def validate_tool_call(
     tool_call: ChatCompletionMessageToolCall
 ) -> Tuple[Tool, BaseModel] | Tuple[None, str]:
     tool_name = tool_call.function.name
+    raw_args = tool_call.function.arguments
 
     tool = available_tools.get(tool_name)
     if tool is None:
         return None, f"{tool_name} not available"
-    
+
     try:
-        tool_args = tool.get_input_schema().model_validate_json(tool_call.function.arguments)
+        tool_args = tool.get_input_schema().model_validate_json(raw_args)
         return tool, tool_args
     except ValidationError as exc:
-        return None, f"Invalid arguments for {tool_name}: {tool_args}"
+        return None, f"Invalid arguments for {tool_name}: {raw_args}; error: {exc}"

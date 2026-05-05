@@ -27,8 +27,8 @@ from ai_ops.core.utils import get_logger
 
 _logger = get_logger(__name__)
 # the values will probably change based on traces
-DEFAULT_ITERATION_LIMIT = {AgentMode.SUPERVISED: 15, AgentMode.UNSUPERVISED: 30}
-
+DEFAULT_ITERATION_LIMIT = {AgentMode.SUPERVISED: 30, AgentMode.UNSUPERVISED: 50}
+DEFAULT_TEMPERATURE = 0.4
 
 class StopReason(BaseModel):
     reason: str
