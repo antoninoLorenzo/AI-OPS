@@ -109,7 +109,7 @@ class Whiteboard(Tool[WhiteboardRequest, WhiteboardResult]):
     def __call__(self, tool_args: WhiteboardRequest) -> WhiteboardResult:
         store = get_whiteboard_store()
         entry = store.get_entry(self.whiteboard_id, tool_args.name)
-        if entry is None:
+        if entry is None and tool_args.mode == 'r':
             return WhiteboardResult(
                 status=False,
                 operation=tool_args.mode if tool_args.mode in ('r', 'w') else 'undefined',
