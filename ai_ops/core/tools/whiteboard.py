@@ -92,13 +92,8 @@ class WhiteboardStore:
         whiteboard = self.__store.get(whiteboard_id, None)
         if whiteboard is None:
             raise ValueError(f"No whiteboard with whiteboard_id={whiteboard_id}")
-        
-        old_entry = whiteboard.get(entry.name, None)
-        if old_entry is None:
-            raise ValueError(f"No entry {entry.name} in whiteboard")
-        
-        old_entry.description = entry.description
-        old_entry.content = entry.content
+
+        whiteboard[entry.name] = entry
 
 
 _WHITEBOARD_STORE = None
@@ -121,45 +116,47 @@ class Whiteboard(Tool[WhiteboardRequest, WhiteboardResult]):
 
     def __call__(self, tool_args: WhiteboardRequest) -> WhiteboardResult:
         store = get_whiteboard_store()
-        entry = store.get_entry(self.whiteboard_id, tool_args.name)
-        if entry is None and tool_args.mode == 'r':
-            return WhiteboardResult(
-                status=False,
-                operation=tool_args.mode if tool_args.mode in ('r', 'w') else 'undefined',
-                result=f"No entry for {tool_args.name} in whiteboard index"
-            )
-        
+
         if tool_args.mode == 'r':
-            return WhiteboardResult(
-                status=True,
-                operation=tool_args.mode,
-                result=entry
-            )
-        elif tool_args.mode == 'w':
-            if tool_args.description is None or tool_args.content is None:
-                _logger.error(
-                    "write requires description and content: "
-                    f"description={type(tool_args.description)} content={type(tool_args.content)}"
-                )    
+            try:
+                entry = store.get_entry(self.whiteboard_id, tool_args.name)
+            except ValueError:
                 return WhiteboardResult(
                     status=False,
-                    operation=tool_args.mode,
-                    result=f"description and content required for write"
+                    operation='r',
+                    result=f"No entry for {tool_args.name} in whiteboard"
                 )
-            
-            store.upsert(self.whiteboard_id, WhiteboardEntry(
-                name=tool_args.name,
-                description=tool_args.description,
-                content=tool_args.content
-            ))
-            
+
             return WhiteboardResult(
                 status=True,
-                operation=tool_args.mode,
+                operation='r',
+                result=entry
+            )
+
+        elif tool_args.mode == 'w':
+            if tool_args.description is None or tool_args.content is None:
+                return WhiteboardResult(
+                    status=False,
+                    operation='w',
+                    result="description and content required for write"
+                )
+
+            store.upsert(
+                self.whiteboard_id,
+                WhiteboardEntry(
+                    name=tool_args.name,
+                    description=tool_args.description,
+                    content=tool_args.content
+                )
+            )
+
+            return WhiteboardResult(
+                status=True,
+                operation='w',
                 result=f"Wrote finding {tool_args.name}"
             )
+
         else:
-            _logger.error(f"Invalid input mode={tool_args.mode}")
             return WhiteboardResult(
                 status=False,
                 operation='undefined',
@@ -169,8 +166,8 @@ class Whiteboard(Tool[WhiteboardRequest, WhiteboardResult]):
     @staticmethod
     def format_result(whiteboard_result: WhiteboardResult) -> str:
         if whiteboard_result.status:
-            return f"ERROR: {whiteboard_result.result}"
-        return f"{whiteboard_result.result}"
+            return f"{whiteboard_result.result}"
+        return f"ERROR: {whiteboard_result.result}"
 
 
     @property
