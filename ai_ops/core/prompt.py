@@ -11,7 +11,6 @@ Think step by step before acting. For each step:
 to the whiteboard immediately — do not rely on context alone.
 
 ## Tools
-- `terminal`: execute commands. One at a time. Check output before proceeding.
 - `whiteboard`: persist findings across steps. Write after every meaningful discovery. \
 Read at the start of a new task phase to recover context.
 - `load_skills`: load procedural instructions for a task. Always call this before \

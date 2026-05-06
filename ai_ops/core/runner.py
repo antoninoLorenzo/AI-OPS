@@ -1,35 +1,34 @@
-from typing import List, Optional, Dict, Type, Iterator, Any
+from typing import Any, Dict, Iterator, List, Optional, Type
 
 import litellm
 from litellm import (
-    ChatCompletionSystemMessage,
+    ChatCompletionToolMessage,
     ChatCompletionUserMessage,
-    ChatCompletionAssistantMessage,
-    ChatCompletionToolMessage
 )
 
 from ai_ops.core.agent import orchestrator
-from ai_ops.core.schema import (
-    AgentConfig, 
-    AgentMode, 
-    Event, EventType,
-    UserMessageEvent,
-    TextEvent,
-    ToolCallEvent, ToolResultEvent,
-    StopEvent
-)
-from ai_ops.core.llm import ModelConfig, InferenceClient, build_inference_client
-from ai_ops.core.conversation import Conversation, Message, get_conversation_store
-from ai_ops.core.tools import (
-    Tool, ToolContext,
-    ToolRegistry, ToolFactory,
-    LoadSkill, 
-    get_skill_registry,
-    Whiteboard,
-    get_whiteboard_store
-)
-from ai_ops.core.prompt import BASE_PROTOTYPE_PROMPT, SKILL_PROTOTYPE_PROMPT
 from ai_ops.core.context_management import ContextView
+from ai_ops.core.conversation import Message, get_conversation_store
+from ai_ops.core.llm import InferenceClient, ModelConfig, build_inference_client
+from ai_ops.core.prompt import BASE_PROTOTYPE_PROMPT, SKILL_PROTOTYPE_PROMPT
+from ai_ops.core.schema import (
+    AgentConfig,
+    AgentMode,
+    Event,
+    StopEvent,
+    TextEvent,
+    ToolResultEvent,
+    UserMessageEvent,
+)
+from ai_ops.core.tools import (
+    LoadSkill,
+    Tool,
+    ToolContext,
+    ToolRegistry,
+    WhiteboardRead,
+    get_skill_registry,
+    get_whiteboard_store,
+)
 from ai_ops.core.utils import get_logger
 
 _logger = get_logger(__name__)
@@ -81,7 +80,7 @@ class AgentRunner:
                 self._conversation_store.append(
                     conversation_id=self.conversation_id, message=event
                 )
-                if event.message["content"] is not None:
+                if event.message["content"] is not None and not event.internal:
                     yield TextEvent(chunk=event.message["content"])
                 continue
             
@@ -148,7 +147,7 @@ class AgentFactory:
         
         _logger.info(f"Available tools: {list(self._tools.keys())}")
         self._whiteboard_store = None
-        if Whiteboard.name in self._tools:
+        if WhiteboardRead.name in self._tools:
             self._whiteboard_store = get_whiteboard_store()
         
         if LoadSkill.name in self._tools:

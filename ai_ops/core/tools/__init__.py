@@ -2,12 +2,19 @@ from typing import Dict
 
 from ai_ops.core.tools.base import Tool, ToolContext, ToolFactory, validate_tool_call
 from ai_ops.core.tools.load_skill.skill import LoadSkill, get_skill_registry
-from ai_ops.core.tools.whiteboard import Whiteboard, get_whiteboard_store
+from ai_ops.core.tools.think import ThinkTool
+from ai_ops.core.tools.whiteboard import (
+    WhiteboardRead,
+    WhiteboardWrite,
+    get_whiteboard_store,
+)
 from ai_ops.core.utils import get_logger
 
 ToolRegistry: Dict[str, ToolFactory] = {
-    "load_skill": lambda _: LoadSkill(),
-    "whiteboard": lambda ctx: Whiteboard(whiteboard_id=ctx.conversation_id)
+    LoadSkill.name: lambda _: LoadSkill(),
+    ThinkTool.name: lambda _: ThinkTool(),
+    WhiteboardRead.name: lambda ctx: WhiteboardRead(whiteboard_id=ctx.conversation_id),
+    WhiteboardWrite.name: lambda ctx: WhiteboardWrite(whiteboard_id=ctx.conversation_id)
 }
 
 

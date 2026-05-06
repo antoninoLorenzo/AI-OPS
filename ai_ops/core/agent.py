@@ -1,27 +1,29 @@
 # Agent Orchestrator Implementation
-from typing import Dict, Optional, Iterator, cast
+import hashlib
+from collections import deque
+from difflib import SequenceMatcher
+from typing import Dict, Iterator, Optional, cast
 
 import litellm
 from litellm import (
-    ChatCompletionSystemMessage,
-    ChatCompletionUserMessage,
     ChatCompletionAssistantMessage,
-    ChatCompletionToolMessage
+    ChatCompletionSystemMessage,
+    ChatCompletionToolMessage,
+    ChatCompletionUserMessage,
 )
 from pydantic import BaseModel
 
+from ai_ops.core.context_management import ContextView
+from ai_ops.core.conversation import Conversation, Message
+from ai_ops.core.llm import InferenceClient, query
 from ai_ops.core.schema import (
     AgentMode,
-    Event, EventType,
-    TextEvent,
+    Event,
+    StopEvent,
     ToolCallEvent,
     ToolResultEvent,
-    StopEvent
 )
-from ai_ops.core.llm import InferenceClient, query
-from ai_ops.core.tools import Tool, Whiteboard, validate_tool_call
-from ai_ops.core.conversation import Message, Conversation, get_conversation_store
-from ai_ops.core.context_management import ContextView
+from ai_ops.core.tools import Tool, WhiteboardRead, validate_tool_call
 from ai_ops.core.tracing import agent_trace
 from ai_ops.core.utils import get_logger
 
@@ -47,6 +49,23 @@ class StopTool(Tool[StopReason, Noop]):
     def format_result(_: Noop) -> str:
         return ""
 
+# a circular buffer that is used to determine if the agent is stuck in a loop
+# by checking the last `window_size` tool calls, if the count exceeds a threshold
+# check returns True
+class LoopDetector:
+    def __init__(self, window_size: int = 6, threshold: int = 3, similarity: float = 0.85):
+        self.threshold = threshold
+        self.similarity = similarity
+        self.__buffer: deque[str] = deque(maxlen=window_size)
+
+    def _similar(self, a: str, b: str) -> bool:
+        return SequenceMatcher(None, a, b).ratio() >= self.similarity
+
+    def check(self, tool_call_json: str) -> bool:
+        similar_count = sum(1 for prev in self.__buffer if self._similar(prev, tool_call_json))
+        self.__buffer.append(tool_call_json)
+        return similar_count >= self.threshold
+
 
 # The orchestrator implements the agent logic, currently that's just ReAct loop.
 # It's intentionally kept stateless so the only concern remains the orchestration 
@@ -65,6 +84,7 @@ def orchestrator(
     agent_tools.append(StopTool().serialize())
 
     iteration_limit = max_iterations if max_iterations else DEFAULT_ITERATION_LIMIT[mode]
+    loop_detector = LoopDetector()
 
     it = 0
     stop_called = False
@@ -78,19 +98,19 @@ def orchestrator(
         # append the whiteboard index to the last user message in every loop iteration,
         # note: the index is not part of the "persisted" conversation, also this breaks 
         # prefix caching.
-        if Whiteboard.name in tools:
-            whiteboard_tool: Whiteboard = tools[Whiteboard.name]
+        if WhiteboardRead.name in tools:
+            whiteboard_tool: WhiteboardRead = tools[WhiteboardRead.name]
             if whiteboard_tool.index:
                 last_usr_idx = next(
                     (
                         i for i in range(len(context)-1, -1, -1)
-                        if context[i].role == "user"
+                        if context[i].get("role", "") == "user"
                     ),
                     None
                 )
                 _logger.debug(f"Appending whiteboard index to message last_usr_idx={last_usr_idx}")
                 if last_usr_idx is not None:
-                    context[last_usr_idx]["content"] += f"Whiteboard Index:\n{whiteboard_tool.index}"
+                    context[last_usr_idx]["content"] += whiteboard_tool.index
 
         response = query(client=client, messages=context, tools=agent_tools)
         response_message = response.choices[0].message
@@ -105,7 +125,11 @@ def orchestrator(
             break
 
         for tool_call in response_message.tool_calls:
-            _logger.debug(f"raw tool call from {response.model}: {tool_call.model_dump()}")
+            raw_tool_call_json = tool_call.model_dump_json()
+            _logger.debug(f"raw tool call from {response.model}: {raw_tool_call_json}")
+            if loop_detector.check(raw_tool_call_json):
+                _logger.info(f"LoopDetector: the agent may be stuck")
+            
             tool_name = tool_call.function.name
             
             if tool_name == StopTool.name:
@@ -116,11 +140,22 @@ def orchestrator(
             
             tool, args = validate_tool_call(available_tools=tools, tool_call=tool_call)
             if tool is None:
-                # note: could retry 
-                _logger.error(f"model={response.model} tool_error={args}")
+                error_msg = args
+                _logger.error(f"model={response.model} tool_error={error_msg}")
+
+                # feed the error back so the agent can retry
+                error_result = Message(
+                    message=ChatCompletionToolMessage(
+                        role="tool", 
+                        content=error_msg, 
+                        tool_call_id=tool_call.id
+                    ),
+                    token_count=litellm.token_counter(text=error_msg),
+                    internal=True
+                )
+                yield error_result
                 continue
 
-            # note: there goes the logic for approval
             yield ToolCallEvent(call_id=tool_call.id, name=tool_name, args=args)
             tool_result = tool(args)
             yield ToolResultEvent(call_id=tool_call.id, name=tool_name, args=args, result=tool_result)

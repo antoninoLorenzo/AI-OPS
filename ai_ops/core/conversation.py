@@ -1,15 +1,15 @@
 # Agent Orchestrator Implementation
 import uuid
-from typing import Annotated, Union, Optional, List, Dict
+from typing import Annotated, Dict, List, Optional, Union
 
 import litellm
 from litellm import (
-    ChatCompletionSystemMessage,
-    ChatCompletionUserMessage,
     ChatCompletionAssistantMessage,
-    ChatCompletionToolMessage
+    ChatCompletionSystemMessage,
+    ChatCompletionToolMessage,
+    ChatCompletionUserMessage,
 )
-from pydantic import BaseModel, Discriminator, Tag, Field
+from pydantic import BaseModel, Discriminator, Field, Tag
 
 
 class Message(BaseModel):
@@ -24,6 +24,7 @@ class Message(BaseModel):
         Discriminator(lambda v: v.get("role") if isinstance(v, dict) else None)
     ]
     token_count: Optional[int] = None
+    internal: bool = False
 
 
 class Conversation(BaseModel):

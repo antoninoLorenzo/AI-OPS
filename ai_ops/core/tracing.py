@@ -2,16 +2,17 @@ import os
 import uuid
 import functools
 import urllib3
-from typing import Callable
+from typing import Callable, Dict
 
+from ai_ops.core.llm import InferenceClient, ModelMetadata
 from ai_ops.core.conversation import Conversation
 from ai_ops.core.utils import get_logger
+from ai_ops.core.schema import ToolCallEvent, ToolResultEvent
 
 
+AGENT_TRACE_NAME = "orchestrator"
 _BACKEND_ENV = "AI_OPS_OBSERVABILITY_BACKEND"
 _TRACKING_URI_ENV = "MLFLOW_TRACKING_URI"
-# _USERNAME_ENV = "MLFLOW_TRACKING_USERNAME"
-# _PASSWORD_ENV = "MLFLOW_TRACKING_PASSWORD"
 _EXPERIMENT_ENV = "MLFLOW_EXPERIMENT_NAME"
 _DEFAULT_EXPERIMENT = "AI-OPS"
 
@@ -60,28 +61,63 @@ def _mlflow_trace(fn: Callable, *args, **kwargs):
     import mlflow
     from mlflow.entities import SpanType
 
+    # get conversation id from fn (orchestrator)
     conversation: Conversation | None = kwargs.get("conversation")
     if conversation is None:
         conversation_arg_idx = next(
             (
-                idx
-                for idx, arg in enumerate(args)
+                idx for idx, arg in enumerate(args)
                 if isinstance(arg, Conversation)
-            ),
-            None
+            ), None
         )
-        if conversation_arg_idx is None:
-            session_id = f"unknown_{str(uuid.uuid4())}"
-        else:
-            session_id = args[conversation_arg_idx].id
+        session_id = args[conversation_arg_idx].id if conversation_arg_idx is not None \
+            else f"unknown_{str(uuid.uuid4())}"
     else:
         session_id = conversation.id
 
-    with mlflow.start_span(name="orchestrator", span_type=SpanType.AGENT) as span:
-        mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
-        yield from fn(*args, **kwargs)
+    # get model being used 
+    model_client: InferenceClient | None = kwargs.get("client")
+    if model_client is None:
+        model_client_arg_idx = next(
+            (
+                idx for idx, arg in enumerate(args)
+                if isinstance(arg, InferenceClient)
+            ), None
+        )
+        model_id = args[model_client_arg_idx].model if model_client_arg_idx \
+            else "unknown"
+    else:
+        model_id = model_client.model
+
+    tool_call_spans: Dict[str, tuple] = {} # tool_call_id -> (ctx, span)
+    with mlflow.start_span(
+        name=AGENT_TRACE_NAME, 
+        span_type=SpanType.AGENT,
+        attributes={"ai.model.name": model_id}
+    ) as agent_span:
+        mlflow.update_current_trace(
+            tags={"model": model_id},
+            metadata={"mlflow.trace.session": session_id}
+        )
+
+        for event in fn(*args, **kwargs):
+            # to trace tool calls here we have to use context manager manually
+            if isinstance(event, ToolCallEvent):
+                ctx = mlflow.start_span(name=event.name, span_type=SpanType.TOOL)
+                span = ctx.__enter__()
+                span.set_inputs(event.args)
+                tool_call_spans[event.call_id] = (ctx, span)
+            elif isinstance(event, ToolResultEvent):
+                ctx, span = tool_call_spans.pop(event.call_id, (None, None))
+                if span is not None:
+                    span.set_outputs({"result": event.result.model_dump()})
+                    ctx.__exit__(None, None, None)
+
+            yield event
 
 
+# decorator for the agent orchestrator, switches between tracing backends based
+# on which is enabled, defaults to no tracing.
 def agent_trace(fn: Callable) -> Callable:
 
     @functools.wraps(fn)
