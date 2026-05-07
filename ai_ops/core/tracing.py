@@ -1,6 +1,7 @@
 import os
 import uuid
 import functools
+import traceback
 import urllib3
 from typing import Callable, Dict
 
@@ -59,7 +60,7 @@ def _setup_mlflow():
 
 def _mlflow_trace(fn: Callable, *args, **kwargs):
     import mlflow
-    from mlflow.entities import SpanType
+    from mlflow.entities import SpanType, SpanEvent
 
     # get conversation id from fn (orchestrator)
     conversation: Conversation | None = kwargs.get("conversation")
@@ -100,20 +101,36 @@ def _mlflow_trace(fn: Callable, *args, **kwargs):
             metadata={"mlflow.trace.session": session_id}
         )
 
-        for event in fn(*args, **kwargs):
-            # to trace tool calls here we have to use context manager manually
-            if isinstance(event, ToolCallEvent):
-                ctx = mlflow.start_span(name=event.name, span_type=SpanType.TOOL)
-                span = ctx.__enter__()
-                span.set_inputs(event.args)
-                tool_call_spans[event.call_id] = (ctx, span)
-            elif isinstance(event, ToolResultEvent):
-                ctx, span = tool_call_spans.pop(event.call_id, (None, None))
-                if span is not None:
-                    span.set_outputs({"result": event.result.model_dump()})
-                    ctx.__exit__(None, None, None)
+        try:
+            for event in fn(*args, **kwargs):
+                # to trace tool calls here we have to use context manager manually
+                if isinstance(event, ToolCallEvent):
+                    ctx = mlflow.start_span(name=event.name, span_type=SpanType.TOOL)
+                    span = ctx.__enter__()
+                    span.set_inputs(event.args)
+                    tool_call_spans[event.call_id] = (ctx, span)
+                elif isinstance(event, ToolResultEvent):
+                    ctx, span = tool_call_spans.pop(event.call_id, (None, None))
+                    if span is not None:
+                        span.set_outputs({"result": event.result.model_dump()})
+                        ctx.__exit__(None, None, None)
 
-            yield event
+                yield event
+        except Exception as exc:
+            agent_span.set_status("ERROR", str(exc))
+            agent_span.add_event(SpanEvent(
+                name="Exception",
+                attributes={
+                    "exception.message": str(exc),
+                    "exception.type": type(exc).__name__,
+                    "exception.stacktrace": "".join(traceback.format_tb(exc.__traceback__))
+                }
+            ))
+            raise
+        finally:
+            for ctx, span in tool_call_spans.values():
+                ctx.__exit__(None, None, None)
+            agent_span.end()
 
 
 # decorator for the agent orchestrator, switches between tracing backends based

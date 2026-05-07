@@ -1,6 +1,7 @@
 from ai_ops.core.runner import AgentFactory, AgentRunner
 from ai_ops.core.schema import (
     AgentConfig,
+    AgentMode,
     EventType, 
     Event,
     UserMessageEvent,
@@ -16,6 +17,7 @@ __all__ = [
     "AgentFactory",
     "AgentRunner",
     "AgentConfig",
+    "AgentMode",
     "ModelConfig",
     "EventType", 
     "Event",
