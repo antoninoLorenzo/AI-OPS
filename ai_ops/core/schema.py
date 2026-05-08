@@ -25,19 +25,16 @@ class AgentMode(StrEnum):
 class EventType(StrEnum):
     USER_MESSAGE = auto()
     TEXT = auto()
+    REASONING = auto()
     TOOL_CALL = auto()
     TOOL_RESULT = auto()
     STOP = auto()
-
-
-# do I need to differentiate between client/agent events? for example stop can be both client/agent.
-# if yes, is it done though an issuer field? That would assume an event like ToolCall can be issued by a client.
-# events should be communication channel agnostic, yielded by agent runner, sent by client, can be in process or on 
-# top of http (or tcp, even though why would I use tcp? are other protocols an option, such as some rpc protocol?).
+    TOOL_ERROR = auto()
 
 
 class Event(abc.ABC):
     kind: EventType
+
 
 class UserMessageEvent(Event, BaseModel):
     kind: ClassVar[EventType] = EventType.USER_MESSAGE
@@ -46,6 +43,11 @@ class UserMessageEvent(Event, BaseModel):
 
 class TextEvent(Event, BaseModel):
     kind: ClassVar[EventType] = EventType.TEXT
+    chunk: str
+
+
+class ReasoningEvent(Event, BaseModel):
+    kind: ClassVar[EventType] = EventType.REASONING
     chunk: str
 
 
@@ -69,3 +71,18 @@ class StopEvent(Event, BaseModel):
     issuer: Literal['agent', 'user']
     reason: Optional[str] = None
     max_iteration: bool = False
+    error: Optional[str] = None # fatal error
+
+
+class ToolErrorFailure(StrEnum):
+    VALIDATION_ERROR = auto()
+    EXECUTION_ERROR = auto()
+
+
+class ToolErrorEvent(Event, BaseModel):
+    kind: ClassVar[EventType] = EventType.TOOL_ERROR
+    failure: ToolErrorFailure
+    tool_call_id: str
+    name: str
+    error: str
+

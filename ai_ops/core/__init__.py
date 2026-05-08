@@ -6,9 +6,12 @@ from ai_ops.core.schema import (
     Event,
     UserMessageEvent,
     TextEvent, 
+    ReasoningEvent,
     ToolCallEvent, 
     ToolResultEvent, 
-    StopEvent
+    StopEvent,
+    ToolErrorFailure,
+    ToolErrorEvent
 )
 from ai_ops.core.llm import ModelConfig
 from ai_ops.core.tools import LoadSkill, WhiteboardRead, WhiteboardWrite, ThinkTool
@@ -21,11 +24,14 @@ __all__ = [
     "ModelConfig",
     "EventType", 
     "Event",
-    "TextEvent", 
+    "TextEvent",
+    "ReasoningEvent", 
     "UserMessageEvent",
     "ToolCallEvent", 
     "ToolResultEvent", 
     "StopEvent",
+    "ToolErrorFailure",
+    "ToolErrorEvent",
     "LoadSkill",
     "WhiteboardRead",
     "WhiteboardWrite",

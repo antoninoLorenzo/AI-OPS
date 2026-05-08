@@ -11,6 +11,50 @@ from litellm import (
 )
 from pydantic import BaseModel, Discriminator, Field, Tag
 
+from ai_ops.core.utils import get_logger
+
+
+_logger = get_logger(__name__)
+
+
+def get_token_count(
+    message: Union[
+        ChatCompletionSystemMessage,
+        ChatCompletionUserMessage,
+        ChatCompletionAssistantMessage,
+        ChatCompletionToolMessage
+    ]
+) -> int | None:
+    """
+    Estimates the token count of a single chat message.
+
+    Counting should happen only after the full message is available, which 
+    keeps the behavior consistent between streaming and non-streaming.
+    To keep the agent loop reliable it never raises, errors are logged and 
+    the token count is set to None, which the `Message` model supports.
+
+    The implementation uses `litellm.token_counter` with a known trade-off:
+    `token_counter` defaults to tiktoken, so the count is an approximation 
+    for most models, it supports huggingface tokenizers, however dyanmically 
+    initializing one based on configs would be a pain in the ass.
+    """
+    text = message.get("content")
+    if text is None or not isinstance(text, str):
+        _logger.warning(
+            "Failed counting tokens: message content is "
+            f"{type(text) if text is not None else None}"
+        )
+        return None
+    
+    count = None
+    try:
+        count = litellm.token_counter(text=text)
+    except ValueError as err:
+        _logger.warning(f"Failed counting tokens: {err}")
+
+    return count
+
+
 
 class Message(BaseModel):
     # https://pydantic.dev/docs/validation/latest/concepts/unions/#discriminated-unions-with-callable-discriminator

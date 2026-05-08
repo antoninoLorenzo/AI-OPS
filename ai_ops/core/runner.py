@@ -8,7 +8,7 @@ from litellm import (
 
 from ai_ops.core.agent import orchestrator
 from ai_ops.core.context_management import ContextView
-from ai_ops.core.conversation import Message, get_conversation_store
+from ai_ops.core.conversation import Message, get_conversation_store, get_token_count
 from ai_ops.core.llm import InferenceClient, ModelConfig, build_inference_client
 from ai_ops.core.prompt import BASE_PROTOTYPE_PROMPT, SKILL_PROTOTYPE_PROMPT
 from ai_ops.core.schema import (
@@ -17,7 +17,10 @@ from ai_ops.core.schema import (
     Event,
     StopEvent,
     TextEvent,
+    ReasoningEvent,
+    ToolCallEvent,
     ToolResultEvent,
+    ToolErrorEvent,
     UserMessageEvent,
 )
 from ai_ops.core.tools import (
@@ -36,6 +39,17 @@ _logger = get_logger(__name__)
 
 
 class AgentRunner:
+    """`AgentRunner` separates the client from the orchestrator implementation.
+
+    It's responsibilities are initializing the tool instances, persisting the
+    conversation (both falling in state management) and routing the events to 
+    the client.
+
+    The reason to separate the client from the agent implementation is to allow 
+    changes in the agent implementation without directly affecting the client 
+    code; however the runner implementation is as stable as the event taxonomy 
+    defined in `ai_ops.core.schema`.
+    """
     def __init__(
         self,
         conversation_id: str,
@@ -66,6 +80,8 @@ class AgentRunner:
         self._append_user_message(user_message.content)
 
         conversation = self._conversation_store.get(conversation_id=self.conversation_id)
+
+        total_event_count = 0
         event_stream = orchestrator(
             client=self.client,
             conversation=conversation,
@@ -75,35 +91,55 @@ class AgentRunner:
             max_iterations=max_iterations
         )
 
-        for event in event_stream:
-            if isinstance(event, Message):
-                self._conversation_store.append(
-                    conversation_id=self.conversation_id, message=event
-                )
-                if event.message["content"] is not None and not event.internal:
-                    yield TextEvent(chunk=event.message["content"])
-                continue
-            
-            if isinstance(event, ToolResultEvent):
-                self._conversation_store.append(
-                    conversation_id=self.conversation_id, 
-                    message=Message(
-                        message=ChatCompletionToolMessage(
-                            role="tool",
-                            content=str(event.result),
-                            tool_call_id=event.call_id
-                        ),
-                        token_count=litellm.token_counter(text="")
+        try:
+            for event in event_stream:
+                total_event_count += 1
+                if isinstance(event, Message):
+                    # this currently handles non-streaming
+                    text_content = event.message.get("content")
+                    reasoning_content = event.message.get("reasoning_content")
+
+                    if not event.internal:
+                        if reasoning_content is not None and isinstance(reasoning_content, str):
+                            yield ReasoningEvent(chunk=reasoning_content)
+
+                        if text_content is not None and isinstance(text_content, str):
+                            yield TextEvent(chunk=text_content)
+
+                    self._conversation_store.append(conversation_id=self.conversation_id, message=event)
+                elif isinstance(event, ToolResultEvent):
+                    # the orchestrator validates tool calls so we can be sure this doesn't raise
+                    tool = self.tools[event.name] 
+                    # format_result is required to return a string, if different we get ValueError
+                    tool_content = tool.format_result(event.result)
+                    
+                    yield event
+                    
+                    tool_message = ChatCompletionToolMessage(
+                        role="tool",
+                        content=tool_content,
+                        tool_call_id=event.call_id
                     )
-                )
-            elif isinstance(event, StopEvent):
-                yield event
-                break
+                    self._conversation_store.append(
+                        conversation_id=self.conversation_id, 
+                        message=Message(
+                            message=tool_message,
+                            token_count=get_token_count(tool_message)
+                        )
+                    )
+                elif isinstance(event, (ToolCallEvent, ToolErrorEvent, StopEvent)):
+                    yield event
 
-            yield event
+                if self._user_stopped:
+                    break
+        except Exception as fatal:
+            _logger.error(f"Fatal Error in agent loop: {fatal}")
+            yield StopEvent(
+                issuer="agent",
+                error=str(fatal)
+            )
 
-            if self._user_stopped:
-                break
+        _logger.info(f"conversation_id={self.conversation_id} total_event_count={total_event_count}")
             
 
     def send(self, user_event: UserMessageEvent | StopEvent):
@@ -118,7 +154,7 @@ class AgentRunner:
             conversation_id=self.conversation_id,
             message=Message(
                 message=ChatCompletionUserMessage(role="user", content=content),
-                token_count=litellm.token_counter(text=content)
+                # token_count=litellm.token_counter(text=content)
             )
         )
 

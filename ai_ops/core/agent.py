@@ -22,8 +22,11 @@ from ai_ops.core.schema import (
     StopEvent,
     ToolCallEvent,
     ToolResultEvent,
+    ToolErrorEvent,
+    ToolErrorFailure
 )
 from ai_ops.core.tools import Tool, WhiteboardRead, validate_tool_call
+from ai_ops.core.conversation import get_token_count
 from ai_ops.core.tracing import agent_trace
 from ai_ops.core.utils import get_logger
 
@@ -92,8 +95,8 @@ def orchestrator(
         _logger.info(f"conversation_id={conversation.id} iteration={it}")
         selected_messages = context_fn(conversation.messages)
         context = [m.message for m in selected_messages]
-        window_size = sum([m.token_count for m in selected_messages])
-        _logger.info(f"context_window_size={window_size}")
+        # window_size = sum([m.token_count for m in selected_messages if m.token_count is not None])
+        # _logger.info(f"context_window_size={window_size}")
 
         # append the whiteboard index to the last user message in every loop iteration,
         # note: the index is not part of the "persisted" conversation, also this breaks 
@@ -115,9 +118,10 @@ def orchestrator(
         response = query(client=client, messages=context, tools=agent_tools)
         response_message = response.choices[0].message
 
+        chat_completion_message = cast(ChatCompletionAssistantMessage, response_message.model_dump())
         yield Message(
-            message=cast(ChatCompletionAssistantMessage, response_message.model_dump()),
-            token_count=litellm.token_counter(text=response_message.content or "")
+            message=chat_completion_message, 
+            token_count=get_token_count(chat_completion_message)
         )
 
         if not response_message.tool_calls:
@@ -134,7 +138,7 @@ def orchestrator(
             
             if tool_name == StopTool.name:
                 reason = StopTool.get_input_schema().model_validate_json(tool_call.function.arguments)
-                yield StopEvent(issuer="agent", reason=reason)
+                yield StopEvent(issuer="agent", reason=reason.reason)
                 stop_called = True
                 break
             
@@ -143,22 +147,25 @@ def orchestrator(
                 error_msg = args
                 _logger.error(f"model={response.model} tool_error={error_msg}")
 
-                # feed the error back so the agent can retry
-                error_result = Message(
-                    message=ChatCompletionToolMessage(
-                        role="tool", 
-                        content=error_msg, 
-                        tool_call_id=tool_call.id
-                    ),
-                    token_count=litellm.token_counter(text=error_msg),
-                    internal=True
+                yield ToolErrorEvent(
+                    failure=ToolErrorFailure.VALIDATION_ERROR,
+                    tool_call_id=tool_call.id,
+                    name=tool_name,
+                    error=error_msg
                 )
-                yield error_result
                 continue
 
             yield ToolCallEvent(call_id=tool_call.id, name=tool_name, args=args)
-            tool_result = tool(args)
-            yield ToolResultEvent(call_id=tool_call.id, name=tool_name, args=args, result=tool_result)
+            try:
+                tool_result = tool(args)
+                yield ToolResultEvent(call_id=tool_call.id, name=tool_name, args=args, result=tool_result)
+            except Exception as tool_failure:
+                yield ToolErrorEvent(
+                    failure=ToolErrorFailure.EXECUTION_ERROR,
+                    tool_call_id=tool_call.id,
+                    name=tool_name,
+                    error=str(tool_failure)
+                )
 
         it += 1
 
