@@ -23,6 +23,26 @@ class GenerateJsonSchemaTool(GenerateJsonSchema):
     
 
 class Tool[ToolInputT, ToolOutputT](abc.ABC):
+    """Generic interface for agent tools.
+
+    A `Tool` implementation is parametrized with two pydantic `BaseModel` 
+    types, one for the input payload and one for the output.
+    
+    This gives type guarantees and makes serialization straightforward, since 
+    the input model can be serialized directly into JSON Schema using pydantic 
+    following the OpenAI tool specification.
+
+    A `Tool` implementation has to implement `__call__` to perform the tool 
+    execution and `format_result` to convert the structured tool output into a 
+    string representation for the LLM; this separates exec. and presentation.
+
+    One drawback of this design is the distinction between stateless/stateful 
+    tool, since stateful tools may require initialization that depends on the 
+    execution context (ex. benchmarks) or tool-specific semantics.
+    For this reason tool construction is handled through `ToolRegistry` that 
+    maps tool names to `ToolFactory` callables, allowing for context aware 
+    initialization.
+    """
     name: str
     description: str
 
