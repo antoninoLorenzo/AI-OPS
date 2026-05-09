@@ -19,7 +19,7 @@ from litellm.exceptions import (
 )
 from pydantic import BaseModel, SecretStr
 
-from ai_ops.core.utils import get_logger
+from ai_ops.core.log import get_logger, log_event, logging
 
 _logger = get_logger(__name__)
 MODEL_ID_REGEX = r"(?P<provider>.*)\/(?P<model>.*)"
@@ -113,7 +113,8 @@ def query(
         # can prompt the model to try
         raise NotImplementedError(f"{client.model} doesn't support tool use")
 
-    _logger.info(f"starting query: model={client.model}")
+    log_event(_logger, logging.INFO, "Starting query", model=client.model)
+
     json_retries = 0
     trim_context = False
     while True:
@@ -137,14 +138,14 @@ def query(
             # avoid degradation in the agent performance the caller (orchestrator) should employ a 
             # context management policy. 
             trim_context = True
-            _logger.error(f"query context limit exceeded, retry model={client.model}")
+            log_event(_logger, logging.ERROR, "Context limit exceeded", model=client.model)
             continue
         except JSONSchemaValidationError as json_err:
             # If the model supports response_format but not structured_output then JSON is not guaranteed.
             # The model is notified with a volatile message that the response was not valid JSON and the 
             # request is retried up to `max_response_format_retries`.
             json_retries += 1
-            _logger.error(f"query json error, retry={json_retries} model={client.model}")
+            log_event(_logger, logging.ERROR, "JSON Error", retry=json_retries, model=client.model)
             if json_retries >= max_response_format_retries:
                 raise RuntimeError(f"{client.model} failed generating JSON {max_response_format_retries} times: {json_err}")
             messages = messages + [
@@ -210,9 +211,11 @@ def get_model_metadata(config: ModelConfig) -> ModelMetadata:
     #   
     #   identify tokenizer used by litellm, needed to determine whether token counting
     #   is accurate; for open-weight this could help fallback to transformers tokenizers
-    _logger.info(f"model={config.model}")
-    for k, v in metadata.items():
-        _logger.info(f"{k}: {v}")
+    log_event(
+        _logger, logging.INFO, "Done loading ModelMetadata", 
+        model=config.model, **metadata
+    )
+
     return ModelMetadata(**metadata)
 
 

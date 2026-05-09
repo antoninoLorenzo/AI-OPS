@@ -32,7 +32,7 @@ from ai_ops.core.tools import (
     get_skill_registry,
     get_whiteboard_store,
 )
-from ai_ops.core.utils import get_logger
+from ai_ops.core.log import get_logger, log_event, logging
 
 _logger = get_logger(__name__)
 
@@ -133,14 +133,18 @@ class AgentRunner:
                 if self._user_stopped:
                     break
         except Exception as fatal:
-            _logger.error(f"Fatal Error in agent loop: {fatal}")
+            log_event(_logger, logging.ERROR, "Fatal error in agent loop", error="\"{fatal}\"")
             yield StopEvent(
                 issuer="agent",
                 error=str(fatal)
             )
 
-        _logger.info(f"conversation_id={self.conversation_id} total_event_count={total_event_count}")
-            
+        log_event(
+            _logger, logging.INFO, "", 
+            conversation_id=self.conversation_id, 
+            total_event_count=total_event_count
+        )
+   
 
     def send(self, user_event: UserMessageEvent | StopEvent):
         if isinstance(user_event, UserMessageEvent):
@@ -180,8 +184,8 @@ class AgentFactory:
         self._system_prompt = BASE_PROTOTYPE_PROMPT
         if agent_config.system_prompt:
             self._system_prompt = agent_config.system_prompt
-        
-        _logger.info(f"Available tools: {list(self._tools.keys())}")
+
+        log_event(_logger, logging.INFO, "", tools=f"\"{list(self._tools.keys())}\"")
         self._whiteboard_store = None
         if WhiteboardRead.name in self._tools:
             self._whiteboard_store = get_whiteboard_store()

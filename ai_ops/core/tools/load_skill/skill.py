@@ -6,7 +6,7 @@ import yaml
 from pydantic import BaseModel, Field
 
 from ai_ops.core.tools.base import Tool
-from ai_ops.core.utils import get_logger
+from ai_ops.core.log import get_logger, log_event, logging
 
 
 BUNDLED_SKILLS = Path(__file__).parent / 'bundled'
@@ -107,7 +107,11 @@ class SkillRegistry:
         # gets resolved as overloading (user skills overwrite bundled).
         if skills:
             if not skills.is_dir():
-                _logger.error(f"{skills} is not a directory")
+                log_event(
+                    _logger, logging.ERROR, 
+                    "Extended skill path not a directory", 
+                    extended_skills_path=skills
+                )
             else:
                 for skill_path in skills.iterdir():
                     skill = fetch_skill(skill_path)
@@ -115,7 +119,10 @@ class SkillRegistry:
                         continue
                     
                     if skill.name in self._skill_registry:
-                        _logger.warning(f"Overrding bundled skill {skill.name}")
+                        log_event(
+                            _logger, logging.WARNING, 
+                            f"Overriding bundled skill {skill.name}"
+                        )
                     
                     self._skill_registry[skill.name] = skill
 
@@ -165,7 +172,10 @@ class LoadSkill(Tool[LoadSkillRequest, LoadSkillResult]):
         available_skill_ids = skill_ids.intersection(set(registry.get_available()))
         not_found_ids = skill_ids.difference(available_skill_ids)
         if len(not_found_ids) > 0:
-            _logger.warning(f'Skills not found: {not_found_ids}')
+            log_event(
+                _logger, logging.WARNING,
+                f"Skills not found: {not_found_ids}"
+            )
         
         return LoadSkillResult(skills=[
             registry.get_skill(sk_id)

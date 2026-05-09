@@ -11,7 +11,7 @@ from litellm import (
 )
 from pydantic import BaseModel, Discriminator, Field, Tag
 
-from ai_ops.core.utils import get_logger
+from ai_ops.core.log import get_logger, log_event, logging
 
 
 _logger = get_logger(__name__)
@@ -40,9 +40,9 @@ def get_token_count(
     """
     text = message.get("content")
     if text is None or not isinstance(text, str):
-        _logger.warning(
-            "Failed counting tokens: message content is "
-            f"{type(text) if text is not None else None}"
+        log_event(
+            _logger, logging.WARNING, "Failed counting tokens", 
+            message_type={type(text) if text is not None else None}
         )
         return None
     
@@ -50,7 +50,7 @@ def get_token_count(
     try:
         count = litellm.token_counter(text=text)
     except ValueError as err:
-        _logger.warning(f"Failed counting tokens: {err}")
+        log_event(_logger, logging.WARNING, "Failed counting tokens", error=f"\"{err}\"")
 
     return count
 

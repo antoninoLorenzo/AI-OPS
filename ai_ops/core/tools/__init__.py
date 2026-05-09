@@ -8,7 +8,7 @@ from ai_ops.core.tools.whiteboard import (
     WhiteboardWrite,
     get_whiteboard_store,
 )
-from ai_ops.core.utils import get_logger
+from ai_ops.core.log import get_logger
 
 ToolRegistry: Dict[str, ToolFactory] = {
     LoadSkill.name: lambda _: LoadSkill(),

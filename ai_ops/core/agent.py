@@ -1,5 +1,6 @@
 # Agent Orchestrator Implementation
-import hashlib
+import json
+import copy
 from collections import deque
 from difflib import SequenceMatcher
 from typing import Dict, Iterator, Optional, cast
@@ -10,6 +11,7 @@ from litellm import (
     ChatCompletionSystemMessage,
     ChatCompletionToolMessage,
     ChatCompletionUserMessage,
+    ChatCompletionMessageToolCall
 )
 from pydantic import BaseModel
 
@@ -28,7 +30,7 @@ from ai_ops.core.schema import (
 from ai_ops.core.tools import Tool, WhiteboardRead, validate_tool_call
 from ai_ops.core.conversation import get_token_count
 from ai_ops.core.tracing import agent_trace
-from ai_ops.core.utils import get_logger
+from ai_ops.core.log import get_logger, log_event, logging
 
 _logger = get_logger(__name__)
 # the values will probably change based on traces
@@ -70,6 +72,24 @@ class LoopDetector:
         return similar_count >= self.threshold
 
 
+def trim_tool_call_log(tool_call: ChatCompletionMessageToolCall) -> str:
+    try:
+        trimmed_tool_call = copy.deepcopy(tool_call)
+        
+        args = trimmed_tool_call.function.arguments
+        if isinstance(args, str):
+            args = json.loads(args)
+            
+        trimmed_tool_call.function.arguments = {
+            k: f"{v[:15]}...{v[len(v)-15:]}" 
+            for k, v in args
+        }
+        
+        return trimmed_tool_call.model_dump_json()
+    except Exception:
+        return tool_call.model_dump_json()[:30]
+
+
 # The orchestrator implements the agent logic, currently that's just ReAct loop.
 # It's intentionally kept stateless so the only concern remains the orchestration 
 # of the agent actions. 
@@ -92,7 +112,10 @@ def orchestrator(
     it = 0
     stop_called = False
     while it < iteration_limit and not stop_called:
-        _logger.info(f"conversation_id={conversation.id} iteration={it}")
+        log_event(
+            _logger, logging.INFO, "", 
+            conversation_id=conversation.id, iteration=it
+        )
         selected_messages = context_fn(conversation.messages)
         context = [m.message for m in selected_messages]
         # window_size = sum([m.token_count for m in selected_messages if m.token_count is not None])
@@ -111,7 +134,11 @@ def orchestrator(
                     ),
                     None
                 )
-                _logger.debug(f"Appending whiteboard index to message last_usr_idx={last_usr_idx}")
+                log_event(
+                    _logger, logging.DEBUG, 
+                    "Appending whiteboard index to message",
+                    last_user_idx={last_usr_idx}
+                )
                 if last_usr_idx is not None:
                     context[last_usr_idx]["content"] += whiteboard_tool.index
 
@@ -125,14 +152,23 @@ def orchestrator(
         )
 
         if not response_message.tool_calls:
-            _logger.debug(f"no tool_call in response_message")
+            log_event(
+                _logger, logging.DEBUG, 
+                "no tool call in response_message",
+                conversation_id=conversation.id, 
+            )
             break
 
         for tool_call in response_message.tool_calls:
-            raw_tool_call_json = tool_call.model_dump_json()
-            _logger.debug(f"raw tool call from {response.model}: {raw_tool_call_json}")
-            if loop_detector.check(raw_tool_call_json):
-                _logger.info(f"LoopDetector: the agent may be stuck")
+            log_event(
+                _logger, logging.DEBUG, "raw tool call",
+                model=response.model, tool_call=trim_tool_call_log(tool_call)
+            )
+            if loop_detector.check(tool_call.model_dump_json()):
+                log_event(
+                    _logger, logging.INFO, 
+                    "LoopDetector triggered", iteration=it
+                )
             
             tool_name = tool_call.function.name
             
@@ -145,7 +181,10 @@ def orchestrator(
             tool, args = validate_tool_call(available_tools=tools, tool_call=tool_call)
             if tool is None:
                 error_msg = args
-                _logger.error(f"model={response.model} tool_error={error_msg}")
+                log_event(
+                    _logger, logging.ERROR, "", 
+                    model=response.model, tool_error=f"\"{error_msg}\""
+                )
 
                 yield ToolErrorEvent(
                     failure=ToolErrorFailure.VALIDATION_ERROR,

@@ -7,7 +7,7 @@ from typing import Callable, Dict
 
 from ai_ops.core.llm import InferenceClient, ModelMetadata
 from ai_ops.core.conversation import Conversation
-from ai_ops.core.utils import get_logger
+from ai_ops.core.log import get_logger, log_event, logging
 from ai_ops.core.schema import ToolCallEvent, ToolResultEvent
 
 
@@ -30,8 +30,11 @@ def configure():
     
     backend = os.environ.get(_BACKEND_ENV, "").lower()
     if backend == "mlflow":
-        _logger.info("Setting up MLFlow")
-        _logger.debug(f"REQUESTS_CA_BUNDLE={os.environ.get('REQUESTS_CA_BUNDLE')}")
+        log_event(_logger, logging.INFO, "Setting up MLFlow")
+        log_event(
+            _logger, logging.DEBUG, "", 
+            requests_ca_bundle_env=os.environ.get('REQUESTS_CA_BUNDLE')
+        )
         _setup_mlflow()
 
     _configured = True
@@ -45,7 +48,11 @@ def _setup_mlflow():
     experiment = os.environ.get(_EXPERIMENT_ENV, _DEFAULT_EXPERIMENT)
 
     if tracking_uri:
-        _logger.info(f"MLFlow tracking_uri={tracking_uri} experiment_name={experiment}")
+        log_event(
+            _logger, logging.INFO, "Setting up MLFlow",
+            tracking_uri=tracking_uri, experiment_name=experiment
+        )
+        
         mlflow.set_tracking_uri(tracking_uri)
         mlflow.set_experiment(experiment_name=experiment)
         mlflow.litellm.autolog()
@@ -55,7 +62,10 @@ def _setup_mlflow():
             _logger.warning(f"Disabled SSL Verification for {tracking_uri}.")
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     else:
-        _logger.warning(f"Environment variable {_TRACKING_URI_ENV} not set: skipping MLFlow setup.")
+        log_event(
+            _logger, logging.WARNING, 
+            f"Environment variable {_TRACKING_URI_ENV} not set: skipping MLFlow setup."
+        )
 
 
 def _mlflow_trace(fn: Callable, *args, **kwargs):
