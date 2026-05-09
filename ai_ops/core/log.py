@@ -43,7 +43,7 @@ _root.addHandler(_file_handler)
 if LOG_TO_STDOUT:
     _stdout_handler = logging.StreamHandler(sys.stdout)
     _stdout_handler.setFormatter(logging.Formatter(LOG_FORMAT))
-_root.addHandler(_stdout_handler)
+    _root.addHandler(_stdout_handler)
 
 # Shut the fuck up stuff
 litellm.set_verbose = False
