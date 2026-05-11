@@ -1,3 +1,3 @@
-[submodule "benchmark/auto-pen-bench"]
-	path = benchmark/auto-pen-bench
+[submodule "benchmark/auto_pen_bench/auto-pen-bench"]
+	path = benchmark/auto_pen_bench/auto-pen-bench
 	url = https://github.com/antoninoLorenzo/auto-pen-bench.git

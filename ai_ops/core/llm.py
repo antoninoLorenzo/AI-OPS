@@ -1,4 +1,5 @@
 # Interface to LiteLLM
+import os
 import re
 from dataclasses import dataclass
 from functools import lru_cache
@@ -19,6 +20,7 @@ from litellm.exceptions import (
 )
 from pydantic import BaseModel, SecretStr
 
+from ai_ops.config import API_MODEL_MAX_CONTEXT_LENGTH
 from ai_ops.core.log import get_logger, log_event, logging
 
 _logger = get_logger(__name__)
@@ -106,22 +108,21 @@ def query(
     tools: Optional[List] = None,
     **kwargs # additional configs to pass to litellm
 ) -> Union[ModelResponse, CustomStreamWrapper]:
-    if response_format and not client.metadata.response_format:
-        # can prompt the model to try outputting JSON
-        raise NotImplementedError(f"{client.model} doesn't support response format")
-    if tools and not client.metadata.tool_use:
-        # can prompt the model to try
-        raise NotImplementedError(f"{client.model} doesn't support tool use")
+    # if response_format and not client.metadata.response_format:
+    #     # can prompt the model to try outputting JSON
+    #     raise NotImplementedError(f"{client.model} doesn't support response format")
+    # if tools and not client.metadata.tool_use:
+    #     # can prompt the model to try
+    #     raise NotImplementedError(f"{client.model} doesn't support tool use")
 
     log_event(_logger, logging.INFO, "Starting query", model=client.model)
 
     json_retries = 0
-    trim_context = False
     while True:
         try:
             response = client.client.completion(
                 model=client.model,
-                messages=messages if not trim_context else litellm.utils.trim_messages(messages),
+                messages=messages,
                 stream=stream,
                 response_format=response_format,
                 tools=tools,
@@ -137,8 +138,24 @@ def query(
             # length as *last resort fallback*. This gives some reliability guarantees, however to 
             # avoid degradation in the agent performance the caller (orchestrator) should employ a 
             # context management policy. 
-            trim_context = True
-            log_event(_logger, logging.ERROR, "Context limit exceeded", model=client.model)
+            max_ctx = client.metadata.max_context_length
+            if max_ctx <= 0:
+                raise RuntimeError(
+                    f"Context window exceeded and no max_context_length configured for {client.model}"
+                )
+            
+            max_tokens = int(max_ctx * 0.75)
+            trimmed = litellm.utils.trim_messages(messages, max_tokens=max_tokens)
+            trimmed_messages = trimmed[0] if isinstance(trimmed, tuple) else trimmed
+            if len(trimmed_messages) == len(messages):
+                # trim_messages returned unchanged -> can't recover
+                raise RuntimeError(f"Context window exceeded and trim_messages made no progress for {client.model}")
+            
+            messages = trimmed_messages
+            log_event(
+                _logger, logging.ERROR, "Context limit exceeded, messages trimmed", 
+                model=client.model, max_tokens=int(max_ctx * 0.75)
+            )
             continue
         except JSONSchemaValidationError as json_err:
             # If the model supports response_format but not structured_output then JSON is not guaranteed.
@@ -153,6 +170,14 @@ def query(
                 {"role": "user", "content": f"Your response was not valid JSON matching the required schema. Schema: {response_format.model_json_schema()}. Respond with only valid JSON."}
             ]
             continue
+        except litellm.exceptions.APIError as fatal:
+            log_event(
+                _logger, logging.ERROR, "API Error", 
+                status_code=fatal.status_code,
+                model=fatal.model,
+                provider=fatal.llm_provider
+            )
+            raise RuntimeError(f"APIError in query")
 
     return response
 
@@ -204,13 +229,14 @@ def get_model_metadata(config: ModelConfig) -> ModelMetadata:
         metadata['reasoning'] = 'reasoning' in supported_params
         metadata['response_format'] = 'response_format' in supported_params
         metadata['structured_output'] = 'structured_output' in supported_params
+        metadata['max_context_length'] = found_info[0].get("context_length", 1)
 
-    # TODO: 
-    #   identify supported context length by provider (not by model, ex. self hosted
-    #   may have reduced ctx length due to ops constraints)
-    #   
-    #   identify tokenizer used by litellm, needed to determine whether token counting
-    #   is accurate; for open-weight this could help fallback to transformers tokenizers
+    # allow specifying model max context length (ex vLLM)
+    metadata['max_context_length'] = int(os.environ.get(
+        API_MODEL_MAX_CONTEXT_LENGTH, 
+        metadata['max_context_length']
+    ))
+
     log_event(
         _logger, logging.INFO, "Done loading ModelMetadata", 
         model=config.model, **metadata

@@ -49,13 +49,14 @@ if LOG_TO_STDOUT:
 litellm.set_verbose = False
 litellm.suppress_debug_info = True
 for name in (
-    "litellm",
-    "litellm_logging",
     "LiteLLM",
     "LiteLLM Router",
-    "router",
-    "utils",
-    "token_counter",
+    "openai",
+    "paramiko",
+    "git", # mlflow dependency
+    "asyncio",
+    "urllib3",
+    "httpcore"
 ):
     logger = logging.getLogger(name)
     logger.setLevel(logging.WARNING)
@@ -74,5 +75,5 @@ def log_event(logger: logging.Logger, level: int, message: str, **fields) -> Non
     parts = [message]
     for key, value in fields.items():
         parts.append(f"{key}={value!s}")
-    logger.log(level, " ".join(parts))
+    logger.log(level, " ".join(parts), stacklevel=2)
 

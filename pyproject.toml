@@ -7,6 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "bashlex>=0.18",
     "litellm>=1.49.7",
+    "litellm[mlflow]",
     "mlflow>=3.11.1",
     "pydantic>=2.11",
     "python-dotenv",

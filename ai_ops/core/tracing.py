@@ -70,7 +70,7 @@ def _setup_mlflow():
 
 def _mlflow_trace(fn: Callable, *args, **kwargs):
     import mlflow
-    from mlflow.entities import SpanType, SpanEvent
+    from mlflow.entities import SpanType, SpanEvent, SpanStatus, SpanStatusCode
 
     # get conversation id from fn (orchestrator)
     conversation: Conversation | None = kwargs.get("conversation")
@@ -127,7 +127,7 @@ def _mlflow_trace(fn: Callable, *args, **kwargs):
 
                 yield event
         except Exception as exc:
-            agent_span.set_status("ERROR", str(exc))
+            agent_span.set_status(SpanStatus(SpanStatusCode.ERROR, str(exc)))
             agent_span.add_event(SpanEvent(
                 name="Exception",
                 attributes={

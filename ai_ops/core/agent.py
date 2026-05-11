@@ -82,7 +82,7 @@ def trim_tool_call_log(tool_call: ChatCompletionMessageToolCall) -> str:
             
         trimmed_tool_call.function.arguments = {
             k: f"{v[:15]}...{v[len(v)-15:]}" 
-            for k, v in args
+            for k, v in args.items()
         }
         
         return trimmed_tool_call.model_dump_json()
@@ -118,8 +118,6 @@ def orchestrator(
         )
         selected_messages = context_fn(conversation.messages)
         context = [m.message for m in selected_messages]
-        # window_size = sum([m.token_count for m in selected_messages if m.token_count is not None])
-        # _logger.info(f"context_window_size={window_size}")
 
         # append the whiteboard index to the last user message in every loop iteration,
         # note: the index is not part of the "persisted" conversation, also this breaks 

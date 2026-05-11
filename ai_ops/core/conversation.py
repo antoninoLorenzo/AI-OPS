@@ -39,10 +39,21 @@ def get_token_count(
     initializing one based on configs would be a pain in the ass.
     """
     text = message.get("content")
-    if text is None or not isinstance(text, str):
+    tool_calls = message.get("tool_calls")
+
+    if tool_calls:
+        args_text = " ".join(
+            tc.get("function", {}).get("arguments", "")
+            if isinstance(tc, dict)
+            else tc.function.arguments
+            for tc in tool_calls
+        )
+        text = (text or "") + args_text
+
+    if not text:
         log_event(
-            _logger, logging.WARNING, "Failed counting tokens", 
-            message_type={type(text) if text is not None else None}
+            _logger, logging.WARNING, "Unexpected empty text", 
+            message_type=type(text) if text is not None else None
         )
         return None
     

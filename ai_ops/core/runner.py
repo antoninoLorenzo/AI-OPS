@@ -133,7 +133,7 @@ class AgentRunner:
                 if self._user_stopped:
                     break
         except Exception as fatal:
-            log_event(_logger, logging.ERROR, "Fatal error in agent loop", error="\"{fatal}\"")
+            log_event(_logger, logging.ERROR, "Fatal error in agent loop", error=f"\"{fatal}\"")
             yield StopEvent(
                 issuer="agent",
                 error=str(fatal)
