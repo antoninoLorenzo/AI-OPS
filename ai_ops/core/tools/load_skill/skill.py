@@ -128,7 +128,7 @@ class SkillRegistry:
 
     def get_index(self) -> str:
         return "\n".join([
-            f"{name}: {skill.description}"
+            f"{name}: {skill.description}\n"
             for name, skill in self._skill_registry.items()
         ])
 
@@ -149,14 +149,14 @@ def get_skill_registry() -> SkillRegistry:
 
 
 class LoadSkillRequest(BaseModel):
-    skill_ids: Annotated[
-        List[str], 
-        Field(description="List of unique skill names")
+    skill_id: Annotated[
+        str, 
+        Field(description="Unique name identifier of skill to load.")
     ]
 
 
 class LoadSkillResult(BaseModel):
-    skills: List[Skill]
+    skill: Skill | None
 
 
 class LoadSkill(Tool[LoadSkillRequest, LoadSkillResult]):
@@ -166,25 +166,18 @@ class LoadSkill(Tool[LoadSkillRequest, LoadSkillResult]):
     def __call__(self, skill_request: LoadSkillRequest) -> LoadSkillResult:
         registry = get_skill_registry()
         
-        skill_ids = [sk_id.lower().strip() for sk_id in skill_request.skill_ids]
-        skill_ids = set(skill_ids)
-        
-        available_skill_ids = skill_ids.intersection(set(registry.get_available()))
-        not_found_ids = skill_ids.difference(available_skill_ids)
-        if len(not_found_ids) > 0:
+        skill_id = skill_request.skill_id.lower().strip()
+        if not skill_id in registry.get_available():
             log_event(
                 _logger, logging.WARNING,
-                f"Skills not found: {not_found_ids}"
+                f"Skill not found", skill_id=skill_id
             )
+            return LoadSkillResult(skill=None)
         
-        return LoadSkillResult(skills=[
-            registry.get_skill(sk_id)
-            for sk_id in available_skill_ids
-        ])
+        return LoadSkillResult(skill=registry.get_skill(skill_id))
     
     @staticmethod
     def format_result(skill_result: LoadSkillResult) -> str:
-        return "\n".join([
-            f"{skill.name}\n{skill.content}" for skill in skill_result.skills
-        ])
-
+        if skill_result.skill is None:
+            return "Skill not found"
+        return f"{skill_result.skill.name}\n{skill_result.skill.content}"

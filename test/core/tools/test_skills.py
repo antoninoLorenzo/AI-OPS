@@ -3,7 +3,13 @@ from functools import partial
 from typing import Optional, List, Dict
 
 import pytest
-from ai_ops.core.tools.load_skill.skill import SkillRegistry, LoadSkill, Skill, LoadSkillRequest, fetch_skill
+from ai_ops.core.tools.load_skill.skill import (
+    Skill, 
+    LoadSkillRequest, 
+    LoadSkillResult, 
+    LoadSkill, 
+    fetch_skill
+)
 
 
 _FETCH_SKILL_TEST_PARAMETERS = [
@@ -113,24 +119,18 @@ _LOAD_SKILL_TEST_PARAMETERS = [
     # no matching skills -> return empty list
     {
         "available_skills": None,
-        "skill_request": LoadSkillRequest(skill_ids=["skill_a"]),
-        "expected": []
-    },
-    # some skill matching, other not -> return what was found
-    {
-        "available_skills": {
-            "skill_a": Skill(name="skill_a", description="Agagagaga", content="Gagaga")
-        },
-        "skill_request": LoadSkillRequest(skill_ids=["skill_a", "skill_b"]),
-        "expected": ["skill_a"]
+        "skill_request": LoadSkillRequest(skill_id="skill_a"),
+        "expected": LoadSkillResult(skill=None)
     },
     # happy path -> expected skills present
     {
         "available_skills": {
             "skill_a": Skill(name="skill_a", description="Agagagaga", content="Gagaga")
         },
-        "skill_request": LoadSkillRequest(skill_ids=["skill_a"]),
-        "expected": ["skill_a"]
+        "skill_request": LoadSkillRequest(skill_id="skill_a"),
+        "expected": LoadSkillResult(
+            skill=Skill(name="skill_a", description="Agagagaga", content="Gagaga")
+        )
     }
 ]
 
@@ -168,4 +168,4 @@ def test_load_skill(monkeypatch, test_case):
     load_skill_tool = LoadSkill()
     result = load_skill_tool(skill_request)
 
-    assert test_case["expected"] == [skill.name for skill in result.skills]
+    assert test_case["expected"] == result
