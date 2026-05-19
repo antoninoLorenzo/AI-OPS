@@ -1,6 +1,6 @@
 # Agent Orchestrator Implementation
 import uuid
-from typing import Annotated, Dict, List, Optional, Union
+from typing import Annotated, Dict, List, Tuple, Optional, Union
 
 import litellm
 from litellm import (
@@ -9,7 +9,11 @@ from litellm import (
     ChatCompletionToolMessage,
     ChatCompletionUserMessage,
 )
-from pydantic import BaseModel, Discriminator, Field, Tag
+from pydantic import (
+    BaseModel, 
+    Discriminator, 
+    Field, Tag
+)
 
 from ai_ops.core.log import get_logger, log_event, logging
 
@@ -59,12 +63,13 @@ def get_token_count(
     
     count = None
     try:
-        count = litellm.token_counter(text=text)
+        # note: gpt-3.5-turbo is just a tokenizer hint, it will pick up 
+        # tiktoken with cl100k_base under the hood.
+        count = litellm.token_counter(model="gpt-3.5-turbo", text=text)
     except ValueError as err:
         log_event(_logger, logging.WARNING, "Failed counting tokens", error=f"\"{err}\"")
 
     return count
-
 
 
 class Message(BaseModel):
@@ -82,6 +87,61 @@ class Message(BaseModel):
     internal: bool = False
 
 
+# --- message utilities
+
+def is_tool_call(message: Message, tool_name_key: str) -> Tuple[bool, List[str] | None]:
+    """
+    Whether or not ChatCompletionAssistantMessage contains a tool call of 
+    tool_name_key.
+    Note: a single message can contain multiple tool calls, even of the same type.
+
+    :returns: (False, None) or (True, [tool_call_id, ...])
+    """
+    msg = message.message
+    if not msg.get("role", "" == "assistant"):
+        return False, None
+    
+    tool_calls = msg.get("tool_calls")
+    if tool_calls is None:
+        return False, None
+
+    ids = []
+    for tool_call in tool_calls:
+        function = tool_call.get("function")
+        if function is None:
+            continue
+
+        tool_name = function.get("name")
+        if tool_name == tool_name_key and tool_call.get("id"):
+            ids.append(tool_call["id"])
+
+    if len(ids):
+        return True, ids
+
+    return False, None
+
+
+def find_tool_call_result(messages: List[Message], tool_call_id: str) -> int | None:
+    """
+    :returns: index of ChatCompletionToolMessage with tool_call_id or None
+    """
+    i, total = 0, len(messages)
+    # note: can't do enumerate(reversed(...)), at most enumerate(list(reversed(...)))
+    for message in reversed(messages): 
+        i+= 1
+
+        msg = message.message
+        if not msg.get("role", "") == "tool":
+            continue
+
+        if msg.get("tool_call_id", "") == tool_call_id:
+            return total - i
+
+    return None
+
+
+# --- conversation
+
 class Conversation(BaseModel):
     id: str
     messages: List[Message] = Field(default_factory=list)
@@ -95,9 +155,10 @@ class ConversationStore:
     def create(self, system_prompt: str) -> Conversation:
         conversation_id = str(uuid.uuid4())
 
+        system_prompt_message = ChatCompletionSystemMessage(role='system', content=system_prompt)
         messages = [Message(
-            message=ChatCompletionSystemMessage(role='system', content=system_prompt),
-            token_count=litellm.token_counter(text=system_prompt)
+            message=system_prompt_message,
+            token_count=get_token_count(system_prompt_message)
         )]
 
         self.__storage[conversation_id] = Conversation(id=conversation_id, messages=messages)

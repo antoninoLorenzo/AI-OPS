@@ -1,0 +1,240 @@
+import pytest
+from litellm import (
+    ChatCompletionAssistantMessage,
+    ChatCompletionAssistantToolCall,
+    ChatCompletionToolCallFunctionChunk,
+    ChatCompletionToolMessage,
+    ChatCompletionUserMessage,
+)
+
+from ai_ops.core.conversation import is_tool_call, find_tool_call_result, Message
+from test.core.mocks.tool import MockTool
+
+
+_IS_TOOL_CALL_TESTS = [
+    # not assistant message
+    {
+        "name": "NotAssistantMessage",
+        "message": Message(message=ChatCompletionUserMessage(role="user", content="hello")),
+        "tool_name_key": MockTool.name,
+        "expected": (False, None),
+    },
+    # assistant message with no tool_calls
+    {
+        "name": "NoToolCalls",
+        "message": Message(
+            message=ChatCompletionAssistantMessage(
+                role="assistant",
+                content="no tools here",
+            )
+        ),
+        "tool_name_key": MockTool.name,
+        "expected": (False, None),
+    },
+    # assistant message with tool_calls but wrong tool name
+    {
+        "name": "NotToolExpected",
+        "message": Message(
+            message=ChatCompletionAssistantMessage(
+                role="assistant",
+                content="calling something else",
+                tool_calls=[
+                    ChatCompletionAssistantToolCall(
+                        id="call_1",
+                        type="function",
+                        function=ChatCompletionToolCallFunctionChunk(
+                            name="other_tool",
+                            arguments='{"val": 1}',
+                        ),
+                    )
+                ],
+            )
+        ),
+        "tool_name_key": MockTool.name,
+        "expected": (False, None),
+    },
+    # assistant message with tool_calls but missing function name
+    {
+        "name": "ToolCallMalformedMissingFunctionName",
+        "message": Message(
+            message=ChatCompletionAssistantMessage(
+                role="assistant",
+                content="bad call",
+                tool_calls=[
+                    ChatCompletionAssistantToolCall(
+                        id="call_2",
+                        type="function",
+                        function=ChatCompletionToolCallFunctionChunk(
+                            name=None,
+                            arguments='{"val": 1}',
+                        ),
+                    )
+                ],
+            )
+        ),
+        "tool_name_key": MockTool.name,
+        "expected": (False, None),
+    },
+    # assistant message with matching tool call
+    {
+        "name": "HappyToolCall",
+        "message": Message(
+            message=ChatCompletionAssistantMessage(
+                role="assistant",
+                content="calling mock tool",
+                tool_calls=[
+                    ChatCompletionAssistantToolCall(
+                        id="call_123",
+                        type="function",
+                        function=ChatCompletionToolCallFunctionChunk(
+                            name=MockTool.name,
+                            arguments='{"val": 1}',
+                        ),
+                    )
+                ],
+            )
+        ),
+        "tool_name_key": MockTool.name,
+        "expected": (True, ["call_123"]),
+    },
+    # assistant message with matching tool call but missing id
+    {
+        "name": "ToolCallMalformedMissingId",
+        "message": Message(
+            message=ChatCompletionAssistantMessage(
+                role="assistant",
+                content="calling mock tool",
+                tool_calls=[
+                    ChatCompletionAssistantToolCall(
+                        id=None,
+                        type="function",
+                        function=ChatCompletionToolCallFunctionChunk(
+                            name=MockTool.name,
+                            arguments='{"val": 1}',
+                        ),
+                    )
+                ],
+            )
+        ),
+        "tool_name_key": MockTool.name,
+        "expected": (False, None),
+    },
+    # edge case: multiple tool calls of same type in same message
+    {
+        "name": "MultipleToolCalls",
+        "message": Message(
+            message=ChatCompletionAssistantMessage(
+                role="assistant",
+                content="calling mock tool",
+                tool_calls=[
+                    ChatCompletionAssistantToolCall(
+                        id="123",
+                        type="function",
+                        function=ChatCompletionToolCallFunctionChunk(
+                            name=MockTool.name,
+                            arguments='{"val": 1}',
+                        ),
+                    ),
+                    ChatCompletionAssistantToolCall(
+                        id="456",
+                        type="function",
+                        function=ChatCompletionToolCallFunctionChunk(
+                            name=MockTool.name,
+                            arguments='{"val": 1}',
+                        ),
+                    )
+                ],
+            )
+        ),
+        "tool_name_key": MockTool.name,
+        "expected": (True, ["123", "456"]),
+    }
+]
+
+
+@pytest.mark.parametrize("test_case", _IS_TOOL_CALL_TESTS, ids=lambda tc: tc["name"])
+def test_is_tool_call(test_case):
+    assert is_tool_call(test_case["message"], test_case["tool_name_key"]) == test_case["expected"]
+
+
+_FIND_TOOL_CALL_RESULT_TESTS = [
+    {
+        "name": "no tool message in the list",
+        "messages": [
+            Message(message=ChatCompletionUserMessage(role="user", content="hello")),
+            Message(
+                message=ChatCompletionAssistantMessage(
+                    role="assistant",
+                    content="still no tool",
+                )
+            ),
+        ],
+        "tool_call_id": "call_1",
+        "expected": None,
+    },
+    {
+        "name": "matching tool message found",
+        "messages": [
+            Message(message=ChatCompletionUserMessage(role="user", content="hello")),
+            Message(
+                message=ChatCompletionAssistantMessage(
+                    role="assistant",
+                    content="calling tool",
+                    tool_calls=[
+                        ChatCompletionAssistantToolCall(
+                            id="call_1",
+                            type="function",
+                            function=ChatCompletionToolCallFunctionChunk(
+                                name=MockTool.name,
+                                arguments='{"val": 1}',
+                            ),
+                        )
+                    ],
+                )
+            ),
+            Message(
+                message=ChatCompletionToolMessage(
+                    role="tool",
+                    tool_call_id="call_1",
+                    content="result",
+                )
+            ),
+        ],
+        "tool_call_id": "call_1",
+        "expected": 2,
+    },
+    {
+        "name": "returns the last matching tool message when there are multiple tool messages",
+        "messages": [
+            Message(message=ChatCompletionUserMessage(role="user", content="hello")),
+            Message(
+                message=ChatCompletionAssistantMessage(
+                    role="assistant",
+                    content="call one",
+                )
+            ),
+            Message(
+                message=ChatCompletionToolMessage(
+                    role="tool",
+                    tool_call_id="call_1",
+                    content="first result",
+                )
+            ),
+            Message(message=ChatCompletionUserMessage(role="user", content="more text")),
+            Message(
+                message=ChatCompletionToolMessage(
+                    role="tool",
+                    tool_call_id="call_1",
+                    content="second result",
+                )
+            ),
+        ],
+        "tool_call_id": "call_1",
+        "expected": 4,
+    },
+]
+
+
+@pytest.mark.parametrize("test_case", _FIND_TOOL_CALL_RESULT_TESTS, ids=lambda tc: tc["name"])
+def test_find_tool_call_result(test_case):
+    assert find_tool_call_result(test_case["messages"], test_case["tool_call_id"]) == test_case["expected"]

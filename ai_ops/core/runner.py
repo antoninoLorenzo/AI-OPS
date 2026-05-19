@@ -10,7 +10,11 @@ from ai_ops.core.agent import orchestrator
 from ai_ops.core.context_management import ContextView
 from ai_ops.core.conversation import Message, get_conversation_store, get_token_count
 from ai_ops.core.llm import InferenceClient, ModelConfig, build_inference_client
-from ai_ops.core.prompt import BASE_PROTOTYPE_PROMPT, SKILL_PROTOTYPE_PROMPT
+from ai_ops.core.prompt import (
+    BASE_PROTOTYPE_PROMPT, 
+    WHITEBOARD_PROMPT,
+    SKILL_PROTOTYPE_PROMPT
+)
 from ai_ops.core.schema import (
     AgentConfig,
     AgentMode,
@@ -185,14 +189,16 @@ class AgentFactory:
         if agent_config.system_prompt:
             self._system_prompt = agent_config.system_prompt
 
+        # build system prompt based on available tools
         log_event(_logger, logging.INFO, "", tools=f"\"{list(self._tools.keys())}\"")
         self._whiteboard_store = None
         if WhiteboardRead.name in self._tools:
             self._whiteboard_store = get_whiteboard_store()
+            self._system_prompt += "\n" + WHITEBOARD_PROMPT
         
         if LoadSkill.name in self._tools:
             skill_registry = get_skill_registry()
-            self._system_prompt += SKILL_PROTOTYPE_PROMPT.format(skill_index=skill_registry.get_index())
+            self._system_prompt += "\n" + SKILL_PROTOTYPE_PROMPT.format(skill_index=skill_registry.get_index())
     
     def create(self, conversation_id: Optional[str] = None) -> AgentRunner:
         # if given a conversation_id resumes
