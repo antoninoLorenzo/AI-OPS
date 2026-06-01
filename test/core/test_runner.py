@@ -21,8 +21,14 @@ from ai_ops.core.schema import (
 )
 import ai_ops.core.runner
 from ai_ops.core.runner import AgentRunner
-from ai_ops.core.conversation import Message, ConversationStore, Conversation, get_conversation_store
-from ai_ops.core.context_management import raw_context_view
+from ai_ops.core.conversation import (
+    Message, 
+    ConversationStore, 
+    Conversation, 
+    get_conversation_store, 
+    get_token_count
+)
+from ai_ops.core.context_management import RawContextView
 
 from test.core.mocks.agent import mock_orchestrator
 from test.core.mocks.llm import mock_inference_client
@@ -95,11 +101,18 @@ _RUNNER_RUN_TEST_CASES = [
                     )
                 ]
             )),
-            Message(message=ChatCompletionToolMessage(
-                role="tool",
-                content="1",
-                tool_call_id="1234"
-            ))
+            Message(
+                message=ChatCompletionToolMessage(
+                    role="tool",
+                    content="1",
+                    tool_call_id="1234"
+                ), 
+                token_count=get_token_count(ChatCompletionToolMessage(
+                    role="tool",
+                    content="1",
+                    tool_call_id="1234"
+                ))
+            )
         ],
         "expected_events": [
             ToolCallEvent(
@@ -341,7 +354,7 @@ def test_agent_runner_run(test_case, monkeypatch, register_mock_tool):
         conversation_id=conv.id,
         client=mock_inference_client,
         tools=[MockTool.name],
-        context_fn=raw_context_view
+        context_fn=RawContextView()
     )
 
     expected_events = test_case["expected_events"]

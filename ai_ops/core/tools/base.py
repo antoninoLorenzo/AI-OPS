@@ -87,6 +87,7 @@ class Tool[ToolInputT, ToolOutputT](abc.ABC):
 @dataclass
 class ToolContext:
     conversation_id: str
+    is_new_conversation: bool = True
     # fucking benchmarks
     extra: Optional[Dict[str, Any]] = None
 

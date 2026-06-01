@@ -4,8 +4,8 @@ from pydantic import BaseModel, Field
 
 from ai_ops.core.tools.base import Tool
 
-_WHITEBOARD_DESCRIPTION = """A structured in-memory notepad for persisting findings across reasoning steps.
-Maintains a named index of findings (vulnerabilities, credentials, host info, etc.), each with a description and content."""
+_WHITEBOARD_DESCRIPTION = """The Whiteboard is the canonical durable state for verified findings and confirmed dead ends.
+Maintains a named **Whiteboard Index** of findings (vulnerabilities, credentials, host info, etc.), each with a description and content."""
 
 _WHITEBOARD_READ_DESCRIPTION = """Perform a read operation on the whiteboard by specifying the name of a finding.
 Findings are provided under `# Whiteboard Index`, if any, as `name: description`."""
@@ -64,9 +64,9 @@ class WhiteboardStore:
         if len(whiteboard) == 0:
             return None
         
-        return "# Whiteboard Index\n" + "\n".join([
-            f"{name}: {entry.description}" 
-            for name, entry in whiteboard.items()
+        return "\n# Whiteboard Index\n" + "\n".join([
+            f"## {entry.name}\n**Description**: {entry.description}\n### Content\n{entry.content}" 
+            for _, entry in whiteboard.items()
         ])
 
     def get_entry(self, whiteboard_id: str, name: str) -> WhiteboardEntry:
@@ -100,10 +100,11 @@ class WhiteboardRead(Tool[WhiteboardReadRequest, WhiteboardResult]):
     name = 'read_whiteboard'
     description = _WHITEBOARD_DESCRIPTION + _WHITEBOARD_READ_DESCRIPTION
 
-    def __init__(self, whiteboard_id: str):
+    def __init__(self, whiteboard_id: str, new_whiteboard: bool = True):
         self.whiteboard_id = whiteboard_id
         store = get_whiteboard_store()
-        store.new_whiteboard(whiteboard_id)
+        if new_whiteboard:
+            store.new_whiteboard(whiteboard_id)
 
     def __call__(self, tool_args: WhiteboardReadRequest) -> WhiteboardResult:
         store = get_whiteboard_store()
@@ -140,10 +141,11 @@ class WhiteboardWrite(Tool[WhiteboardWriteRequest, WhiteboardResult]):
     name = 'write_whiteboard'
     description = _WHITEBOARD_DESCRIPTION + _WHITEBOARD_WRITE_DESCRIPTION
 
-    def __init__(self, whiteboard_id: str):
+    def __init__(self, whiteboard_id: str, new_whiteboard: bool = True):
         self.whiteboard_id = whiteboard_id
         store = get_whiteboard_store()
-        store.new_whiteboard(whiteboard_id)
+        if new_whiteboard:
+            store.new_whiteboard(whiteboard_id)
 
     def __call__(self, tool_args: WhiteboardReadRequest) -> WhiteboardResult:
         store = get_whiteboard_store()

@@ -34,7 +34,8 @@ from ai_ops.core.log import get_logger, log_event, logging
 
 _logger = get_logger(__name__)
 # the values will probably change based on traces
-DEFAULT_ITERATION_LIMIT = {AgentMode.SUPERVISED: 30, AgentMode.UNSUPERVISED: 50}
+# TODO: make this parameters configurable
+DEFAULT_ITERATION_LIMIT = {AgentMode.SUPERVISED: 30, AgentMode.UNSUPERVISED: 60}
 DEFAULT_TEMPERATURE = 0.4
 
 class StopReason(BaseModel):
@@ -107,7 +108,6 @@ def orchestrator(
     agent_tools.append(StopTool().serialize())
 
     iteration_limit = max_iterations if max_iterations else DEFAULT_ITERATION_LIMIT[mode]
-    loop_detector = LoopDetector()
 
     it = 0
     stop_called = False
@@ -138,9 +138,9 @@ def orchestrator(
                     last_user_idx={last_usr_idx}
                 )
                 if last_usr_idx is not None:
-                    context[last_usr_idx]["content"] += whiteboard_tool.index
+                    context[last_usr_idx]["content"] += "\n" + whiteboard_tool.index
 
-        response = query(client=client, messages=context, tools=agent_tools)
+        response = query(client=client, messages=context, tools=agent_tools, temperature=DEFAULT_TEMPERATURE)
         response_message = response.choices[0].message
 
         chat_completion_message = cast(ChatCompletionAssistantMessage, response_message.model_dump())
@@ -162,11 +162,6 @@ def orchestrator(
                 _logger, logging.DEBUG, "raw tool call",
                 model=response.model, tool_call=trim_tool_call_log(tool_call)
             )
-            if loop_detector.check(tool_call.model_dump_json()):
-                log_event(
-                    _logger, logging.INFO, 
-                    "LoopDetector triggered", iteration=it
-                )
             
             tool_name = tool_call.function.name
             

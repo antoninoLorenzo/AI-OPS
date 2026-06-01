@@ -13,8 +13,14 @@ from ai_ops.core.log import get_logger
 ToolRegistry: Dict[str, ToolFactory] = {
     LoadSkill.name: lambda _: LoadSkill(),
     ThinkTool.name: lambda _: ThinkTool(),
-    WhiteboardRead.name: lambda ctx: WhiteboardRead(whiteboard_id=ctx.conversation_id),
-    WhiteboardWrite.name: lambda ctx: WhiteboardWrite(whiteboard_id=ctx.conversation_id)
+    WhiteboardRead.name: lambda ctx: WhiteboardRead(
+        whiteboard_id=ctx.conversation_id,
+        new_whiteboard=ctx.is_new_conversation
+    ),
+    WhiteboardWrite.name: lambda ctx: WhiteboardWrite(
+        whiteboard_id=ctx.conversation_id,
+        new_whiteboard=ctx.is_new_conversation
+    )
 }
 
 

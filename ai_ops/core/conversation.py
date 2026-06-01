@@ -164,6 +164,9 @@ class ConversationStore:
         self.__storage[conversation_id] = Conversation(id=conversation_id, messages=messages)
         return self.__storage[conversation_id]
 
+    def from_conversation(self, conversation_id: str, conversation: Conversation):
+        self.__storage[conversation_id] = conversation
+
     def get(self, conversation_id: str) -> Conversation:
         conversation = self.__storage.get(conversation_id, None)
         if conversation is None:

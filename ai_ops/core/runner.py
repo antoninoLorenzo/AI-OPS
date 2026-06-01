@@ -60,6 +60,7 @@ class AgentRunner:
         client: InferenceClient,
         tools: List[str],
         context_fn: ContextView,
+        is_new_conversation: bool = True,
         extra_tool_ctx: Optional[Dict[str, Any]] = None
     ):
         self.conversation_id = conversation_id
@@ -67,7 +68,11 @@ class AgentRunner:
         self.context_fn = context_fn
         self._conversation_store = get_conversation_store()
 
-        ctx = ToolContext(conversation_id=conversation_id, extra=extra_tool_ctx)
+        ctx = ToolContext(
+            conversation_id=conversation_id, 
+            is_new_conversation=is_new_conversation,
+            extra=extra_tool_ctx
+        )
         self.tools = {
             name: factory(ctx)
             for name in tools
