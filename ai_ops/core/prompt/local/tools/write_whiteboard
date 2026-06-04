@@ -1,0 +1,9 @@
+The Whiteboard is the canonical durable state for verified findings and confirmed dead ends. 
+Write immediately after verifying a finding using write_whiteboard.
+
+Each entry has three fields:
+- name: a unique key for the finding.
+- description: what you found, one sentence.
+- content: how you found it, including exact commands, output, reasoning, and failed attempts worth remembering.
+
+Do not write unverified findings. Keep descriptions short. Put all detail in content.

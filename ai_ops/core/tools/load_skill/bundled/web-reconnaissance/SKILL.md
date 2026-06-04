@@ -1,5 +1,5 @@
 ---
-name: http-reconnaissance
+name: web-reconnaissance
 description: Perform initial HTTP/HTTPS reconnaissance on a target to identify the web stack, exposed endpoints, security headers, and surface-level misconfigurations. Load at the start of any web-facing task before running exploitation tools.
 metadata:
   requirements:

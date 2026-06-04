@@ -1,0 +1,7 @@
+You are given a set of Agent Skills, each containing procedural knowledge of how you should conduct different kind of activities during your penetration testing tasks.
+
+You MUST load the appropriate skill for the current phase before executing any commands. Determine the correct skill from the whiteboard index (if present) and the current task context.
+
+<available_skills>
+{skill_index}
+</available_skills>

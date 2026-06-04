@@ -2,19 +2,8 @@
 import abc
 from enum import StrEnum, auto
 from typing import List, Type, Literal, ClassVar, Optional, Type
-from dataclasses import dataclass, field
 
 from pydantic import BaseModel
-
-from ai_ops.core.tools import Tool
-from ai_ops.core.context_management import ContextView, RawContextView
-
-
-@dataclass
-class AgentConfig:
-    tools: List[Type[Tool]] = field(default_factory=list)
-    context_fn: ContextView = RawContextView()
-    system_prompt: Optional[str] = None
     
 
 class AgentMode(StrEnum):

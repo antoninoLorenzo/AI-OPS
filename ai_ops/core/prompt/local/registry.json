@@ -1,0 +1,17 @@
+{
+    "agent": {
+        "react": { "version": "0.0.0" }
+    },
+    "tool": {
+        "load_skill": { "version": "0.0.0" },
+        "whiteboard": { "version": "0.0.0" },
+        "think": { "version": "0.0.0" }
+    },
+    "example": {
+        "1_load_skill": { "version": "0.0.0" },
+        "2_load_skill": { "version": "0.0.0" },
+        "1_whiteboard": { "version": "0.0.0" },
+        "2_whiteboard": { "version": "0.0.0" },
+        "3_whiteboard": { "version": "0.0.0" }
+    }
+}

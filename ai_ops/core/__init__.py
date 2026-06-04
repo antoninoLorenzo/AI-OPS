@@ -1,6 +1,5 @@
-from ai_ops.core.runner import AgentFactory, AgentRunner
+from ai_ops.core.runner import AgentFactory, AgentRunner, AgentConfig
 from ai_ops.core.schema import (
-    AgentConfig,
     AgentMode,
     EventType, 
     Event,

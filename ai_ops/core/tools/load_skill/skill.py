@@ -6,25 +6,11 @@ import yaml
 from pydantic import BaseModel, Field
 
 from ai_ops.core.tools.base import Tool
+from ai_ops.core.prompt import get_prompt
 from ai_ops.core.log import get_logger, log_event, logging
 
 
 BUNDLED_SKILLS = Path(__file__).parent / 'bundled'
-
-_SKILL_DESCRIPTION = """Load the full instructions for one or more skills before executing them.
-
-Skills are step-by-step procedural guides for specific offensive security tasks \
-(e.g. http-reconnaissance, sql-injection). Each skill contains tool usage, \
-command sequences, and decision logic tailored to the task.
-
-Always call this tool before attempting any task that maps to a known skill. \
-Do not rely on general knowledge when a skill is available — skill instructions \
-are authoritative and must be followed.
-
-If a requested skill is not found it will be silently skipped, so only request \
-skill names that appear in the skill index.\
-"""
-
 FRONTMATTER_REGEX = r"(?s)^---\s*\n(?P<frontmatter>.*?)\n---\s*(?P<instructions>.*)"
 
 _logger = get_logger(__name__)
@@ -161,7 +147,12 @@ class LoadSkillResult(BaseModel):
 
 class LoadSkill(Tool[LoadSkillRequest, LoadSkillResult]):
     name = "load_skill"
-    description = _SKILL_DESCRIPTION
+    description = None
+
+    def __init__(self, model: str | None = None):
+        registry = get_skill_registry()
+        self.description = get_prompt(name=LoadSkill.name, kind="tool", model=model)
+        self.description = self.description.format(skill_index=registry.get_index())
 
     def __call__(self, skill_request: LoadSkillRequest) -> LoadSkillResult:
         registry = get_skill_registry()

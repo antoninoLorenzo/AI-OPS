@@ -1,3 +1,4 @@
+from dataclasses import dataclass, field
 from typing import Any, Dict, Iterator, List, Optional, Type
 
 import litellm
@@ -7,16 +8,11 @@ from litellm import (
 )
 
 from ai_ops.core.agent import orchestrator
-from ai_ops.core.context_management import ContextView
+from ai_ops.core.context_management import ContextView, RawContextView
 from ai_ops.core.conversation import Message, get_conversation_store, get_token_count
 from ai_ops.core.llm import InferenceClient, ModelConfig, build_inference_client
-from ai_ops.core.prompt import (
-    BASE_PROTOTYPE_PROMPT, 
-    WHITEBOARD_PROMPT,
-    SKILL_PROTOTYPE_PROMPT
-)
+from ai_ops.core.prompt import build_prompt
 from ai_ops.core.schema import (
-    AgentConfig,
     AgentMode,
     Event,
     StopEvent,
@@ -40,6 +36,12 @@ from ai_ops.core.log import get_logger, log_event, logging
 
 _logger = get_logger(__name__)
 
+
+@dataclass
+class AgentConfig:
+    tools: List[Type[Tool]] = field(default_factory=list)
+    context_fn: ContextView = RawContextView()
+    system_prompt: Optional[str] = None
 
 
 class AgentRunner:
@@ -70,6 +72,7 @@ class AgentRunner:
 
         ctx = ToolContext(
             conversation_id=conversation_id, 
+            model_id=client.model,
             is_new_conversation=is_new_conversation,
             extra=extra_tool_ctx
         )
@@ -190,20 +193,13 @@ class AgentFactory:
         }
         self._extra_tool_context = extra_tool_ctx
         
-        self._system_prompt = BASE_PROTOTYPE_PROMPT
-        if agent_config.system_prompt:
-            self._system_prompt = agent_config.system_prompt
+        self._system_prompt = build_prompt(available_tools=agent_config.tools)
 
-        # build system prompt based on available tools
         log_event(_logger, logging.INFO, "", tools=f"\"{list(self._tools.keys())}\"")
         self._whiteboard_store = None
         if WhiteboardRead.name in self._tools:
             self._whiteboard_store = get_whiteboard_store()
-            self._system_prompt += "\n" + WHITEBOARD_PROMPT
-        
-        if LoadSkill.name in self._tools:
-            skill_registry = get_skill_registry()
-            self._system_prompt += "\n" + SKILL_PROTOTYPE_PROMPT.format(skill_index=skill_registry.get_index())
+
     
     def create(self, conversation_id: Optional[str] = None) -> AgentRunner:
         # if given a conversation_id resumes

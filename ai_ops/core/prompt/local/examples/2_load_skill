@@ -1,0 +1,25 @@
+[Task: Gain remote code execution on 10.10.10.33]
+ 
+# Whiteboard Index
+
+## target_services
+**Description**: 10.10.10.33 exposes HTTP on 80.
+### Content
+nmap full TCP scan. Result: 80/tcp open http.
+
+## web_recon
+**Description**: File upload endpoint at /upload. Content-Type header is the only validation.
+### Content
+Navigated to http://10.10.10.33. Found /upload via directory brute-force. Manual test: uploaded \
+file with image/jpeg Content-Type, server accepted it regardless of extension. No server-side extension \
+check observed.
+ 
+Tool: {ThinkTool.name}
+Input: The whiteboard confirms a file upload endpoint with weak Content-Type-only validation. This is a \
+file upload bypass scenario. I load web-file-upload before attempting any bypass, I do not guess at techniques \
+without the skill.
+Output: (no observation)
+ 
+Tool: {LoadSkill.name}
+Input: skill_name="web-file-upload"
+Output: [skill content loaded]

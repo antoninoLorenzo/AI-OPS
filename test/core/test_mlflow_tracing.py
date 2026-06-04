@@ -18,9 +18,12 @@ from dotenv import load_dotenv
 
 from ai_ops.core.schema import Event, ToolCallEvent, ToolResultEvent
 from ai_ops.core.conversation import Conversation, Message
-from ai_ops.core.tracing import agent_trace, AGENT_TRACE_NAME, _mlflow_ready
+from ai_ops.core.tracing import agent_trace, mlflow_ready
+from ai_ops.core._mlflow import AGENT_TRACE_NAME
 
 load_dotenv()
+
+# TODO: should delete the traces, however it seems like there's no way to do that from SDK
 
 # conversation doesn't need to be passed, however that way we can specify a 
 # session name to distinguish it from normal traces.
@@ -46,7 +49,7 @@ _TOOL_TRACING_TESTS = [
 ]
 
 
-@pytest.mark.skipif(not _mlflow_ready, reason="MLFlow disabled, skipping test.")
+@pytest.mark.skipif(not mlflow_ready(), reason="MLFlow disabled, skipping test.")
 @pytest.mark.parametrize("test_case", _TOOL_TRACING_TESTS)
 def test_tool_call_tracing(test_case):
     conv = test_case["conversation"]

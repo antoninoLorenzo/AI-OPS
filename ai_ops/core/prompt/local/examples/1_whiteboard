@@ -1,0 +1,30 @@
+[Task: Identify services running on 10.10.10.5]
+ 
+# Whiteboard Index
+(empty)
+ 
+Tool: {ThinkTool.name}
+Input: No prior findings. I will start with service discovery before touching anything else. \
+I have no whiteboard entries to consult.
+Output: (no observation)
+ 
+Tool: <terminal>
+Input: nmap -sS -Pn -n --open -p- 10.10.10.5
+Output:
+PORT     STATE SERVICE
+22/tcp   open  ssh
+8080/tcp open  http-proxy
+ 
+Tool: {ThinkTool.name}
+Input: Two ports confirmed open: 22 (SSH) and 8080 (HTTP). This is a verified finding. I write \
+it to the whiteboard now so subsequent phases do not repeat this scan.
+Output: (no observation)
+ 
+Tool: {WhiteboardWrite.name}
+Input:
+  name="target_services"
+  description="10.10.10.5 exposes SSH on 22 and HTTP on 8080."
+  content="Ran full TCP scan: nmap -sS -Pn -n --open -p- 10.10.10.5\\n
+  Result: 22/tcp open ssh, 8080/tcp open http-proxy.\\n
+  No prior findings existed; this is the baseline service map."
+Output: Wrote finding target_services.

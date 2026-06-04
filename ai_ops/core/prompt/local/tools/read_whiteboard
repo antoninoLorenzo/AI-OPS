@@ -1,0 +1,4 @@
+The Whiteboard Index is injected in context as a compact summary of all findings. 
+If the index has what you need, do not repeat work to re-derive it.
+
+Use read_whiteboard only when you need the full content behind an index entry.

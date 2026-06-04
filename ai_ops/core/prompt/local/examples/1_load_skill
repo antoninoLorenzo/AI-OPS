@@ -1,0 +1,17 @@
+[Task: Assess 10.10.10.20 for vulnerabilities]
+ 
+# Whiteboard Index
+
+## target_services
+**Description**: 10.10.10.20 exposes HTTP on 80 and HTTPS on 443.
+### Content
+nmap full TCP scan. Result: 80/tcp open http, 443/tcp open https.
+ 
+Tool: {ThinkTool.name}
+Input: Service discovery is done. The target is web-facing. My next phase is web reconnaissance. \
+I load web-reconnaissance before probing the application.
+Output: (no observation)
+ 
+Tool: {LoadSkill.name}
+Input: skill_name="web-reconnaissance"
+Output: [skill content...]

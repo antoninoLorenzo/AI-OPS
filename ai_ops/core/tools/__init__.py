@@ -11,15 +11,17 @@ from ai_ops.core.tools.whiteboard import (
 from ai_ops.core.log import get_logger
 
 ToolRegistry: Dict[str, ToolFactory] = {
-    LoadSkill.name: lambda _: LoadSkill(),
+    LoadSkill.name: lambda ctx: LoadSkill(model=ctx.model_id),
     ThinkTool.name: lambda _: ThinkTool(),
     WhiteboardRead.name: lambda ctx: WhiteboardRead(
         whiteboard_id=ctx.conversation_id,
-        new_whiteboard=ctx.is_new_conversation
+        new_whiteboard=ctx.is_new_conversation,
+        model=ctx.model_id
     ),
     WhiteboardWrite.name: lambda ctx: WhiteboardWrite(
         whiteboard_id=ctx.conversation_id,
-        new_whiteboard=ctx.is_new_conversation
+        new_whiteboard=ctx.is_new_conversation,
+        model=ctx.model_id
     )
 }
 

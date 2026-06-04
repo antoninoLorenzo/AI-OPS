@@ -124,21 +124,20 @@ def orchestrator(
         # prefix caching.
         if WhiteboardRead.name in tools:
             whiteboard_tool: WhiteboardRead = tools[WhiteboardRead.name]
-            if whiteboard_tool.index:
-                last_usr_idx = next(
-                    (
-                        i for i in range(len(context)-1, -1, -1)
-                        if context[i].get("role", "") == "user"
-                    ),
-                    None
-                )
-                log_event(
-                    _logger, logging.DEBUG, 
-                    "Appending whiteboard index to message",
-                    last_user_idx={last_usr_idx}
-                )
-                if last_usr_idx is not None:
-                    context[last_usr_idx]["content"] += "\n" + whiteboard_tool.index
+            last_usr_idx = next(
+                (
+                    i for i in range(len(context)-1, -1, -1)
+                    if context[i].get("role", "") == "user"
+                ),
+                None
+            )
+            log_event(
+                _logger, logging.DEBUG, 
+                "Appending whiteboard index to message",
+                last_user_idx={last_usr_idx}
+            )
+            if last_usr_idx is not None:
+                context[last_usr_idx]["content"] += "\n" + whiteboard_tool.index
 
         response = query(client=client, messages=context, tools=agent_tools, temperature=DEFAULT_TEMPERATURE)
         response_message = response.choices[0].message

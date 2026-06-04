@@ -3,19 +3,7 @@ from typing import Annotated, Dict, Optional, Union
 from pydantic import BaseModel, Field
 
 from ai_ops.core.tools.base import Tool
-
-_WHITEBOARD_DESCRIPTION = """The Whiteboard is the canonical durable state for verified findings and confirmed dead ends.
-Maintains a named **Whiteboard Index** of findings (vulnerabilities, credentials, host info, etc.), each with a description and content."""
-
-_WHITEBOARD_READ_DESCRIPTION = """Perform a read operation on the whiteboard by specifying the name of a finding.
-Findings are provided under `# Whiteboard Index`, if any, as `name: description`."""
-
-_WHITEBOARD_WRITE_DESCRIPTION = """Perform a write operation on the whiteboard by specifying: the name of the \
-finding, the description and the content. The description should be short and include only the necessary information \
-that will be included in the Whiteboard Index, the content contains a more detailed overview of the finding, including \
-the process that lead to the finding (ex. what commands you executed and why).
-"""
-
+from ai_ops.core.prompt import get_prompt
 
 class WhiteboardEntry(BaseModel):
     name: str
@@ -56,13 +44,13 @@ class WhiteboardStore:
     def new_whiteboard(self, whiteboard_id: str):
         self.__store[whiteboard_id] = {}
 
-    def get_index(self, whiteboard_id: str) -> Optional[str]:
+    def get_index(self, whiteboard_id: str) -> str:
         whiteboard = self.__store.get(whiteboard_id, None)
         if whiteboard is None:
             raise ValueError(f"No whiteboard with whiteboard_id={whiteboard_id}")
         
         if len(whiteboard) == 0:
-            return None
+            return "\n# Whiteboard Index\n (empty)"
         
         return "\n# Whiteboard Index\n" + "\n".join([
             f"## {entry.name}\n**Description**: {entry.description}\n### Content\n{entry.content}" 
@@ -98,9 +86,15 @@ def get_whiteboard_store() -> WhiteboardStore:
 
 class WhiteboardRead(Tool[WhiteboardReadRequest, WhiteboardResult]):
     name = 'read_whiteboard'
-    description = _WHITEBOARD_DESCRIPTION + _WHITEBOARD_READ_DESCRIPTION
+    description = None
 
-    def __init__(self, whiteboard_id: str, new_whiteboard: bool = True):
+    def __init__(
+        self, 
+        whiteboard_id: str, 
+        new_whiteboard: bool = True,
+        model: str | None = None
+    ):
+        self.description = get_prompt(name=WhiteboardRead.name, kind="tool", model=model)
         self.whiteboard_id = whiteboard_id
         store = get_whiteboard_store()
         if new_whiteboard:
@@ -139,9 +133,15 @@ class WhiteboardRead(Tool[WhiteboardReadRequest, WhiteboardResult]):
 
 class WhiteboardWrite(Tool[WhiteboardWriteRequest, WhiteboardResult]):
     name = 'write_whiteboard'
-    description = _WHITEBOARD_DESCRIPTION + _WHITEBOARD_WRITE_DESCRIPTION
+    description = None
 
-    def __init__(self, whiteboard_id: str, new_whiteboard: bool = True):
+    def __init__(
+        self, 
+        whiteboard_id: str, 
+        new_whiteboard: bool = True, 
+        model: str | None = None
+    ):
+        self.description = get_prompt(name=WhiteboardWrite.name, kind="tool", model=model)
         self.whiteboard_id = whiteboard_id
         store = get_whiteboard_store()
         if new_whiteboard:
