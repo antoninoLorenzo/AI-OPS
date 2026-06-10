@@ -53,7 +53,7 @@ class TerminalResult(BaseModel):
 
 class Terminal(Tool[TerminalRequest, TerminalResult]):
     name = "terminal"
-    description = "" # get_prompt(name="terminal", kind="tool")
+    description = get_prompt(name="terminal", kind="tool")
 
     def __init__(
         self, 
