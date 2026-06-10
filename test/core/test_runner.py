@@ -20,7 +20,7 @@ from ai_ops.core.schema import (
     ToolErrorEvent
 )
 import ai_ops.core.runner
-from ai_ops.core.runner import AgentRunner
+from ai_ops.core.runner import AgentRunner, AgentConfig
 from ai_ops.core.conversation import (
     Message, 
     ConversationStore, 
@@ -28,7 +28,6 @@ from ai_ops.core.conversation import (
     get_conversation_store, 
     get_token_count
 )
-from ai_ops.core.context_management import RawContextView
 
 from test.core.mocks.agent import mock_orchestrator
 from test.core.mocks.llm import mock_inference_client
@@ -353,8 +352,7 @@ def test_agent_runner_run(test_case, monkeypatch, register_mock_tool):
     agent = AgentRunner(
         conversation_id=conv.id,
         client=mock_inference_client,
-        tools=[MockTool.name],
-        context_fn=RawContextView()
+        config=AgentConfig(tools=[MockTool])
     )
 
     expected_events = test_case["expected_events"]

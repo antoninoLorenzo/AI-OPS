@@ -8,6 +8,7 @@ from ai_ops.core.tools.whiteboard import (
     WhiteboardWrite,
     get_whiteboard_store,
 )
+from ai_ops.core.tools.terminal import Terminal, CommandAdmissionPolicy
 from ai_ops.core.log import get_logger
 
 ToolRegistry: Dict[str, ToolFactory] = {
@@ -22,6 +23,13 @@ ToolRegistry: Dict[str, ToolFactory] = {
         whiteboard_id=ctx.conversation_id,
         new_whiteboard=ctx.is_new_conversation,
         model=ctx.model_id
+    ),
+    Terminal.name: lambda ctx: Terminal(
+        conversation_id=ctx.conversation_id,
+        working_directory=ctx.working_directory
+        # TODO: how do I make command policies go from AgentConfig there?
+        # `ToolContext` is defined in tools/base.py, I can't import `CommandAdmissionPolicy` 
+        # there without having a circular import...
     )
 }
 

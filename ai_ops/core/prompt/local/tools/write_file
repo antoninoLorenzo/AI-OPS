@@ -1,0 +1,7 @@
+Write text content to a file in the workspace. 
+
+Creates the file if it does not exist, or overwrites it if it does. 
+Creates the immediate parent directory if missing. 
+Returns a tree view of the workspace on success.
+
+Use this tool to save write scripts.

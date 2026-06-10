@@ -89,6 +89,7 @@ class ToolContext:
     conversation_id: str
     model_id: str | None = None
     is_new_conversation: bool = True
+    working_directory: str | None = None
     # fucking benchmarks
     extra: Optional[Dict[str, Any]] = None
 

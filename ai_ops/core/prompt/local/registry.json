@@ -5,7 +5,9 @@
     "tool": {
         "load_skill": { "version": "0.0.0" },
         "whiteboard": { "version": "0.0.0" },
-        "think": { "version": "0.0.0" }
+        "think": { "version": "0.0.0" },
+        "write_file": { "version": "0.0.0" },
+        "terminal": { "version": "0.0.0" }
     },
     "example": {
         "1_load_skill": { "version": "0.0.0" },

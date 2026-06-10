@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, List, Optional, Type
+from typing import Any, Dict, Iterator, List, Optional, Type, Tuple
 
 import litellm
 from litellm import (
@@ -29,6 +29,7 @@ from ai_ops.core.tools import (
     ToolContext,
     ToolRegistry,
     WhiteboardRead,
+    CommandAdmissionPolicy,
     get_skill_registry,
     get_whiteboard_store,
 )
@@ -41,7 +42,9 @@ _logger = get_logger(__name__)
 class AgentConfig:
     tools: List[Type[Tool]] = field(default_factory=list)
     context_fn: ContextView = RawContextView()
-    system_prompt: Optional[str] = None
+    # only applicable to terminal/write_file core tools
+    working_directory: str | None = None
+    command_policies: Tuple[CommandAdmissionPolicy] = field(default_factory=list)
 
 
 class AgentRunner:
@@ -60,26 +63,26 @@ class AgentRunner:
         self,
         conversation_id: str,
         client: InferenceClient,
-        tools: List[str],
-        context_fn: ContextView,
+        config: AgentConfig,
         is_new_conversation: bool = True,
         extra_tool_ctx: Optional[Dict[str, Any]] = None
     ):
         self.conversation_id = conversation_id
         self.client = client
-        self.context_fn = context_fn
+        self.context_fn = config.context_fn
         self._conversation_store = get_conversation_store()
 
         ctx = ToolContext(
             conversation_id=conversation_id, 
             model_id=client.model,
             is_new_conversation=is_new_conversation,
+            working_directory=config.working_directory,
             extra=extra_tool_ctx
         )
         self.tools = {
-            name: factory(ctx)
-            for name in tools
-            if (factory := ToolRegistry.get(name)) is not None
+            tool.name: factory(ctx)
+            for tool in config.tools
+            if (factory := ToolRegistry.get(tool.name)) is not None
         }
         self._user_stopped = False
     
@@ -181,21 +184,22 @@ class AgentFactory:
         model_config: ModelConfig | List[ModelConfig],
         extra_tool_ctx: Optional[Dict[str, Any]] = None
     ):
+        self._agent_config = agent_config
+
         if isinstance(model_config, ModelConfig):
             model_config = [model_config]
 
         self._inference_client = build_inference_client(model_config)
+        self._extra_tool_context = extra_tool_ctx
         self._conversation_store = get_conversation_store()
-        self._context_strategy = agent_config.context_fn
+        self._system_prompt = build_prompt(model=model_config.model)
+        
         self._tools: Dict[str, Type[Tool]] = {
             tool.name: tool 
             for tool in agent_config.tools
         }
-        self._extra_tool_context = extra_tool_ctx
-        
-        self._system_prompt = build_prompt(available_tools=agent_config.tools)
-
         log_event(_logger, logging.INFO, "", tools=f"\"{list(self._tools.keys())}\"")
+        
         self._whiteboard_store = None
         if WhiteboardRead.name in self._tools:
             self._whiteboard_store = get_whiteboard_store()
@@ -211,8 +215,7 @@ class AgentFactory:
         return AgentRunner(
             conversation_id=conversation.id,
             client=self._inference_client,
-            tools=list(self._tools.keys()),
-            context_fn=self._context_strategy,
+            config=self._agent_config,
             extra_tool_ctx=self._extra_tool_context
         )
     

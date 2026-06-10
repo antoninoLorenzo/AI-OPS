@@ -1,0 +1,6 @@
+Execute bash commands in a persistent shell session.
+
+Sessions persist across calls, reuse `session_id` to maintain shell state (environment variables, working directory, background processes).
+Running interactive commands requires you to set `interactive=True`.
+
+For long running commands (ex. nmap) you can explicitly set a timeout using `timeout` parameter.
