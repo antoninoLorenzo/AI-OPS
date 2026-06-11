@@ -3,13 +3,64 @@ from functools import partial
 from typing import Optional, List, Dict
 
 import pytest
+import ai_ops.core.tools.load_skill.skill
 from ai_ops.core.tools.load_skill.skill import (
     Skill, 
+    SkillRegistry,
     LoadSkillRequest, 
     LoadSkillResult, 
     LoadSkill, 
     fetch_skill
 )
+from test.core.mocks.skill_registry import MockSkillRegistry, get_mock_skill_registry
+
+
+@pytest.fixture
+def mock_skill_directories(tmp_path):
+    bundled_base = tmp_path / "bundled"
+    bundled_skill_dir = bundled_base / "bundled-skill"
+    bundled_skill_dir.mkdir(parents=True)
+
+    user_skills_base = tmp_path / "user_skills"
+    user_skill_dir = user_skills_base / "user-skill"
+    user_skill_dir.mkdir(parents=True)
+
+    bundled_skill_content = """---
+name: bundled-skill
+description: asd
+---
+bundled
+"""
+    user_skill_content = """---
+name: user-skill
+description: asd
+---
+user
+"""
+    (bundled_skill_dir / "SKILL.md").write_text(bundled_skill_content)
+    (user_skill_dir / "SKILL.md").write_text(user_skill_content)
+
+    yield bundled_base, user_skills_base
+
+
+def test_skill_registry(mock_skill_directories, monkeypatch):
+    bundled_skills, user_skills = mock_skill_directories
+    
+    monkeypatch.setattr(
+        target=ai_ops.core.tools.load_skill.skill,
+        name="BUNDLED_SKILLS",
+        value=bundled_skills
+    )
+
+    monkeypatch.setattr(
+        target=ai_ops.core.tools.load_skill.skill,
+        name="USER_SKILLS",
+        value=user_skills
+    )
+
+    registry = SkillRegistry()
+    assert registry.get_skill("bundled-skill") is not None
+    assert registry.get_skill("user-skill") is not None
 
 
 _FETCH_SKILL_TEST_PARAMETERS = [
@@ -97,7 +148,13 @@ Maybe those are just instructions.
 ]
 
 @pytest.mark.parametrize("test_case", _FETCH_SKILL_TEST_PARAMETERS)
-def test_fetch_skill(tmp_path, test_case):
+def test_fetch_skill(tmp_path, test_case, monkeypatch):
+    monkeypatch.setattr(
+        target=ai_ops.core.tools.load_skill.skill,
+        name="verify_installed",
+        value=lambda _: None
+    )
+
     skill_dir = tmp_path / test_case.get('id', 'undefined')
     skill_content = test_case.get('content')
     test_expected = test_case['expected']
@@ -133,27 +190,6 @@ _LOAD_SKILL_TEST_PARAMETERS = [
         )
     }
 ]
-
-
-class MockSkillRegistry:
-    def __init__(self, available_skills: Optional[Dict[str, Skill]] = None):
-        self._skill_registry: Dict[str, Skill] = available_skills if available_skills else {}
-        
-    def get_index(self) -> str:
-        return "\n".join([
-            f"{name}: {skill.description}"
-            for name, skill in self._skill_registry.items()
-        ])
-
-    def get_available(self) -> List[str]:
-        return self._skill_registry.keys()
-    
-    def get_skill(self, name: str) -> Skill | None:
-        return self._skill_registry.get(name, None)
-
-
-def get_mock_skill_registry(available_skills: Optional[Dict[str, Skill]] = None):
-    return MockSkillRegistry(available_skills)
 
 
 @pytest.mark.parametrize("test_case", _LOAD_SKILL_TEST_PARAMETERS)

@@ -1,13 +1,11 @@
 import abc
 from types import get_original_bases
-from typing import Dict, Optional, Tuple, Any, Callable, TypeAlias, TypeVar, get_args, get_origin
-from dataclasses import dataclass
+from typing import Dict, Tuple, Callable, TypeVar, get_args, get_origin
 
 from litellm import ChatCompletionMessageToolCall
 from pydantic import BaseModel, ValidationError
 from pydantic.json_schema import GenerateJsonSchema
 from pydantic._internal._core_utils import is_core_schema
-
 
 ToolInputT = TypeVar("ToolInput", bound=BaseModel)
 ToolOutputT = TypeVar("ToolOutput", bound=BaseModel)
@@ -82,19 +80,6 @@ class Tool[ToolInputT, ToolOutputT](abc.ABC):
         )
         input_type, _ = get_args(base)
         return input_type
-
-
-@dataclass
-class ToolContext:
-    conversation_id: str
-    model_id: str | None = None
-    is_new_conversation: bool = True
-    working_directory: str | None = None
-    # fucking benchmarks
-    extra: Optional[Dict[str, Any]] = None
-
-
-ToolFactory: TypeAlias = Callable[[ToolContext | None], Tool]
 
 
 def validate_tool_call(

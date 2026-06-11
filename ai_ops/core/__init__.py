@@ -13,7 +13,14 @@ from ai_ops.core.schema import (
     ToolErrorEvent
 )
 from ai_ops.core.llm import ModelConfig
-from ai_ops.core.tools import LoadSkill, WhiteboardRead, WhiteboardWrite, ThinkTool
+from ai_ops.core.tools import (
+    LoadSkill, 
+    WhiteboardRead, 
+    WhiteboardWrite, 
+    ThinkTool,
+    WriteFile,
+    Terminal
+)
 
 __all__ = [
     "AgentFactory",

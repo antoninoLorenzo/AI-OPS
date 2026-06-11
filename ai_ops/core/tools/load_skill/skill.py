@@ -1,17 +1,22 @@
 import re
+import sys
+import subprocess
 from pathlib import Path
 from typing import List, Optional, Annotated, Dict, Union
 
 import yaml
 from pydantic import BaseModel, Field
 
+from ai_ops.config import AI_OPS_BASE_DIR
 from ai_ops.core.tools.base import Tool
 from ai_ops.core.prompt import get_prompt
 from ai_ops.core.log import get_logger, log_event, logging
 
 
 BUNDLED_SKILLS = Path(__file__).parent / 'bundled'
+USER_SKILLS = AI_OPS_BASE_DIR / "user_skills"
 FRONTMATTER_REGEX = r"(?s)^---\s*\n(?P<frontmatter>.*?)\n---\s*(?P<instructions>.*)"
+_VALID_DEP_RE = re.compile(r'^[a-zA-Z0-9._-]+$')
 
 _logger = get_logger(__name__)
 
@@ -24,12 +29,34 @@ class Skill(BaseModel):
 
 
 def verify_installed(dependency: Union[str, List[str]]):
-    # verifies whether or not binary (ex. curl) is installed on the system, if not
-    # it raises a RuntimeError.
-    # The reason is to avoid having the agent being cock-blocked when it tries to run
-    # a command but the command is not installed; the agent itself shouldn't be able 
-    # to install binaries
-    pass
+    # SkillRegistry calls fetch_skill on user supplied skills, fetch_skill parses 
+    # the SKILL.md frontmatter and if there's a metadata.requirements list field 
+    # this function is called to ensure all dependencies are available.
+    # 
+    # Since the list is user-supplied input, in order to avoid Command Injection 
+    # we use `subprocess.run` with a list of arguments and shell=False, plus to be 
+    # thorough we check that the string conforms to executable names.
+
+    if isinstance(dependency, str):
+        dependency = [dependency]
+    
+    def _is_dependency(dep: str) -> bool:
+        return bool(_VALID_DEP_RE.match(dep))
+
+    unavailable = []
+    for dep in dependency:
+        if not _is_dependency(dep):
+            continue
+
+        result = subprocess.run(
+            ["/usr/bin/which", dep], capture_output=True, shell=False
+        )
+        if result.returncode != 0:
+            unavailable.append(dep)
+
+    if len(unavailable):
+        print(f"The following binaries are not available in PATH: {unavailable}.")
+        sys.exit(1)
 
 
 def fetch_skill(skill_path: Path) -> Skill | None:
@@ -82,7 +109,7 @@ def fetch_skill(skill_path: Path) -> Skill | None:
     
 
 class SkillRegistry:
-    def __init__(self, skills: Optional[Path] = None):
+    def __init__(self):
         self._skill_registry: Dict[str, Skill] = {}
         for skill_path in BUNDLED_SKILLS.iterdir():
             skill = fetch_skill(skill_path)
@@ -91,26 +118,18 @@ class SkillRegistry:
         
         # extend bundled skills with other skills, conflicting name resolution
         # gets resolved as overloading (user skills overwrite bundled).
-        if skills:
-            if not skills.is_dir():
+        for skill_path in USER_SKILLS.iterdir():
+            skill = fetch_skill(skill_path)
+            if skill is None:
+                continue
+            
+            if skill.name in self._skill_registry:
                 log_event(
-                    _logger, logging.ERROR, 
-                    "Extended skill path not a directory", 
-                    extended_skills_path=skills
+                    _logger, logging.WARNING, 
+                    f"Overriding bundled skill {skill.name}"
                 )
-            else:
-                for skill_path in skills.iterdir():
-                    skill = fetch_skill(skill_path)
-                    if skill is None:
-                        continue
-                    
-                    if skill.name in self._skill_registry:
-                        log_event(
-                            _logger, logging.WARNING, 
-                            f"Overriding bundled skill {skill.name}"
-                        )
-                    
-                    self._skill_registry[skill.name] = skill
+            
+            self._skill_registry[skill.name] = skill
 
     def get_index(self) -> str:
         return "\n".join([

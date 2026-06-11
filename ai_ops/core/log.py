@@ -5,16 +5,14 @@ from pathlib import Path
 
 import litellm
 
+from ai_ops.config import AI_OPS_BASE_DIR
+
 
 _LOG_FILE_ENV = "AI_OPS_LOG_FILE"
 _LOG_LEVEL_ENV = "AI_OPS_LOG_LEVEL"
 _LOG_STDOUT_ENV = "AI_OPS_LOG_STDOUT"
 
-_DEFAULT_BASE_PATH = Path().home() / ".ai_ops"
-if not _DEFAULT_BASE_PATH.exists():
-    _DEFAULT_BASE_PATH.mkdir(exist_ok=True)
-LOG_PATH = os.environ.get(_LOG_FILE_ENV, _DEFAULT_BASE_PATH / "logs.log")
-
+LOG_PATH = AI_OPS_BASE_DIR / "logs.log"
 LOG_LEVEL = os.environ.get(_LOG_LEVEL_ENV, "info").lower()
 match LOG_LEVEL:
     case "debug":

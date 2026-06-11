@@ -81,14 +81,14 @@ class WriteFileOutput(BaseModel):
     error: WriteFileError | None = None
 
 
-# TODO: 
-# * how do we handle state across conversations?
 class WriteFile(Tool[WriteFileInput, WriteFileOutput]):
-    name: 'write_file'
-    description: get_prompt(name="write_file", kind="tool")
+    name = 'write_file'
+    description = get_prompt(name="write_file", kind="tool")
 
-    def __init__(self, working_directory: str):
-        self.working_directory = Path(working_directory)
+    def __init__(self, working_directory: Path):
+        self.working_directory = working_directory
+        if not self.working_directory.exists():
+            self.working_directory.mkdir()
 
     def __call__(self, tool_args: WriteFileInput) -> WriteFileOutput:
         path = resolve_path(self.working_directory, tool_args.path)

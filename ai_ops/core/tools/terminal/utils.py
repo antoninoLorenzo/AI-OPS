@@ -35,7 +35,10 @@ def extract_executables(command: str) -> Set[str]:
                 continue
 
             executables.append(node.parts[0].word)
-            stack.extend(arg for arg in node.parts[1:] if arg.parts)
+            stack.extend(
+                arg for arg in node.parts[1:] 
+                if getattr(arg, "parts", None) and arg.parts
+            )
                     
         elif node.kind == 'compound':
             stack.extend(node.list)

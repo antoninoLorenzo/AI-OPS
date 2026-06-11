@@ -58,7 +58,7 @@ _WRITE_FILE_TESTS = [
 
 @pytest.mark.parametrize("test_case", _WRITE_FILE_TESTS)
 def test_write_file(test_case, mock_workspace):
-    write_file = WriteFile(working_directory=str(mock_workspace))
+    write_file = WriteFile(working_directory=mock_workspace)
 
     if isinstance(test_case["call"], list):
         for tool_args, expected_fn in zip(test_case["call"], test_case["expected"]):

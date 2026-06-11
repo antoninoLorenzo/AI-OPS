@@ -77,6 +77,7 @@ class AgentRunner:
             model_id=client.model,
             is_new_conversation=is_new_conversation,
             working_directory=config.working_directory,
+            command_policies=config.command_policies,
             extra=extra_tool_ctx
         )
         self.tools = {
