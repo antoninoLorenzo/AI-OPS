@@ -32,7 +32,7 @@ def _setup_subprocess(fd, ps1, working_directory):
         os.setsid()                               # set slave as session owner
         fcntl.ioctl(fd, termios.TIOCSCTTY, 0)     # set slave as controlling terminal
         os.environ['PS1'] = ps1
-        os.chdir(str(working_directory))       
+        os.chdir(working_directory)      
     return inner
 
 # shell-reserved exit codes: https://tldp.org/LDP/abs/html/exitcodes.html

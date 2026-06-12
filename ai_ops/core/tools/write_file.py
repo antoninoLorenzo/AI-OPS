@@ -89,7 +89,7 @@ class WriteFile(Tool[WriteFileInput, WriteFileOutput]):
         self.description = get_prompt(name="write_file", kind="tool")
         self.working_directory = working_directory
         if not self.working_directory.exists():
-            self.working_directory.mkdir()
+            self.working_directory.mkdir(parents=True, exist_ok=True)
 
     def __call__(self, tool_args: WriteFileInput) -> WriteFileOutput:
         path = resolve_path(self.working_directory, tool_args.path)

@@ -24,7 +24,6 @@ _TERMINAL_CALL_TESTS = [
                 MockAdmissionPolicy(allowed=True),
                 MockAdmissionPolicy(allowed=False)
             ),
-            "working_directory": "/tmp"
         },
         "command": "nc -lnvp 4444",
         "call": TerminalRequest(command="nc -lnvp 4444", session_id="bash-1234"),
@@ -42,7 +41,6 @@ _TERMINAL_CALL_TESTS = [
                 MockAdmissionPolicy(allowed=True),
                 MockAdmissionPolicy(allowed=True)
             ),
-            "working_directory": "/tmp"
         },
         "command": "ls -la",
         "call": TerminalRequest(command="ls -la", session_id="bash-1234"),
@@ -62,7 +60,6 @@ _TERMINAL_CALL_TESTS = [
                 MockAdmissionPolicy(allowed=True),
                 MockAdmissionPolicy(allowed=True)
             ),
-            "working_directory": "/tmp"
         },
         "command": "ls -la",
         "call": TerminalRequest(command="ls -la"),
@@ -74,7 +71,7 @@ _TERMINAL_CALL_TESTS = [
 ]
 
 @pytest.mark.parametrize("test_case", _TERMINAL_CALL_TESTS)
-def test_terminal(test_case, monkeypatch):
+def test_terminal(test_case, monkeypatch, tmp_path):
     monkeypatch.setattr(
         target=ai_ops.core.tools.terminal.terminal,
         name="BashSession",
@@ -84,7 +81,7 @@ def test_terminal(test_case, monkeypatch):
         )
     )
 
-    terminal_tool = Terminal(**test_case["init"])
+    terminal_tool = Terminal(working_directory=tmp_path, **test_case["init"])
     terminal_result = terminal_tool(test_case["call"])
     expected = test_case["expected"]
 
