@@ -1,5 +1,6 @@
 import time
 import functools
+from typing import Callable
 
 import pytest
 
@@ -25,6 +26,26 @@ def output_expected(
 
 
 _BASH_SESSION_TESTS = [
+    # check working directory is the expected
+    {
+       "init_parameters": {"default_timeout": 5.0},
+        "commands": [
+            {"command": "pwd"}
+        ],
+        "expected": [
+            {
+                "callback": functools.partial(
+                    output_expected, 
+                    timeout=5.0,
+                    expected_status=CommandStatus.OK,
+                    should_timeout=False
+                ),
+                # we don't have access to tmp_dir there so instead of doing 
+                # `assert out == exp` we have to do `assert output(out, exp) is True`
+                "output": lambda out, exp: out == exp
+            }
+        ] 
+    },
     # --- non interactive
     # command not found -> status not found, completes before timeout 
     {
@@ -201,8 +222,8 @@ _BASH_SESSION_TESTS = [
 ]
 
 @pytest.mark.parametrize("test_case", _BASH_SESSION_TESTS)
-def test_bash_session(test_case):
-    bash = BashSession(**test_case["init_parameters"])
+def test_bash_session(test_case, tmp_path):
+    bash = BashSession(working_directory=str(tmp_path), **test_case["init_parameters"])
 
     print("\n### --- DEBUG")
     for command, expected in zip(test_case["commands"], test_case["expected"]):
@@ -221,5 +242,8 @@ def test_bash_session(test_case):
 
         expected_output = expected["output"]
         if expected_output is not None:
-            # we could losen up if we check `expected_output in command_output.output`
-            assert command_output.output.strip() == expected_output.strip()
+            if isinstance(expected_output, str):
+                # we could losen up if we check `expected_output in command_output.output`
+                assert command_output.output.strip() == expected_output.strip()
+            elif isinstance(expected_output, Callable):
+                assert expected_output(command_output.output.strip(), str(tmp_path)) is True

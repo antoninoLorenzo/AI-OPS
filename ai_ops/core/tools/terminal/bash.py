@@ -25,13 +25,14 @@ def strip_ansi(s: str) -> str:
     return ANSI_RE.sub('', s)
 
 
-def _setup_subprocess(fd, ps1):
+def _setup_subprocess(fd, ps1, working_directory):
     # passed to Popen preexec_fn to setup the bash process, since preexec_fn takes no 
     # args returns a closure.
     def inner():
         os.setsid()                               # set slave as session owner
         fcntl.ioctl(fd, termios.TIOCSCTTY, 0)     # set slave as controlling terminal
-        os.environ['PS1'] = ps1                        
+        os.environ['PS1'] = ps1
+        os.chdir(str(working_directory))       
     return inner
 
 # shell-reserved exit codes: https://tldp.org/LDP/abs/html/exitcodes.html
@@ -70,7 +71,12 @@ class CommandOutput:
 
 class BashSession:
 
-    def __init__(self, default_timeout: float = 30.0):
+    def __init__(
+        self, 
+        working_directory: str,
+        default_timeout: float = 30.0
+    ):
+        self.working_directory = working_directory
         self.default_timeout = default_timeout
 
         # The implementation spawns `/bin/sh` in a subprocess and uses R/W 
@@ -181,7 +187,11 @@ class BashSession:
             stdin=self.slave_fd,
             stdout=self.slave_fd,
             stderr=self.slave_fd,
-            preexec_fn=_setup_subprocess(fd=self.slave_fd, ps1=self.write_sentinel)
+            preexec_fn=_setup_subprocess(
+                fd=self.slave_fd, 
+                ps1=self.write_sentinel,
+                working_directory=self.working_directory
+            )
         )
         os.close(self.slave_fd)  # owning process doesn't need the slave
 

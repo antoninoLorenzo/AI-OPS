@@ -98,7 +98,7 @@ def is_tool_call(message: Message, tool_name_key: str) -> Tuple[bool, List[str] 
     :returns: (False, None) or (True, [tool_call_id, ...])
     """
     msg = message.message
-    if not msg.get("role", "" == "assistant"):
+    if not msg.get("role", "") == "assistant":
         return False, None
     
     tool_calls = msg.get("tool_calls")

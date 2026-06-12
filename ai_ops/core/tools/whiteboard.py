@@ -108,13 +108,11 @@ class WhiteboardRead(Tool[WhiteboardReadRequest, WhiteboardResult]):
         except ValueError:
             return WhiteboardResult(
                 status=False,
-                operation='r',
                 result=f"No entry for {tool_args.name} in whiteboard"
             )
 
         return WhiteboardResult(
             status=True,
-            operation='r',
             result=entry
         )
 
@@ -147,7 +145,7 @@ class WhiteboardWrite(Tool[WhiteboardWriteRequest, WhiteboardResult]):
         if new_whiteboard:
             store.new_whiteboard(whiteboard_id)
 
-    def __call__(self, tool_args: WhiteboardReadRequest) -> WhiteboardResult:
+    def __call__(self, tool_args: WhiteboardWriteRequest) -> WhiteboardResult:
         store = get_whiteboard_store()
 
         try:
@@ -162,13 +160,11 @@ class WhiteboardWrite(Tool[WhiteboardWriteRequest, WhiteboardResult]):
         except ValueError as err:
             return WhiteboardResult(
                 status=False,
-                operation='r',
                 result=str(err)
             )
 
         return WhiteboardResult(
             status=True,
-            operation='w',
             result=f"Wrote finding {tool_args.name}"
         )
 

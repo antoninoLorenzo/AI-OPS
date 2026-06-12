@@ -65,10 +65,10 @@ def test_write_file(test_case, mock_workspace):
             tool_out = write_file(tool_args)
 
             if expected_fn.__name__ == "check_content":
-                check_content(
+                assert check_content(
                     path=str(mock_workspace / tool_args.path), 
                     content=tool_args.content
-                )
+                ) is True
     else:
         tool_args = test_case["call"]
         expected_fn = test_case["expected"]

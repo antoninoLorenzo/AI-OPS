@@ -61,7 +61,6 @@ class Terminal(Tool[TerminalRequest, TerminalResult]):
         working_directory: str,
         policies: Tuple[CommandAdmissionPolicy]
     ):
-        # TODO: working_directory is not used at all
         self.conversation_id = conversation_id # => tied to conversation
         self.working_directory = working_directory
         self.__sessions: Dict[str, BashSession] = {}
@@ -85,7 +84,7 @@ class Terminal(Tool[TerminalRequest, TerminalResult]):
         if bash_session is None:
             session_id = session_id or str(uuid.uuid4())
             log_event(_logger, logging.INFO, "Crearing BashSession", session_id=session_id)
-            self.__sessions[session_id] = BashSession()
+            self.__sessions[session_id] = BashSession(working_directory=self.working_directory)
             bash_session = self.__sessions[session_id]
         
         timeout = max(5.0, min(tool_args.timeout, 500.0)) if tool_args.timeout else None

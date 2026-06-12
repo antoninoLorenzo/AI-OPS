@@ -55,23 +55,6 @@ class StopTool(Tool[StopReason, Noop]):
     def format_result(_: Noop) -> str:
         return ""
 
-# a circular buffer that is used to determine if the agent is stuck in a loop
-# by checking the last `window_size` tool calls, if the count exceeds a threshold
-# check returns True
-class LoopDetector:
-    def __init__(self, window_size: int = 6, threshold: int = 3, similarity: float = 0.85):
-        self.threshold = threshold
-        self.similarity = similarity
-        self.__buffer: deque[str] = deque(maxlen=window_size)
-
-    def _similar(self, a: str, b: str) -> bool:
-        return SequenceMatcher(None, a, b).ratio() >= self.similarity
-
-    def check(self, tool_call_json: str) -> bool:
-        similar_count = sum(1 for prev in self.__buffer if self._similar(prev, tool_call_json))
-        self.__buffer.append(tool_call_json)
-        return similar_count >= self.threshold
-
 
 def trim_tool_call_log(tool_call: ChatCompletionMessageToolCall) -> str:
     try:
