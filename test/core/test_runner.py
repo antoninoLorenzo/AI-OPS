@@ -345,12 +345,10 @@ def test_agent_runner_run(test_case, monkeypatch, register_mock_tool):
     # it, this test will likely change in the future, when the store will implement 
     # persistence.
     conversation_store = get_conversation_store()
-    conv = conversation_store.create(
-        system_prompt="Skipped when checking persisted_messages"
-    )
+    conv = conversation_store.create()
 
     agent = AgentRunner(
-        conversation_id=conv.id,
+        conversation_id=conv.uuid,
         client=mock_inference_client,
         config=AgentConfig(tools=[MockTool])
     )
@@ -363,7 +361,7 @@ def test_agent_runner_run(test_case, monkeypatch, register_mock_tool):
         assert event == expected_events[idx]
 
     expected_messages = test_case["persisted_messages"]
-    conv = conversation_store.get(conv.id)
+    conv = conversation_store.get_by_uuid(conv.uuid)
     
     for expected, persisted in zip(expected_messages, conv.messages[1:]):
         assert persisted == expected

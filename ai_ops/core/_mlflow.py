@@ -1,4 +1,5 @@
 import os
+import uuid
 import urllib3
 import traceback
 from typing import Callable
@@ -76,10 +77,10 @@ def mlflow_trace(fn: Callable, *args, **kwargs):
                 if isinstance(arg, Conversation)
             ), None
         )
-        session_id = args[conversation_arg_idx].id if conversation_arg_idx is not None \
+        session_id = args[conversation_arg_idx].uuid if conversation_arg_idx is not None \
             else f"unknown_{str(uuid.uuid4())}"
     else:
-        session_id = conversation.id
+        session_id = conversation.uuid
 
     # get model being used 
     model_client: InferenceClient | None = kwargs.get("client")

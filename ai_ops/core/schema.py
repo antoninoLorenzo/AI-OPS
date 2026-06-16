@@ -1,4 +1,6 @@
-# client sees this types
+# Client sees this types, the good question is whether a custom schema makes sense 
+# at all. It kind of seems like I did an attempt at avoiding OpenAI format and build 
+# my own.
 import abc
 from enum import StrEnum, auto
 from typing import List, Type, Literal, ClassVar, Optional, Type
@@ -21,6 +23,11 @@ class EventType(StrEnum):
     TOOL_ERROR = auto()
 
 
+# Notes on pydantic:
+# `Event` could be a BaseModel itself and discriminate by type, this would 
+# allow pydantic to serialize types directly into the subclass. To do so 
+# `kind` should become a Literal[EventType] always set to text.
+
 class Event(abc.ABC):
     kind: EventType
 
@@ -33,6 +40,8 @@ class UserMessageEvent(Event, BaseModel):
 class TextEvent(Event, BaseModel):
     kind: ClassVar[EventType] = EventType.TEXT
     chunk: str
+    stream: bool = False
+    stream_done: bool = False
 
 
 class ReasoningEvent(Event, BaseModel):
@@ -71,7 +80,7 @@ class ToolErrorFailure(StrEnum):
 class ToolErrorEvent(Event, BaseModel):
     kind: ClassVar[EventType] = EventType.TOOL_ERROR
     failure: ToolErrorFailure
-    tool_call_id: str
+    tool_call_id: str # should rename to `call_id`
     name: str
     error: str
 

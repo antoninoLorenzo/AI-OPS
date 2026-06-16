@@ -104,7 +104,6 @@ from ai_ops.core import (
 )
 from ai_ops.core.conversation import get_conversation_store
 from ai_ops.core.llm import build_inference_client
-from ai_ops.core.prompt import build_prompt
 from ai_ops.core.context_management import LayeredContextView
 from ai_ops.core.tools.terminal import AllowListPolicy
 
@@ -119,12 +118,11 @@ agent_model = ModelConfig(
 llm_client = build_inference_client(models=[agent_model])
 
 # create a conversation
-system_prompt = build_prompt()
 conversation_store = get_conversation_store()
-conversation = conversation_store.create(system_prompt=system_prompt)
+conversation = conversation_store.create()
 
 agent = AgentRunner(
-    conversation_id=conversation.id,
+    conversation_id=conversation.uuid,
     client=llm_client,
     config=AgentConfig(
         tools=[LoadSkill, WhiteboardRead, WhiteboardWrite, WriteFile, Terminal, ThinkTool],

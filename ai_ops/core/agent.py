@@ -97,7 +97,7 @@ def orchestrator(
     while it < iteration_limit and not stop_called:
         log_event(
             _logger, logging.INFO, "", 
-            conversation_id=conversation.id, iteration=it
+            conversation_id=conversation.uuid, iteration=it
         )
         selected_messages = context_fn(conversation.messages)
         context = [m.message for m in selected_messages]
@@ -135,7 +135,7 @@ def orchestrator(
             log_event(
                 _logger, logging.DEBUG, 
                 "no tool call in response_message",
-                conversation_id=conversation.id, 
+                conversation_id=conversation.uuid, 
             )
             break
 

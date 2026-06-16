@@ -3,6 +3,7 @@ from typing import Any, Dict, Iterator, List, Optional, Type, Tuple
 
 import litellm
 from litellm import (
+    ChatCompletionSystemMessage,
     ChatCompletionToolMessage,
     ChatCompletionUserMessage,
 )
@@ -45,6 +46,7 @@ class AgentConfig:
     # only applicable to terminal/write_file core tools
     working_directory: str | None = None
     command_policies: Tuple[CommandAdmissionPolicy] = field(default_factory=list)
+    prompt_extension: str | None = None
 
 
 class AgentRunner:
@@ -71,7 +73,18 @@ class AgentRunner:
         self.client = client
         self.context_fn = config.context_fn
         self._conversation_store = get_conversation_store()
+        
+        # build_prompt will load the prompt variant for the specific model if available 
+        # otherwise it loads the default ones.
+        system_prompt = build_prompt(model=client.model, prompt_extension=config.prompt_extension)
+        system_prompt_message = ChatCompletionSystemMessage(role='system', content=system_prompt)
+        system_prompt_tokens = get_token_count(system_prompt_message)
 
+        self._conversation_store.append(
+            conversation_id=self.conversation_id,
+            message=Message(message=system_prompt_message, token_count=system_prompt_tokens)
+        )
+        
         ctx = ToolContext(
             conversation_id=conversation_id, 
             model_id=client.model,
@@ -95,7 +108,7 @@ class AgentRunner:
     ) -> Iterator[Event]:
         self._append_user_message(user_message.content)
 
-        conversation = self._conversation_store.get(conversation_id=self.conversation_id)
+        conversation = self._conversation_store.get_by_uuid(conversation_id=self.conversation_id)
 
         total_event_count = 0
         event_stream = orchestrator(

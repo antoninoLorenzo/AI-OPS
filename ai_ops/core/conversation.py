@@ -143,7 +143,8 @@ def find_tool_call_result(messages: List[Message], tool_call_id: str) -> int | N
 # --- conversation
 
 class Conversation(BaseModel):
-    id: str
+    uuid: str
+    short_id: int
     messages: List[Message] = Field(default_factory=list)
 
 
@@ -151,27 +152,34 @@ class ConversationStore:
     def __init__(self):
         # in this phase implementation is only in-memory
         self.__storage: Dict[str, Conversation] = {}
+        self.__short_id_idx: Dict[int, str] = {}
+        self.__last_short_id = 0
 
-    def create(self, system_prompt: str) -> Conversation:
+    def create(self) -> Conversation:
         conversation_id = str(uuid.uuid4())
+        short_id = self.__last_short_id + 1
 
-        system_prompt_message = ChatCompletionSystemMessage(role='system', content=system_prompt)
-        messages = [Message(
-            message=system_prompt_message,
-            token_count=get_token_count(system_prompt_message)
-        )]
+        self.__storage[conversation_id] = Conversation(uuid=conversation_id, short_id=short_id)
+        self.__short_id_idx[short_id] = conversation_id
 
-        self.__storage[conversation_id] = Conversation(id=conversation_id, messages=messages)
         return self.__storage[conversation_id]
 
     def from_conversation(self, conversation_id: str, conversation: Conversation):
         self.__storage[conversation_id] = conversation
+        self.__short_id_idx[conversation.short_id] = conversation_id
 
-    def get(self, conversation_id: str) -> Conversation:
+    def get_by_uuid(self, conversation_id: str) -> Conversation:
         conversation = self.__storage.get(conversation_id, None)
         if conversation is None:
             raise ValueError(f"No conversation for conversation_id={conversation_id}")
         return conversation
+
+    def get_by_short_id(self, short_id: int) -> Conversation:
+        conversation_id = self.__short_id_idx.get(short_id)
+        if conversation_id is None:
+            raise ValueError(f"No conversation for short_id={short_id}")
+            
+        return self.__storage[conversation_id]
 
     def append(self, conversation_id: str, message: Message):
         conversation = self.__storage.get(conversation_id, None)

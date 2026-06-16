@@ -38,7 +38,8 @@ class MockModel(BaseModel):
 _TOOL_TRACING_TESTS = [
     {
         "conversation": Conversation(
-            id=f"test_{str(uuid.uuid4())}",
+            uuid=f"test_{str(uuid.uuid4())}",
+            short_id=1,
             messages=[Message(message={"role": "user", "content": "asd"})]
         ),
         "events": [
@@ -106,7 +107,8 @@ def llm_agent_loop(conversation: Conversation):
 _LLM_TRACING_TESTS = [
     {
         "conversation": Conversation(
-            id=f"test_{str(uuid.uuid4())}",
+            uuid=f"test_{str(uuid.uuid4())}",
+            short_id=1,
             messages=[Message(message={"role": "user", "content": "say hi"})]
         ),
     }
