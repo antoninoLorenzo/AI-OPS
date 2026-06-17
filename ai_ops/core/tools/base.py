@@ -53,10 +53,9 @@ class Tool[ToolInputT, ToolOutputT](abc.ABC):
     def format_result(tool_result: BaseModel) -> str:
         pass
 
-    @classmethod
-    def serialize(cls) -> dict:
+    def serialize(self) -> dict:
         base = next(
-            b for b in get_original_bases(cls)
+            b for b in get_original_bases(type(self))
             if get_origin(b) is Tool
         )
         input_type, _ = get_args(base)
@@ -66,8 +65,8 @@ class Tool[ToolInputT, ToolOutputT](abc.ABC):
         return {
             "type": "function",
             "function": {
-                "name": cls.name,
-                "description": cls.description,
+                "name": self.name,
+                "description": self.description,
                 "parameters": json_schema
             }
         }

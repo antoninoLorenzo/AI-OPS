@@ -47,7 +47,7 @@ ToolRegistry: Dict[str, ToolFactory] = {
     ),
     Terminal.name: lambda ctx: Terminal(
         conversation_id=ctx.conversation_id,
-        working_directory=str(Path(AI_OPS_BASE_DIR / "workspace" / ctx.conversation_id)),
+        working_directory=Path(AI_OPS_BASE_DIR / "workspace" / ctx.conversation_id),
         policies=ctx.command_policies
     )
 }
