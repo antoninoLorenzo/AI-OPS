@@ -119,7 +119,7 @@ class AgentRunner:
         event_stream = orchestrator(
             client=self.client,
             conversation=conversation,
-            tools=list(self.tools.values()),
+            tools=self.tools,
             context_fn=self.context_fn,
             mode=mode,
             max_iterations=max_iterations,

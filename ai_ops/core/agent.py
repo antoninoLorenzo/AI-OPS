@@ -69,7 +69,7 @@ class StopTool(Tool[StopReason, Noop]):
 def orchestrator(
     client: InferenceClient,
     conversation: Conversation,
-    tools: List[Tool],
+    tools: Dict[str, Tool],
     context_fn: ContextView,
     mode: AgentMode = AgentMode.SUPERVISED,
     max_iterations: Optional[int] = None,
@@ -78,7 +78,7 @@ def orchestrator(
     if not is_valid_message_list(conversation.messages):
         raise ValueError(f"Invalid conversation. Expected [system, user, ...] message list.")
 
-    agent_tools = [tool.serialize() for tool in tools]
+    agent_tools = [tool.serialize() for tool in tools.values()]
 
     # stop tool is an orchestration primitive so it's always given
     agent_tools.append(StopTool().serialize())
@@ -102,8 +102,8 @@ def orchestrator(
             whiteboard_tool= tools[WhiteboardWrite.name]
             last_user_idx = find_last_user_message_index(messages=context)
 
-            log_event(_logger, logging.DEBUG, "Appending whiteboard index to message", last_user_idx={last_usr_idx})
-            context[last_usr_idx]["content"] += "\n" + whiteboard_tool.index
+            log_event(_logger, logging.DEBUG, "Appending whiteboard index to message", last_user_idx={last_user_idx})
+            context[last_user_idx].message["content"] += "\n" + whiteboard_tool.index
 
         try:
             response = query(
