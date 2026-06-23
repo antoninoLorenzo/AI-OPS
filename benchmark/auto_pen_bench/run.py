@@ -28,7 +28,8 @@ from ai_ops.core import (
 from ai_ops.core.llm import build_inference_client
 from ai_ops.core.conversation import get_conversation_store
 from ai_ops.core.tools.load_skill.skill import get_skill_registry, Tool
-from ai_ops.core.prompt import BASE_PROTOTYPE_PROMPT, SKILL_PROTOTYPE_PROMPT
+from ai_ops.core.prompt import build_prompt
+from ai_ops.core.context_management import LayeredContextView
 from ai_ops.core.tracing import _mlflow_ready as MLFLOW_ACTIVE
 
 from benchmark.auto_pen_bench.schema import (
@@ -57,6 +58,8 @@ _OUTPUT_PATH.mkdir(exist_ok=True)
 
 # AutoPenBench network addresses are strange, agent gets stuck for a while because "192.168.1.0"
 # shouldn't be a legit IP address for a host...
+# In general it makes sense giving the agent some directives on the environment it's working on,
+# while still keeping the benchmark run fair.
 _BASE_PROMPT_EXTENSION = """## Environment Notes
 Network addresses in this environment may appear unconventional, for example addresses ending in \
 `.0` are usually valid container IPs in this environment. Trust tool output over your assumptions \
@@ -75,6 +78,11 @@ def get_parser() -> argparse.ArgumentParser:
 
     parser.add_argument("--judge-api-base", type=str, default=None)
     parser.add_argument("--judge-api-key-env", type=str, default=None)
+    parser.add_argument(
+        "--judge-disabled", 
+        action=argparse.BooleanOptionalAction,
+        default=False
+    )
 
     parser.add_argument("--output-path", type=str, default=_OUTPUT_PATH)
 
@@ -255,18 +263,18 @@ def run_task(
     agent_config: AgentConfig,
     agent_model: ModelConfig,
     judge_model: ModelConfig,
-    output_path: Path
+    output_path: Path,
+    judge_disabled: bool = False
 ):
     print(f"Starting AutoPenBench run {task.task}")
     
     driver = PentestDriver(task.task, task.flag, task.target)
-    observation, _ = driver.reset()
+    _ = driver.reset()
 
-    print(f"Available Tools: {[tool.name for tool in agent_config.tools]}")
-    system_prompt = BASE_PROTOTYPE_PROMPT + _BASE_PROMPT_EXTENSION
-    if LoadSkill.name in [tool.name for tool in agent_config.tools]:
-        skill_registry = get_skill_registry()
-        system_prompt += SKILL_PROTOTYPE_PROMPT.format(skill_index=skill_registry.get_index())
+    available_tools = [tool.name for tool in agent_config.tools]
+    print(f"Available Tools: {available_tools}")
+
+    system_prompt = build_prompt(prompt_extension=_BASE_PROMPT_EXTENSION)
 
     conversation_store = get_conversation_store()
     conversation = conversation_store.create(system_prompt=system_prompt)
@@ -281,11 +289,13 @@ def run_task(
         extra_tool_ctx={"driver": driver}
     )
 
-    judge = Evaluator(
-        judge_llm=judge_model,
-        command_milestones=task.command_milestones,
-        stage_milestones=task.stage_milestones
-    )
+    judge = None
+    if not judge_disabled:
+        judge = Evaluator(
+            judge_llm=judge_model,
+            command_milestones=task.command_milestones,
+            stage_milestones=task.stage_milestones
+        )
 
     # ---
     tool_calls_counter = Counter()
@@ -349,35 +359,49 @@ def run_task(
 
     agent_run_end = time.time()
 
-    exclude_from_eval = (
-        WhiteboardRead.name, 
-        WhiteboardWrite.name, 
-        ThinkTool.name, 
-        LoadSkill.name
-    )
-    try:
-        for step_event in trajectory:
-            if step_event.name in exclude_from_eval:
-                continue
-            step = (
-                f"Tool Call: {step_event.name}({step_event.args})\n"
-                f"Result\n{step_event.result}"
-            )
-            progress = judge.evaluate_step(step=step)
-    except Exception as err:
-        print(f"Failed evaluating agent progress: {err}")
+    if not judge_disabled:
+        exclude_from_eval = (
+            WhiteboardRead.name, 
+            WhiteboardWrite.name, 
+            ThinkTool.name, 
+            LoadSkill.name
+        )
+        try:
+            for step_event in trajectory:
+                if step_event.name in exclude_from_eval:
+                    continue
+                step = (
+                    f"Tool Call: {step_event.name}({step_event.args})\n"
+                    f"Result\n{step_event.result}"
+                )
+                progress = judge.evaluate_step(step=step)
+        except Exception as err:
+            print(f"Failed evaluating agent progress: {err}")
     
     command_complete = list(filter(None, progress["command_progress"]))
     stage_complete = list(filter(None, progress["stage_progress"]))
 
-    # TODO: trajectory_with runtimes doesn't contain tool input/output
-    trajectory_with_runtimes = [e.model_dump() for e in trajectory]
+    trajectory_with_runtimes = []
+    for event in trajectory_with_runtimes:
+        e_dump = event.dump()
+        if hasattr(event.args, "model_dump"):
+            e_dump["args"] = event.args.model_dump()
+        else:
+            e_dump['args'] = event.args
+            
+        if hasattr(e.result, 'model_dump'):
+            e_dump['result'] = event.result.model_dump()
+        else:
+            e_dump['result'] = event.result
+            
+        trajectory_with_runtimes.append(e_dump)
+
     for call_id, runtime in tool_calls_times.items():
         for traj_event in trajectory_with_runtimes:
             if traj_event["call_id"] == call_id:
                 traj_event["runtime"] = runtime.end - runtime.start
     
-    conversation = get_conversation_store().get(agent.conversation_id)
+    conversation = get_conversation_store().get_by_uuid(agent.conversation_id)
     # note: may be an approximation
     total_tokens = sum(
         m.token_count 
@@ -441,7 +465,12 @@ def main():
         tools=[
             tool for tool in selected_tools 
             if not tool.name in run_settings.excluded_tools
-        ]
+        ],
+        context_fn=LayeredContextView(
+            max_window_tokens=16_384,
+            terminal_alias=ExecuteBashTool.name,
+            file_write_alias=FileWriteTool.name
+        )
     )
     agent_model = ModelConfig(model=run_settings.model, api_base=api_base, api_key=api_key)
     
@@ -473,7 +502,8 @@ def main():
                 agent_config=agent_config,
                 agent_model=agent_model,
                 judge_model=judge_model,
-                output_path=output_path
+                output_path=output_path,
+                judge_disabled=args.judge_disabled
             )
             if result is None:
                 continue

@@ -10,7 +10,7 @@ dependencies = [
     "litellm[mlflow]",
     "mlflow>=3.11.1",
     "pydantic>=2.11",
-    "python-dotenv",
+    "python-dotenv>=1.2.2",
 ]
 
 [project.optional-dependencies]
