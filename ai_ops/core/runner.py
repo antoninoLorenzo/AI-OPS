@@ -8,9 +8,13 @@ from litellm import (
     ChatCompletionUserMessage,
 )
 
-from ai_ops.core.agent import orchestrator
+from ai_ops.core.agent import orchestrator, DEFAULT_TEMPERATURE
 from ai_ops.core.context_management import ContextView, RawContextView
-from ai_ops.core.conversation import Message, get_conversation_store, get_token_count
+from ai_ops.core.conversation import (
+    Message, 
+    get_conversation_store, 
+    get_token_count
+)
 from ai_ops.core.llm import InferenceClient, ModelConfig, build_inference_client
 from ai_ops.core.prompt import build_prompt
 from ai_ops.core.schema import (
@@ -43,9 +47,9 @@ _logger = get_logger(__name__)
 class AgentConfig:
     tools: List[Type[Tool]] = field(default_factory=list)
     context_fn: ContextView = RawContextView()
-    # only applicable to terminal/write_file core tools
-    working_directory: str | None = None
+    working_directory: str | None = None # TODO: this shouldn't be configurable
     command_policies: Tuple[CommandAdmissionPolicy] = field(default_factory=list)
+    temperature: float = DEFAULT_TEMPERATURE
     prompt_extension: str | None = None
 
 
@@ -69,6 +73,7 @@ class AgentRunner:
         is_new_conversation: bool = True,
         extra_tool_ctx: Optional[Dict[str, Any]] = None
     ):
+        self.agent_config = config
         self.conversation_id = conversation_id
         self.client = client
         self.context_fn = config.context_fn
@@ -114,12 +119,14 @@ class AgentRunner:
         event_stream = orchestrator(
             client=self.client,
             conversation=conversation,
-            tools=self.tools,
+            tools=list(self.tools.values()),
             context_fn=self.context_fn,
             mode=mode,
-            max_iterations=max_iterations
+            max_iterations=max_iterations,
+            temperature=self.agent_config.temperature
         )
 
+        # TODO refactor: we only get ValueError if the message list is malformed
         try:
             for event in event_stream:
                 total_event_count += 1
@@ -175,12 +182,12 @@ class AgentRunner:
         )
    
 
-    def send(self, user_event: UserMessageEvent | StopEvent):
-        if isinstance(user_event, UserMessageEvent):
-            self._append_user_message(user_event.content)
-        elif isinstance(user_event, StopEvent):
-            self._user_stopped = True
+    def send(self, user_event: UserMessageEvent):
+        self._append_user_message(user_event.content)
 
+    def stop(self, stop_event: StopEvent):
+        # non-preemptive
+        self._user_stopped = True
 
     def _append_user_message(self, content: str):
         self._conversation_store.append(

@@ -31,7 +31,9 @@ class CommandAdmissionPolicy(abc.ABC):
 
 class AllowListPolicy(CommandAdmissionPolicy):
     DEFAULT = {
-        'ls', 'cd', 'echo'
+        'ls', 'cd', 'pwd',          # read-only filesystem navigation
+        'cat', 'grep', 'awk', 'sed',
+        'which', 'wc', 'sort', 'find' 
     }
 
     def __init__(self, allowlist: List[str]):

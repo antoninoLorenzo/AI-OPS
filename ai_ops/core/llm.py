@@ -108,13 +108,6 @@ def query(
     tools: Optional[List] = None,
     **kwargs # additional configs to pass to litellm
 ) -> Union[ModelResponse, CustomStreamWrapper]:
-    # if response_format and not client.metadata.response_format:
-    #     # can prompt the model to try outputting JSON
-    #     raise NotImplementedError(f"{client.model} doesn't support response format")
-    # if tools and not client.metadata.tool_use:
-    #     # can prompt the model to try
-    #     raise NotImplementedError(f"{client.model} doesn't support tool use")
-
     log_event(_logger, logging.INFO, "Starting query", model=client.model)
 
     json_retries = 0
@@ -140,6 +133,7 @@ def query(
             # context management policy. 
             max_ctx = client.metadata.max_context_length
             if max_ctx <= 0:
+                # TODO: is this even allowed?
                 raise RuntimeError(
                     f"Context window exceeded and no max_context_length configured for {client.model}"
                 )
@@ -259,7 +253,7 @@ def build_inference_client(models: List[ModelConfig]) -> InferenceClient:
                     "model": f"{meta.provider}/{meta.model_id}",
                     "api_base": config.api_base,
                     # that could leak from Router logs based on what they're doing btw
-                    "api_key": config.api_key.get_secret_value() 
+                    "api_key": config.api_key.get_secret_value() # if config.api_key else None
                 }
             }
         )

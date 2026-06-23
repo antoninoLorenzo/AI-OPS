@@ -24,7 +24,8 @@ def mock_orchestrator(
     context_fn: ContextView,
     mode: AgentMode = AgentMode.SUPERVISED,
     max_iterations: Optional[int] = None,
-    mock_events: Sequence[Message | Event] | Exception | None = None 
+    mock_events: Sequence[Message | Event] | Exception | None = None,
+    **kwargs
 ) -> Iterator[Message | Event]:
     if isinstance(mock_events, Sequence):
         for event in mock_events:

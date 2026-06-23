@@ -1,37 +1,59 @@
+from typing import Union, Optional, List
+
 from litellm import (
     ModelResponse, 
     CustomStreamWrapper, 
     Choices,
-    Usage
+    Usage,
+    Message as LiteLLMMessage
 )
 
 from ai_ops.core.llm import InferenceClient, ModelMetadata
-
+from ai_ops.core.agent import StopTool
 
 class MockChatCompletion:
+    def __init__(
+        self, 
+        completion_output: ModelResponse | Exception | List[ModelResponse | Exception]
+    ):
+        if isinstance(completion_output, List):
+            raise NotImplementedError()
+        else:
+            self.completion_output = completion_output
+
     def completion(
         self, 
-        model: str, 
+        model: str,
         stream: bool = False, 
         **kwargs
     ) -> ModelResponse | CustomStreamWrapper:
         if stream:
             raise NotImplementedError()
-        message = {"role": "assistant", "content": "hi"}
-        return ModelResponse(
-            model=model,
-            choices=[Choices(message=message)],
-            usage=Usage(
-                prompt_tokens=None,
-                completion_tokens=None,
-                total_tokens=None,
-                reasoning_tokens=None
-            )
-        )
+        
+        if isinstance(self.completion_output, Exception):
+            raise self.completion_output
+        elif isinstance(self.completion_output, ModelResponse):
+            return self.completion_output
 
     async def acompletion(self, model: str, **kwargs) -> ModelResponse | CustomStreamWrapper:
         raise NotImplementedError()
 
+
+def mock_query(client: InferenceClient, stream: bool = False, **kwargs) -> Union[ModelResponse, CustomStreamWrapper]:
+    if stream:
+        raise NotImplementedError()
+
+    return client.client.completion(model=client.model, stream=stream)
+
+mock_model = ModelMetadata(
+    provider="mock",
+    model_id="mock",
+    max_context_length=0,
+    tool_use=True,
+    reasoning=True,
+    response_format=True,
+    structured_output=True
+)
 
 mock_inference_client = InferenceClient(
     models=[
@@ -45,5 +67,12 @@ mock_inference_client = InferenceClient(
             structured_output=True
         )
     ],
-    client=MockChatCompletion()
+    client=MockChatCompletion(completion_output=ModelResponse(
+        model="gpt-4o",
+        choices=Choices(
+            finish_reason="stop", index=0,
+            message=LiteLLMMessage(role="assistant", content="content")
+        ),
+        usage=Usage(prompt_tokens=4, completion_tokens=4, total_tokens=8)
+    ))
 )

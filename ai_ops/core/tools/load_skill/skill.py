@@ -29,6 +29,13 @@ class Skill(BaseModel):
 
 
 def verify_installed(dependency: Union[str, List[str]]):
+    # TODO: 
+    # * replace with `shutil.which` (can't fucking believe it)
+    # * make possible to disable verification (fucking autopenbench I can't verify
+    #   your kali container from there)
+    # * sys.exit is completely blind on the CLI
+    # * make a test for this (mock shutil.which)
+    # ---
     # SkillRegistry calls fetch_skill on user supplied skills, fetch_skill parses 
     # the SKILL.md frontmatter and if there's a metadata.requirements list field 
     # this function is called to ensure all dependencies are available.
@@ -97,8 +104,8 @@ def fetch_skill(skill_path: Path) -> Skill | None:
     requirements = []
     if skill_meta is not None:
         requirements = skill_meta.get('requirements', [])
-        if len(requirements) > 0:
-            verify_installed(requirements)
+        # if len(requirements) > 0:
+        #     verify_installed(requirements)
     
     return Skill(
         name=skill_name, 

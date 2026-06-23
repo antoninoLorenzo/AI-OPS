@@ -3,7 +3,7 @@ import json
 import copy
 from collections import deque
 from difflib import SequenceMatcher
-from typing import Dict, Iterator, Optional, cast
+from typing import Dict, Iterator, Optional, List, cast
 
 import litellm
 from litellm import (
@@ -16,7 +16,12 @@ from litellm import (
 from pydantic import BaseModel
 
 from ai_ops.core.context_management import ContextView
-from ai_ops.core.conversation import Conversation, Message
+from ai_ops.core.conversation import (
+    Conversation, 
+    Message, 
+    is_valid_message_list, 
+    find_last_user_message_index
+)
 from ai_ops.core.llm import InferenceClient, query
 from ai_ops.core.schema import (
     AgentMode,
@@ -27,14 +32,13 @@ from ai_ops.core.schema import (
     ToolErrorEvent,
     ToolErrorFailure
 )
-from ai_ops.core.tools import Tool, WhiteboardRead, validate_tool_call
+from ai_ops.core.tools import Tool, WhiteboardWrite, validate_tool_call
 from ai_ops.core.conversation import get_token_count
 from ai_ops.core.tracing import agent_trace
 from ai_ops.core.log import get_logger, log_event, logging
 
 _logger = get_logger(__name__)
-# the values will probably change based on traces
-# TODO: make this parameters configurable
+
 DEFAULT_ITERATION_LIMIT = {AgentMode.SUPERVISED: 30, AgentMode.UNSUPERVISED: 60}
 DEFAULT_TEMPERATURE = 0.4
 
@@ -44,50 +48,39 @@ class StopReason(BaseModel):
 class Noop(BaseModel): 
     pass
 
-# stop tool is an orchestration primitive so it's always given
 class StopTool(Tool[StopReason, Noop]):    
     name = "stop"
     description = "Call this tool when you reached the user objective."
 
     def __call__(self, _: StopReason) -> Noop:
         return Noop()
+
     @staticmethod
     def format_result(_: Noop) -> str:
         return ""
-
-
-def trim_tool_call_log(tool_call: ChatCompletionMessageToolCall) -> str:
-    try:
-        trimmed_tool_call = copy.deepcopy(tool_call)
-        
-        args = trimmed_tool_call.function.arguments
-        if isinstance(args, str):
-            args = json.loads(args)
-            
-        trimmed_tool_call.function.arguments = {
-            k: f"{v[:15]}...{v[len(v)-15:]}" 
-            for k, v in args.items()
-        }
-        
-        return trimmed_tool_call.model_dump_json()
-    except Exception:
-        return tool_call.model_dump_json()[:30]
 
 
 # The orchestrator implements the agent logic, currently that's just ReAct loop.
 # It's intentionally kept stateless so the only concern remains the orchestration 
 # of the agent actions. 
 # Conversation management and LLM reliability should be kept outside the orchestrator.
+# TODO: mode is not actually used to determine whether a command needs approval
 @agent_trace
 def orchestrator(
     client: InferenceClient,
     conversation: Conversation,
-    tools: Dict[str, Tool],
+    tools: List[Tool],
     context_fn: ContextView,
     mode: AgentMode = AgentMode.SUPERVISED,
-    max_iterations: Optional[int] = None
+    max_iterations: Optional[int] = None,
+    temperature: float = DEFAULT_TEMPERATURE
 ) -> Iterator[Message | Event]:
-    agent_tools = [tool.serialize() for tool in tools.values()]
+    if not is_valid_message_list(conversation.messages):
+        raise ValueError(f"Invalid conversation. Expected [system, user, ...] message list.")
+
+    agent_tools = [tool.serialize() for tool in tools]
+
+    # stop tool is an orchestration primitive so it's always given
     agent_tools.append(StopTool().serialize())
 
     iteration_limit = max_iterations if max_iterations else DEFAULT_ITERATION_LIMIT[mode]
@@ -96,53 +89,52 @@ def orchestrator(
     stop_called = False
     while it < iteration_limit and not stop_called:
         log_event(
-            _logger, logging.INFO, "", 
+            _logger, logging.INFO, "Agent Loop Iteration", 
             conversation_id=conversation.uuid, iteration=it
         )
-        selected_messages = context_fn(conversation.messages)
-        context = [m.message for m in selected_messages]
+
+        context = context_fn(conversation.messages)
 
         # append the whiteboard index to the last user message in every loop iteration,
         # note: the index is not part of the "persisted" conversation, also this breaks 
         # prefix caching.
-        if WhiteboardRead.name in tools:
-            whiteboard_tool: WhiteboardRead = tools[WhiteboardRead.name]
-            last_usr_idx = next(
-                (
-                    i for i in range(len(context)-1, -1, -1)
-                    if context[i].get("role", "") == "user"
-                ),
-                None
-            )
-            log_event(
-                _logger, logging.DEBUG, 
-                "Appending whiteboard index to message",
-                last_user_idx={last_usr_idx}
-            )
-            if last_usr_idx is not None:
-                context[last_usr_idx]["content"] += "\n" + whiteboard_tool.index
+        if WhiteboardWrite.name in tools:
+            whiteboard_tool= tools[WhiteboardWrite.name]
+            last_user_idx = find_last_user_message_index(messages=context)
 
-        response = query(client=client, messages=context, tools=agent_tools, temperature=DEFAULT_TEMPERATURE)
+            log_event(_logger, logging.DEBUG, "Appending whiteboard index to message", last_user_idx={last_usr_idx})
+            context[last_usr_idx]["content"] += "\n" + whiteboard_tool.index
+
+        try:
+            response = query(
+                client=client, 
+                messages=[m.message for m in context], 
+                tools=agent_tools, 
+                temperature=temperature
+            )
+        except RuntimeError as query_err:
+            yield StopEvent(issuer="agent", error=str(query_err))
+            break
+
+
         response_message = response.choices[0].message
-
         chat_completion_message = cast(ChatCompletionAssistantMessage, response_message.model_dump())
+
         yield Message(
             message=chat_completion_message, 
             token_count=get_token_count(chat_completion_message)
         )
 
         if not response_message.tool_calls:
-            log_event(
-                _logger, logging.DEBUG, 
-                "no tool call in response_message",
-                conversation_id=conversation.uuid, 
-            )
+            log_event(_logger, logging.DEBUG, "no tool call in response_message", conversation_id=conversation.uuid)
+            yield StopEvent(issuer="agent")
             break
+        
 
         for tool_call in response_message.tool_calls:
             log_event(
                 _logger, logging.DEBUG, "raw tool call",
-                model=response.model, tool_call=trim_tool_call_log(tool_call)
+                model=response.model, tool_call=tool_call.model_dump_json()
             )
             
             tool_name = tool_call.function.name
@@ -172,6 +164,7 @@ def orchestrator(
             yield ToolCallEvent(call_id=tool_call.id, name=tool_name, args=args)
             try:
                 tool_result = tool(args)
+                # TODO: here we need to discriminate between failures on success clearly
                 yield ToolResultEvent(call_id=tool_call.id, name=tool_name, args=args, result=tool_result)
             except Exception as tool_failure:
                 yield ToolErrorEvent(
@@ -182,17 +175,3 @@ def orchestrator(
                 )
 
         it += 1
-
-    if not stop_called:
-        context = [m.message for m in context_fn(conversation.messages)]
-        context.append(ChatCompletionUserMessage(
-            role="user", 
-            content="You have reached the max iteration limit. Produce an assessment of where you got so far."
-        ))
-        
-        response = query(client=client, messages=context)
-        response_message = response.choices[0].message
-
-        if response_message.content:
-            yield StopEvent(issuer="agent", reason=response_message.content, max_iteration=True)
-

@@ -173,3 +173,8 @@ class WhiteboardWrite(Tool[WhiteboardWriteRequest, WhiteboardResult]):
         if whiteboard_result.status:
             return f"{whiteboard_result.result}"
         return f"ERROR: {whiteboard_result.result}"
+
+    @property
+    def index(self) -> Optional[str]:
+        store = get_whiteboard_store()
+        return store.get_index(whiteboard_id=self.whiteboard_id)

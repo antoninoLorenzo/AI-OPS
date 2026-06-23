@@ -139,6 +139,29 @@ def find_tool_call_result(messages: List[Message], tool_call_id: str) -> int | N
 
     return None
 
+def find_last_user_message_index(messages: List[Message]) -> int | None:
+    """
+    :returns: index of last ChatCompletionUserMessage or None
+    """
+    last_usr_idx = next(
+        (
+            idx for idx in range(len(messages)-1, -1 , -1)
+            if messages[idx].message.get("role", "") == "user"
+        ),
+        None
+    )
+    return last_usr_idx
+
+def is_valid_message_list(messages: List[Message]) -> bool:
+    """Ensure the message list contains at least [system, user]."""
+    if len(messages) < 2:
+        return False
+
+    has_system = messages[0].message.get("role", "") == "system"
+    has_user = find_last_user_message_index(messages=messages) is not None
+
+    return has_system and has_user
+
 
 # --- conversation
 
