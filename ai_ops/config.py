@@ -22,7 +22,7 @@ def build_environment() -> Path:
     # https://www.pathname.com/fhs/pub/fhs-2.3.html
     base = Path("~/.local/share/ai_ops").expanduser()
     if not base.exists():
-        base.mkdir(exist_ok=True)
+        base.mkdir(exist_ok=True, parents=True)
     
     (base / "user_skills").mkdir(exist_ok=True)
     (base / "workspace").mkdir(exist_ok=True)

@@ -48,7 +48,7 @@ class AgentConfig:
     tools: List[Type[Tool]] = field(default_factory=list)
     context_fn: ContextView = RawContextView()
     working_directory: str | None = None # TODO: this shouldn't be configurable
-    command_policies: Tuple[CommandAdmissionPolicy] = field(default_factory=list)
+    command_policies: Tuple[CommandAdmissionPolicy] = field(default_factory=tuple)
     temperature: float = DEFAULT_TEMPERATURE
     prompt_extension: str | None = None
 

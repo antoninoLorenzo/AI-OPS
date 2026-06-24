@@ -15,7 +15,7 @@ def extract_executables(command: str) -> Set[str]:
     # between the second word node (node.kind == "command") being a `sudo` parameter 
     # or another executable. 
     if len(command.strip()) == 0:
-        return {}
+        return set()
 
     try:
         parts = bashlex.parse(command)

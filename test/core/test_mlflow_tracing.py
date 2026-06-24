@@ -11,7 +11,7 @@ from typing import List, cast
 
 import pytest
 import litellm
-import mlflow
+import mlflow # TODO: that's optional, see pytest.importskip
 from mlflow.entities import SpanType
 from pydantic import BaseModel
 from dotenv import load_dotenv
