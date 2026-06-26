@@ -40,6 +40,12 @@ Contributing is as-easy as:
 
 ### Technical Guidelines
 
+**Submodules**
+```
+git submodule init
+git submodule update --recursive
+```
+
 **Use Logging**: print statements are ok for debugging (I understand that `pdb` may be a bit of a pain in the ass), though don't commit them, instead use the log utilities.
 
 ```python

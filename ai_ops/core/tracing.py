@@ -1,13 +1,13 @@
+import functools
 import os
 import uuid
-import functools
-import urllib3
 from typing import Callable, Dict
 
-from ai_ops.core.log import get_logger, log_event, logging
-from ai_ops.core._mlflow import mlflow_ready, setup_mlflow, mlflow_trace
+import urllib3
 
-BACKEND_ENV = "AI_OPS_OBSERVABILITY_BACKEND"
+from ai_ops.config import OBSERVABILITY_BACKEND_ENV
+from ai_ops.core._mlflow import mlflow_ready, mlflow_trace, setup_mlflow
+from ai_ops.core.log import get_logger, log_event, logging
 
 _configured = False
 _logger = get_logger(__name__)
@@ -20,11 +20,11 @@ def configure():
     if _configured:
         return
     
-    backend = os.environ.get(BACKEND_ENV, "").lower()
+    backend = os.environ.get(OBSERVABILITY_BACKEND_ENV, "").lower()
     if backend == "mlflow":
         log_event(
             _logger, logging.INFO, 
-            f"Identified Observability Backend: {BACKEND_ENV}=mlflow"
+            f"Identified Observability Backend: {OBSERVABILITY_BACKEND_ENV}=mlflow"
         )
         log_event(
             _logger, logging.DEBUG, "", 

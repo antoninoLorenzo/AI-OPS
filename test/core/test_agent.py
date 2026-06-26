@@ -31,11 +31,11 @@ _AGENT_LOOP_TESTS = [
     {
         "parameters": {
             "client": InferenceClient(
-                models=[mock_model],
+                metadata=mock_model,
                 client=MockChatCompletion(RuntimeError("whatever"))
             ),
             "conversation": Conversation(uuid="1234", short_id="1234", messages=[_message_list[0]]),
-            "tools": [MockTool()],
+            "tools": {MockTool.name : MockTool()},
             "context_fn": RawContextView()
         },
         "expected": ValueError
@@ -46,11 +46,11 @@ _AGENT_LOOP_TESTS = [
     {
         "parameters": {
             "client": InferenceClient(
-                models=[mock_model],
+                metadata=mock_model,
                 client=MockChatCompletion(RuntimeError("whatever"))
             ),
             "conversation": Conversation(uuid="1234", short_id="1234", messages=_message_list),
-            "tools": [MockTool()],
+            "tools": {MockTool.name : MockTool()},
             "context_fn": RawContextView()
         },
         "expected": [StopEvent(issuer="agent", error="whatever")]
@@ -59,7 +59,7 @@ _AGENT_LOOP_TESTS = [
     {
         "parameters": {
             "client": InferenceClient(
-                models=[mock_model],
+                metadata=mock_model,
                 client=MockChatCompletion(ModelResponse(
                     model="gpt-4o",
                     choices=[Choices(
@@ -70,7 +70,7 @@ _AGENT_LOOP_TESTS = [
                 ))
             ),
             "conversation": Conversation(uuid="1234", short_id="1234", messages=_message_list),
-            "tools": [MockTool()],
+            "tools": {MockTool.name : MockTool()},
             "context_fn": RawContextView()
         },
         "expected": [

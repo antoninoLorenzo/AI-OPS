@@ -1,8 +1,7 @@
 benchmark/model_selection/*
 .coverage
 htmlcov/*
-old/
-old_test/
+.understand-anything
 
 # IDEs
 .idea/

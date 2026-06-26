@@ -1,66 +1,71 @@
+import logging
 import os
 import sys
-import logging
 from pathlib import Path
 
 import litellm
 
-from ai_ops.config import AI_OPS_BASE_DIR
+from ai_ops.config import AI_OPS_BASE_DIR, LOG_FILE_ENV, LOG_LEVEL_ENV, LOG_STDOUT_ENV
 
 
-_LOG_FILE_ENV = "AI_OPS_LOG_FILE"
-_LOG_LEVEL_ENV = "AI_OPS_LOG_LEVEL"
-_LOG_STDOUT_ENV = "AI_OPS_LOG_STDOUT"
-
-LOG_PATH = AI_OPS_BASE_DIR / "logs.log"
-LOG_LEVEL = os.environ.get(_LOG_LEVEL_ENV, "info").lower()
-match LOG_LEVEL:
-    case "debug":
-        LOG_LEVEL = logging.DEBUG
-    case "info":
-        LOG_LEVEL = logging.INFO
-    case "warning":
-        LOG_LEVEL = logging.WARNING
-    case "error":
-        LOG_LEVEL = logging.ERROR
-    case _:
-        LOG_LEVEL = logging.INFO
-
-LOG_TO_STDOUT = os.environ.get(_LOG_STDOUT_ENV, "false").lower()
-LOG_TO_STDOUT = True if LOG_TO_STDOUT == "true" else False
-
-LOG_FORMAT = "%(asctime)s - %(levelname)s - %(name)s - %(funcName)s:%(lineno)d - %(message)s"
-
-_root = logging.getLogger()
-_root.setLevel(LOG_LEVEL)
-_root.handlers.clear()
-_file_handler = logging.FileHandler(str(LOG_PATH))
-_file_handler.setFormatter(logging.Formatter(LOG_FORMAT))
-_root.addHandler(_file_handler)
-
-if LOG_TO_STDOUT:
-    _stdout_handler = logging.StreamHandler(sys.stdout)
-    _stdout_handler.setFormatter(logging.Formatter(LOG_FORMAT))
-    _root.addHandler(_stdout_handler)
-
-# Shut the fuck up stuff
-litellm.set_verbose = False
-litellm.suppress_debug_info = True
-for name in (
-    "LiteLLM",
-    "LiteLLM Router",
-    "openai",
-    "paramiko",
-    "git", # mlflow dependency
-    "asyncio",
-    "urllib3",
-    "httpcore"
-):
+def suppress_logger(name: str):
     logger = logging.getLogger(name)
     logger.setLevel(logging.WARNING)
     logger.propagate = False
     logger.handlers.clear() 
     logger.addHandler(logging.NullHandler())
+
+
+def setup_logging():
+    log_path = AI_OPS_BASE_DIR / os.environ.get(LOG_FILE_ENV, "logs.log")
+    log_level = os.environ.get(LOG_LEVEL_ENV, "info").lower()
+
+    match log_level:
+        case "debug":
+            log_level = logging.DEBUG
+        case "info":
+            log_level = logging.INFO
+        case "warning":
+            log_level = logging.WARNING
+        case "error":
+            log_level = logging.ERROR
+        case _:
+            log_level = logging.INFO
+
+    log_to_stdout = os.environ.get(LOG_STDOUT_ENV, "false").lower()
+    log_to_stdout = True if log_to_stdout == "true" else False
+
+    log_format = "%(asctime)s - %(levelname)s - %(name)s - %(funcName)s:%(lineno)d - %(message)s"
+
+    _root = logging.getLogger()
+    _root.setLevel(log_level)
+    _root.handlers.clear()
+    _file_handler = logging.FileHandler(str(log_path))
+    _file_handler.setFormatter(logging.Formatter(log_format))
+    _root.addHandler(_file_handler)
+
+    if log_to_stdout:
+        _stdout_handler = logging.StreamHandler(sys.stdout)
+        _stdout_handler.setFormatter(logging.Formatter(log_format))
+        _root.addHandler(_stdout_handler)
+
+    # litellm edge-case
+    litellm.set_verbose = False
+    litellm.suppress_debug_info = True
+
+    yappers = (
+        "LiteLLM",
+        "LiteLLM Router",
+        "openai",
+        "paramiko",
+        "git", # mlflow dependency
+        "asyncio",
+        "urllib3",
+        "httpcore"
+    )
+
+    for name in yappers:
+        suppress_logger(name)
 
 
 def get_logger(name: str) -> logging.Logger:
@@ -75,3 +80,5 @@ def log_event(logger: logging.Logger, level: int, message: str, **fields) -> Non
         parts.append(f"{key}={value!s}")
     logger.log(level, " ".join(parts), stacklevel=2)
 
+
+setup_logging()

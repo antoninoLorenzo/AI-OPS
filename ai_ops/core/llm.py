@@ -3,20 +3,16 @@ import os
 import re
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Protocol, Union, List, Optional, runtime_checkable
+from typing import List, Optional, Protocol, Tuple, Union, runtime_checkable
 
 import litellm
-from litellm import (
-    ModelResponse, 
-    CustomStreamWrapper, 
-    Router, 
-    RetryPolicy
-)
+from litellm import CustomStreamWrapper, ModelResponse, RetryPolicy, Router
 from litellm.exceptions import (
-    RateLimitError,
+    APIError,
     AuthenticationError,
+    ContextWindowExceededError,
     JSONSchemaValidationError,
-    ContextWindowExceededError
+    RateLimitError,
 )
 from pydantic import BaseModel, SecretStr
 
@@ -24,13 +20,8 @@ from ai_ops.config import API_MODEL_MAX_CONTEXT_LENGTH
 from ai_ops.core.log import get_logger, log_event, logging
 
 _logger = get_logger(__name__)
-MODEL_ID_REGEX = r"(?P<provider>.*)\/(?P<model>.*)"
 
 
-# Interface for litellm.completion, in practice it's used to swap litellm.completion,
-# Router.completion and mocked completion during tests through DI in query(..., client).
-# Note: litellm has a mock_response for testing purposes but it only allows to return
-# responses, not to raise exceptions too (i.e error handling wouldn't get tested).
 @runtime_checkable
 class ChatCompletion(Protocol):
     def completion(self, model: str, **kwargs) -> Union[ModelResponse, CustomStreamWrapper]:
@@ -39,13 +30,14 @@ class ChatCompletion(Protocol):
     async def acompletion(self, model: str, **kwargs) -> Union[ModelResponse, CustomStreamWrapper]:
         pass
 
-# litellm_params for litellm.Router, model is the "provider/model_id" string used by the router, 
-# different from the `model_name` key that is what is used client side.
-# See https://docs.litellm.ai/docs/routing
+
 class ModelConfig(BaseModel):
     model: str
+    """Fully-qualified Model ID (ex. `provider/model_id`, `huggingface/namespace/repo`)."""
     api_base: Optional[str] = None
+    """API endpoint for the LLM Provider."""
     api_key: Optional[SecretStr] = None
+    """API key for the LLM Provider."""
 
 
 class ModelMetadata(BaseModel):
@@ -60,36 +52,51 @@ class ModelMetadata(BaseModel):
 
 @dataclass
 class InferenceClient:
-    models: List[ModelMetadata]
+    metadata: ModelMetadata
     client: ChatCompletion
-
-    def __post_init__(self):
-        if not self.models:
-            raise ValueError("InferenceClient must contain at least one model")
-
-        def all_equal(values: list) -> bool:
-            return len(set(values)) == 1
-
-        if not all_equal([m.tool_use for m in self.models]):
-            raise ValueError("Not all models have the same tool_use capability")
-        if not all_equal([m.reasoning for m in self.models]):
-            raise ValueError("Not all models have the same reasoning capability")
-        if not all_equal([m.response_format for m in self.models]):
-            raise ValueError("Not all models have the same response_format capability")
-        if not all_equal([m.structured_output for m in self.models]):
-            raise ValueError("Not all models have the same structured_output capability")
-        
-        if not isinstance(self.client, ChatCompletion):
-            raise ValueError("client must implement ChatCompletion protocol")
 
     @property
     def model(self) -> str:
-        return self.models[0].model_id
+        return self.metadata.model_id
 
-    @property
-    def metadata(self) -> ModelMetadata:
-        return self.models[0]
-    
+
+async def aquery(
+    client: InferenceClient,
+    messages: List[dict],
+    tools: Optional[List] = None,
+    **kwargs
+) -> ModelResponse | CustomStreamWrapper:
+    """
+    :param tools: Serialized tool list.
+    """
+    if tools and not client.metadata.tool_use:
+        raise RuntimeError(f"Model {client.model} does not support tool use")
+
+    log_event(_logger, logging.DEBUG, "Starting async query", model=client.model)
+    try:
+        response = await client.client.acompletion(
+            model=client.model,
+            messages=messages,
+            tools=tools,
+            **kwargs
+        )
+        log_event(_logger, logging.DEBUG, "Completed async query", model=client.model)
+    except RateLimitError as rate_limit:
+        # litellm.Router did it's best, at that point rate limits can't be ignored anymore
+        raise RuntimeError(f"Maximum retry limit reached: {rate_limit}")
+    except APIError as fatal:
+        # that's a server-side 500
+        log_event(
+            _logger, logging.ERROR, "API Error", 
+            status_code=fatal.status_code,
+            error_message=fatal.message,
+            model=fatal.model,
+            provider=fatal.llm_provider
+        )
+        raise RuntimeError(f"APIError in query")
+
+    return response
+
 
 # query is a wrapper around litellm that does it's best to ensure what the orchestrator 
 # requests is satisfied. 
@@ -99,13 +106,12 @@ class InferenceClient:
 # ex. structured output).
 # So rate-limit handling is done by litellm, query does json schema enforcement (NOT 
 # parameter validation) and fallback context trimming.
+# https://docs.litellm.ai/docs/exception_mapping
 def query(
     client: InferenceClient,
     messages: List,
-    stream: bool = False,
-    response_format: Optional[BaseModel] = None,
-    max_response_format_retries: int = 3,
     tools: Optional[List] = None,
+    stream: bool = False,
     **kwargs # additional configs to pass to litellm
 ) -> Union[ModelResponse, CustomStreamWrapper]:
     log_event(_logger, logging.INFO, "Starting query", model=client.model)
@@ -117,7 +123,6 @@ def query(
                 model=client.model,
                 messages=messages,
                 stream=stream,
-                response_format=response_format,
                 tools=tools,
                 **kwargs
             )
@@ -126,6 +131,16 @@ def query(
         except RateLimitError as rate_limit:
             # litellm.Router did it's best, at that point rate limits can't be ignored anymore
             raise RuntimeError(f"Maximum retry limit reached: {rate_limit}")
+        except litellm.exceptions.APIError as fatal:
+            # that's a server-side 500
+            log_event(
+                _logger, logging.ERROR, "API Error", 
+                status_code=fatal.status_code,
+                message=fatal.message,
+                model=fatal.model,
+                provider=fatal.llm_provider
+            )
+            raise RuntimeError(f"APIError in query")
         except ContextWindowExceededError:
             # in the possibility the context window is exceeded, retry with truncation of the context
             # length as *last resort fallback*. This gives some reliability guarantees, however to 
@@ -151,34 +166,46 @@ def query(
                 model=client.model, max_tokens=int(max_ctx * 0.75)
             )
             continue
-        except JSONSchemaValidationError as json_err:
-            # If the model supports response_format but not structured_output then JSON is not guaranteed.
-            # The model is notified with a volatile message that the response was not valid JSON and the 
-            # request is retried up to `max_response_format_retries`.
-            json_retries += 1
-            log_event(_logger, logging.ERROR, "JSON Error", retry=json_retries, model=client.model)
-            if json_retries >= max_response_format_retries:
-                raise RuntimeError(f"{client.model} failed generating JSON {max_response_format_retries} times: {json_err}")
-            messages = messages + [
-                {"role": "assistant", "content": json_err.raw_response},
-                {"role": "user", "content": f"Your response was not valid JSON matching the required schema. Schema: {response_format.model_json_schema()}. Respond with only valid JSON."}
-            ]
-            continue
-        except litellm.exceptions.APIError as fatal:
-            log_event(
-                _logger, logging.ERROR, "API Error", 
-                status_code=fatal.status_code,
-                model=fatal.model,
-                provider=fatal.llm_provider
-            )
-            raise RuntimeError(f"APIError in query")
-
+        
     return response
 
 
+def parse_model_string(model: str) -> Tuple[str, str]:
+    """
+    Takes in input the fully qualified model id and returns the provider and 
+    the model name.
+    :param model: 
+        Model id in the format `provider/model` ex. `openai/gpt-4o`.
+        > Note: for some use cases even three components are allowed, such as 
+        `huggingface/namespace/repo`.
+    :raises ValueError: the fully qualified model identifier is malformed.
+    """
+    # Some providers are not explicitly supported by litellm however they can 
+    # still be used since they follow openai format.
+    provider_mapping = {
+        "lightning-ai": "openai"
+    }
+
+    m = re.match(pattern=r"(?P<provider>[^/]+)\/(?P<model>.+)", string=model)
+    try:
+        model_provider = m.group('provider')
+        model_name = m.group('model')
+        assert len(model_provider) > 0
+        assert len(model_name) > 0
+
+        if model_provider in provider_mapping:
+            model_provider = provider_mapping[model_provider]
+
+        return model_provider, model_name
+    except (AttributeError, AssertionError):
+        raise ValueError(f"Invalid model identifier {model}")
+
+
 @lru_cache(maxsize=1)
-def fetch_models_info():
-    import requests, json
+def fetch_models_info(model: str):
+    import json
+
+    import requests
     response = requests.get(url="https://openrouter.ai/api/v1/models")
     try:
         return json.loads(response.content).get("data", [])
@@ -186,7 +213,49 @@ def fetch_models_info():
         return []
 
 
-def get_model_metadata(config: ModelConfig) -> ModelMetadata:
+def get_model_capabilities(provider: str, model_id: str, allow_requests: bool = True) -> List[str]:
+    """
+    Gets the list of supported parameters for the model.
+    """
+    # If litellm doesn't support the provider we use the OpenRouter API, however 
+    # it still doesn't address all edge-cases. 
+    # One is vLLM (/v1/models ???)
+    try:
+        model_info = litellm.get_model_info(model=f"{provider}/{model_id}")
+        return {
+            "supported_openai_params": model_info.get("supported_openai_params", []),
+            "max_input_tokens": model_info.get("max_input_tokens", -1),
+        }
+    except Exception:
+        if not allow_requests:
+            return []
+
+        available_models = fetch_models_info(model=model_id)
+        if not available_models:
+            return []
+
+        model_info = list(
+            filter(
+                lambda info: model_id.lower() in info.get("id", "").lower(),
+                available_models
+            )
+        )
+        if not model_info:
+            return []
+        model_info = model_info[0]
+
+        # conform to litellm naming
+        model_info["supported_openai_params"] = model_info.pop("supported_parameters")
+        model_info["max_input_tokens"] = model_info.pop("context_length")
+        return model_info
+
+
+def get_model_metadata(config: ModelConfig, allow_requests: bool = True) -> ModelMetadata:
+    """
+    Creates `ModelMetadata` from `ModelConfig`.
+    
+    :raises ValueError: `ModelConfig.model` is an invalid identifier.
+    """
     metadata = {
         "provider": "",
         "model_id": "",
@@ -198,32 +267,20 @@ def get_model_metadata(config: ModelConfig) -> ModelMetadata:
         "native_token_counting": False
     } 
 
-    m = re.match(pattern=MODEL_ID_REGEX, string=config.model)
-    try:
-        metadata['provider'] = m.group('provider')
-        metadata['model_id'] = m.group('model')
-        assert len(metadata['provider']) > 0
-        assert len(metadata['model_id']) > 0
+    metadata['provider'], metadata['model_id'] = parse_model_string(config.model)
+    model_info = get_model_capabilities(
+        provider=metadata["provider"], 
+        model_id=metadata["model_id"],
+        allow_requests=allow_requests
+    )
 
-        # for cloud based openai compatible replace with openai, litellm
-        # internally uses the openai api client with different base_url
-        if metadata['provider'] == 'lightning-ai':
-            metadata['provider'] = 'openai'
-
-    except (AttributeError, AssertionError):
-        raise ValueError(f"Invalid model identifier {config.model}")
-    
-    found_info = list(filter(
-        lambda info: metadata['model_id'].lower() in info.get("id", "").lower(), 
-        fetch_models_info()
-    ))
-    if len(found_info) > 0:
-        supported_params = found_info[0].get("supported_parameters", [])
-        metadata['tool_use'] = 'tools' in supported_params
-        metadata['reasoning'] = 'reasoning' in supported_params
-        metadata['response_format'] = 'response_format' in supported_params
-        metadata['structured_output'] = 'structured_output' in supported_params
-        metadata['max_context_length'] = found_info[0].get("context_length", 1)
+    if model_info:
+        supported_params = model_info.get("supported_openai_params", [])
+        metadata['tool_use'] = 'tools' in model_info
+        metadata['reasoning'] = 'reasoning' in model_info
+        metadata['response_format'] = 'response_format' in model_info
+        metadata['structured_output'] = 'structured_output' in model_info
+        metadata['max_context_length'] = model_info.get("max_input_tokens", -1)
 
     # allow specifying model max context length (ex vLLM)
     metadata['max_context_length'] = int(os.environ.get(
@@ -239,24 +296,24 @@ def get_model_metadata(config: ModelConfig) -> ModelMetadata:
     return ModelMetadata(**metadata)
 
 
-def build_inference_client(models: List[ModelConfig]) -> InferenceClient:
-    metadata = []
-    model_list = []
+def build_inference_client(config: ModelConfig) -> InferenceClient:
+    model_metadata = get_model_metadata(config)
+    
+    litellm_params = {
+        "model": f"{model_metadata.provider}/{model_metadata.model_id}"
+    }
 
-    for config in models:
-        meta = get_model_metadata(config)
-        metadata.append(meta)
-        model_list.append(
-            {
-                "model_name": meta.model_id,
-                "litellm_params": {
-                    "model": f"{meta.provider}/{meta.model_id}",
-                    "api_base": config.api_base,
-                    # that could leak from Router logs based on what they're doing btw
-                    "api_key": config.api_key.get_secret_value() # if config.api_key else None
-                }
-            }
-        )
+    if config.api_base:
+        litellm_params["api_base"] = config.api_base
+    if config.api_key:
+        litellm_params["api_key"] = config.api_key.get_secret_value()
+
+    model_list = [
+        {
+            "model_name": model_metadata.model_id,
+            "litellm_params": litellm_params
+        }
+    ]
 
     # note: retry policy manages the amount of retries, not the retry behaviour
     # RateLimitError (the main reason to use the Router in this use case) uses exp. backoff
@@ -277,4 +334,4 @@ def build_inference_client(models: List[ModelConfig]) -> InferenceClient:
         )
     )
 
-    return InferenceClient(models=metadata, client=router)
+    return InferenceClient(metadata=model_metadata, client=router)

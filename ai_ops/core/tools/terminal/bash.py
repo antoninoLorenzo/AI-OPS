@@ -93,7 +93,7 @@ class BashSession:
         # write sentinel is used to determine end of command execution for 
         # non-interactive commands.
         self.write_sentinel = f'__{str(uuid.uuid4())[:13]}_READY__'
-        self.__status_pattern = re.compile(r"> (\d+)", re.MULTILINE)
+        self.__status_pattern = re.compile(r"(\d+)(?!.*\d)", re.DOTALL)
 
         self.__start_session()
     
@@ -142,7 +142,7 @@ class BashSession:
             status_code = CommandStatus.UNKNOWN
             
             try:
-                status_match = self.__status_pattern.search(status_result)
+                status_match = self.__status_pattern.search(status_result.replace("\r", ""))
                 if status_match:
                     status_no = int(status_match.group(1))
                     status_code = CommandStatus(status_no)

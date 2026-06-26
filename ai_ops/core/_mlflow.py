@@ -1,18 +1,18 @@
 import os
-import uuid
-import urllib3
 import traceback
+import uuid
 from typing import Callable
 
-from ai_ops.core.llm import InferenceClient, ModelMetadata
-from ai_ops.core.conversation import Conversation
-from ai_ops.core.schema import ToolCallEvent, ToolResultEvent
-from ai_ops.core.log import get_logger, log_event, logging
+import urllib3
 
-TRACKING_URI_ENV = "MLFLOW_TRACKING_URI"
-EXPERIMENT_ENV = "MLFLOW_EXPERIMENT_NAME"
-DEFAULT_EXPERIMENT = "AI-OPS"
-AGENT_TRACE_NAME = "orchestrator"
+from ai_ops.config import MLFLOW_EXPERIMENT_ENV, MLFLOW_TRACKING_URI_ENV
+from ai_ops.core.conversation import Conversation
+from ai_ops.core.llm import InferenceClient, ModelMetadata
+from ai_ops.core.log import get_logger, log_event, logging
+from ai_ops.core.schema import ToolCallEvent, ToolResultEvent
+
+MLFLOW_DEFAULT_EXPERIMENT = "AI-OPS"
+MLFLOW_AGENT_TRACE_NAME = "orchestrator"
 
 _logger = get_logger(__name__)
 _mlflow_ready = False
@@ -36,8 +36,8 @@ def setup_mlflow():
     global _mlflow_ready
     import mlflow
 
-    tracking_uri = os.environ.get(TRACKING_URI_ENV)
-    experiment = os.environ.get(EXPERIMENT_ENV, DEFAULT_EXPERIMENT)
+    tracking_uri = os.environ.get(MLFLOW_TRACKING_URI_ENV)
+    experiment = os.environ.get(MLFLOW_EXPERIMENT_ENV, MLFLOW_DEFAULT_EXPERIMENT)
 
     if tracking_uri:
         log_event(
@@ -60,13 +60,13 @@ def setup_mlflow():
     else:
         log_event(
             _logger, logging.WARNING, 
-            f"Environment variable {TRACKING_URI_ENV} not set: skipping MLFlow setup."
+            f"Environment variable {MLFLOW_TRACKING_URI_ENV} not set: skipping MLFlow setup."
         )
 
 
 def mlflow_trace(fn: Callable, *args, **kwargs):
     import mlflow
-    from mlflow.entities import SpanType, SpanEvent, SpanStatus, SpanStatusCode
+    from mlflow.entities import SpanEvent, SpanStatus, SpanStatusCode, SpanType
 
     # get conversation id from fn (orchestrator)
     conversation: Conversation | None = kwargs.get("conversation")
@@ -98,7 +98,7 @@ def mlflow_trace(fn: Callable, *args, **kwargs):
 
     tool_call_spans: Dict[str, tuple] = {} # tool_call_id -> (ctx, span)
     with mlflow.start_span(
-        name=AGENT_TRACE_NAME, 
+        name=MLFLOW_AGENT_TRACE_NAME, 
         span_type=SpanType.AGENT,
         attributes={"ai.model.name": model_id}
     ) as agent_span:

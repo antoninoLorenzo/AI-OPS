@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 from ai_ops.core.schema import Event, ToolCallEvent, ToolResultEvent
 from ai_ops.core.conversation import Conversation, Message
 from ai_ops.core.tracing import agent_trace, mlflow_ready
-from ai_ops.core._mlflow import AGENT_TRACE_NAME
+from ai_ops.core._mlflow import MLFLOW_AGENT_TRACE_NAME
 
 load_dotenv()
 
@@ -67,7 +67,7 @@ def test_tool_call_tracing(test_case):
     # verify orchestrator span exists
     agent_spans = trace.search_spans(span_type=SpanType.AGENT)
     assert len(agent_spans) == 1
-    assert agent_spans[0].name == AGENT_TRACE_NAME
+    assert agent_spans[0].name == MLFLOW_AGENT_TRACE_NAME
 
     # verify tool spans
     tool_spans = trace.search_spans(span_type=SpanType.TOOL)

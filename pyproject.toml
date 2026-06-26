@@ -13,7 +13,7 @@ dependencies = [
     "python-dotenv>=1.2.2",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 api = [
     "fastapi[standard]",
     "uvicorn",
@@ -26,16 +26,20 @@ cli = [
     "requests>=2.33.0",
 ]
 dev = [
-    "ai-ops[api,cli,bench]",
-    "pytest",
+    { include-group = "api" },
+    { include-group = "cli" },
+    { include-group = "bench" },
+    "pytest>=9.0.2",
+    "pytest-asyncio",
     "pytest-cov",
     "isort",
     "pylint",
-    "pandas~=2.2.2",
+    "pandas>=2.2.2",
     "numpy",
     "matplotlib~=3.9.0",
     "seaborn~=0.13.2",
-    "tqdm~=4.66.4"
+    "tqdm~=4.66.4",
+    "transformers>=5.5.3"
 ]
 bench = [
     "autopenbench"
@@ -43,6 +47,7 @@ bench = [
 
 [tool.pytest.ini_options]
 testpaths = ["test"]
+asyncio_mode = "auto"
 
 [tool.isort]
 profile = "black"
@@ -55,11 +60,3 @@ exclude = [
 [tool.uv.sources]
 autopenbench = { path = "benchmark/auto_pen_bench/auto-pen-bench", editable = true }
 
-[dependency-groups]
-api = [
-    "pyyaml>=6.0.3",
-]
-dev = [
-    "pytest>=9.0.2",
-    "transformers>=5.5.3",
-]

@@ -36,10 +36,16 @@ class MockChatCompletion:
             return self.completion_output
 
     async def acompletion(self, model: str, **kwargs) -> ModelResponse | CustomStreamWrapper:
-        raise NotImplementedError()
+        return self.completion(model=model, **kwargs)
 
 
 def mock_query(client: InferenceClient, stream: bool = False, **kwargs) -> Union[ModelResponse, CustomStreamWrapper]:
+    if stream:
+        raise NotImplementedError()
+
+    return client.client.completion(model=client.model, stream=stream)
+
+async def mock_aquery(client: InferenceClient, stream: bool = False, **kwargs) -> Union[ModelResponse, CustomStreamWrapper]:
     if stream:
         raise NotImplementedError()
 
@@ -55,18 +61,18 @@ mock_model = ModelMetadata(
     structured_output=True
 )
 
+mock_metadata = ModelMetadata(
+    provider="mock_provider",
+    model_id="mock_model_id",
+    max_context_length=0,
+    tool_use=True,
+    reasoning=True,
+    response_format=True,
+    structured_output=True
+)
+
 mock_inference_client = InferenceClient(
-    models=[
-        ModelMetadata(
-            provider="mock",
-            model_id="mock",
-            max_context_length=0,
-            tool_use=True,
-            reasoning=True,
-            response_format=True,
-            structured_output=True
-        )
-    ],
+    metadata=mock_metadata,
     client=MockChatCompletion(completion_output=ModelResponse(
         model="gpt-4o",
         choices=Choices(

@@ -1,9 +1,27 @@
 import os
 from pathlib import Path
 
+# --- Environment Variables
+
 API_BASE_ENV_NAME = "LLM_API_BASE"
 API_KEY_ENV_NAME = "LLM_API_KEY"
 API_MODEL_MAX_CONTEXT_LENGTH = "LLM_MAX_CONTEXT_LENGTH"
+
+LOG_FILE_ENV = "AI_OPS_LOG_FILE"
+"""The log file will be created at `AI_OPS_BASE_DIR/LOG_FILE_ENV`, needs to be a filename."""
+LOG_LEVEL_ENV = "AI_OPS_LOG_LEVEL"
+"""Lowercase."""
+LOG_STDOUT_ENV = "AI_OPS_LOG_STDOUT"
+"""Can be \"true\" or \"false\"."""
+
+OBSERVABILITY_BACKEND_ENV = "AI_OPS_OBSERVABILITY_BACKEND"
+"""Only `mlflow` is supported."""
+
+# Note: also requires MLFLOW_TRACKING_USERNAME and MLFLOW_TRACKING_PASSWORD but those are not 
+# explicitly set by _mlflow.py.
+# Optional: MLFLOW_TRACKING_INSECURE_TLS=true (not recommended ofc)
+MLFLOW_TRACKING_URI_ENV = "MLFLOW_TRACKING_URI"
+MLFLOW_EXPERIMENT_ENV = "MLFLOW_EXPERIMENT_NAME"
 
 
 def build_environment() -> Path:

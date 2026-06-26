@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, List, Optional, Type, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Type
 
 import litellm
 from litellm import (
@@ -8,37 +8,33 @@ from litellm import (
     ChatCompletionUserMessage,
 )
 
-from ai_ops.core.agent import orchestrator, DEFAULT_TEMPERATURE
+from ai_ops.core.agent import DEFAULT_TEMPERATURE, orchestrator
 from ai_ops.core.context_management import ContextView, RawContextView
-from ai_ops.core.conversation import (
-    Message, 
-    get_conversation_store, 
-    get_token_count
-)
-from ai_ops.core.llm import InferenceClient, ModelConfig, build_inference_client
+from ai_ops.core.conversation import Message, get_conversation_store, get_token_count
+from ai_ops.core.llm import InferenceClient, ModelConfig
+from ai_ops.core.log import get_logger, log_event, logging
 from ai_ops.core.prompt import build_prompt
 from ai_ops.core.schema import (
     AgentMode,
     Event,
+    ReasoningEvent,
     StopEvent,
     TextEvent,
-    ReasoningEvent,
     ToolCallEvent,
-    ToolResultEvent,
     ToolErrorEvent,
+    ToolResultEvent,
     UserMessageEvent,
 )
 from ai_ops.core.tools import (
+    CommandAdmissionPolicy,
     LoadSkill,
     Tool,
     ToolContext,
     ToolRegistry,
     WhiteboardRead,
-    CommandAdmissionPolicy,
     get_skill_registry,
     get_whiteboard_store,
 )
-from ai_ops.core.log import get_logger, log_event, logging
 
 _logger = get_logger(__name__)
 
