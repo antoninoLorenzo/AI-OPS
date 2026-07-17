@@ -1,4 +1,4 @@
-from typing import Dict, Iterator, Optional, Sequence
+from typing import AsyncIterator, Dict, Iterator, Optional, Sequence
 
 from litellm import (
     ChatCompletionAssistantMessage,
@@ -27,6 +27,23 @@ def mock_orchestrator(
     mock_events: Sequence[Message | Event] | Exception | None = None,
     **kwargs
 ) -> Iterator[Message | Event]:
+    if isinstance(mock_events, Sequence):
+        for event in mock_events:
+            yield event
+    elif isinstance(mock_events, Exception):
+        raise mock_events
+
+
+async def mock_aorchestrator(
+    client: InferenceClient,
+    conversation: Conversation,
+    tools: Dict[str, Tool],
+    context_fn: ContextView,
+    mode: AgentMode = AgentMode.SUPERVISED,
+    max_iterations: Optional[int] = None,
+    mock_events: Sequence[Message | Event] | Exception | None = None,
+    **kwargs
+) -> AsyncIterator[Message | Event]:
     if isinstance(mock_events, Sequence):
         for event in mock_events:
             yield event

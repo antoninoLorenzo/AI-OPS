@@ -1,7 +1,6 @@
 # Agent Orchestrator Implementation
-import asyncio
 import json
-from typing import Dict, Iterator, Optional, List, cast
+from typing import AsyncIterator, Dict, Iterator, Optional, List, cast
 
 import litellm
 from litellm import (
@@ -20,7 +19,7 @@ from ai_ops.core.conversation import (
     is_valid_message_list, 
     find_last_user_message_index
 )
-from ai_ops.core.llm import InferenceClient, query
+from ai_ops.core.llm import InferenceClient, aquery, query
 from ai_ops.core.schema import (
     AgentMode,
     Event,
@@ -161,6 +160,125 @@ def orchestrator(
 
             yield ToolCallEvent(call_id=tool_call.id, name=tool_name, args=args)
             try:
+                tool_result = tool(args)
+                # TODO: here we need to discriminate between failures on success clearly
+                yield ToolResultEvent(call_id=tool_call.id, name=tool_name, args=args, result=tool_result)
+            except Exception as tool_failure:
+                yield ToolErrorEvent(
+                    failure=ToolErrorFailure.EXECUTION_ERROR,
+                    tool_call_id=tool_call.id,
+                    name=tool_name,
+                    error=str(tool_failure)
+                )
+
+        it += 1
+
+
+# Async variant of `orchestrator`. It mirrors the synchronous loop one-to-one,
+# the only difference is that inference is awaited (`aquery`) so the loop doesn't
+# block the event loop while waiting on the model provider.
+# Tool execution stays synchronous on purpose: tools are not async and moving them
+# off-thread is a separate concern from making the agent loop awaitable.
+# Note: unlike `orchestrator` this is intentionally *not* wrapped in `@agent_trace`,
+# the tracing decorator only supports synchronous generators.
+async def aorchestrator(
+    client: InferenceClient,
+    conversation: Conversation,
+    tools: Dict[str, Tool],
+    context_fn: ContextView,
+    mode: AgentMode = AgentMode.SUPERVISED,
+    max_iterations: Optional[int] = None,
+    temperature: float = DEFAULT_TEMPERATURE
+) -> AsyncIterator[Message | Event]:
+    if not is_valid_message_list(conversation.messages):
+        raise ValueError(f"Invalid conversation. Expected [system, user, ...] message list.")
+
+    agent_tools = [tool.serialize() for tool in tools.values()]
+
+    # stop tool is an orchestration primitive so it's always given
+    agent_tools.append(StopTool().serialize())
+
+    iteration_limit = max_iterations if max_iterations else DEFAULT_ITERATION_LIMIT[mode]
+
+    it = 0
+    stop_called = False
+    while it < iteration_limit and not stop_called:
+        log_event(
+            _logger, logging.INFO, "Agent Loop Iteration",
+            conversation_id=conversation.uuid, iteration=it
+        )
+
+        context = context_fn(conversation.messages)
+
+        # append the whiteboard index to the last user message in every loop iteration,
+        # note: the index is not part of the "persisted" conversation, also this breaks
+        # prefix caching.
+        if WhiteboardWrite.name in tools:
+            whiteboard_tool= tools[WhiteboardWrite.name]
+            last_user_idx = find_last_user_message_index(messages=context)
+
+            log_event(_logger, logging.DEBUG, "Appending whiteboard index to message", last_user_idx={last_user_idx})
+            context[last_user_idx].message["content"] += "\n" + whiteboard_tool.index
+
+        try:
+            response = await aquery(
+                client=client,
+                messages=[m.message for m in context],
+                tools=agent_tools,
+                temperature=temperature
+            )
+        except RuntimeError as query_err:
+            yield StopEvent(issuer="agent", error=str(query_err))
+            break
+
+
+        response_message = response.choices[0].message
+        chat_completion_message = cast(ChatCompletionAssistantMessage, response_message.model_dump())
+
+        yield Message(
+            message=chat_completion_message,
+            token_count=get_token_count(chat_completion_message)
+        )
+
+        if not response_message.tool_calls:
+            log_event(_logger, logging.DEBUG, "no tool call in response_message", conversation_id=conversation.uuid)
+            yield StopEvent(issuer="agent")
+            break
+
+
+        for tool_call in response_message.tool_calls:
+            log_event(
+                _logger, logging.DEBUG, "raw tool call",
+                model=response.model, tool_call=tool_call.model_dump_json()
+            )
+
+            tool_name = tool_call.function.name
+
+            if tool_name == StopTool.name:
+                reason = StopTool.get_input_schema().model_validate_json(tool_call.function.arguments)
+                yield StopEvent(issuer="agent", reason=reason.reason)
+                stop_called = True
+                break
+
+            tool, args = validate_tool_call(available_tools=tools, tool_call=tool_call)
+            if tool is None:
+                error_msg = args
+                log_event(
+                    _logger, logging.ERROR, "",
+                    model=response.model, tool_error=f"\"{error_msg}\""
+                )
+
+                yield ToolErrorEvent(
+                    failure=ToolErrorFailure.VALIDATION_ERROR,
+                    tool_call_id=tool_call.id,
+                    name=tool_name,
+                    error=error_msg
+                )
+                continue
+
+            yield ToolCallEvent(call_id=tool_call.id, name=tool_name, args=args)
+            try:
+                # tool execution stays synchronous, see the note on `aorchestrator`.
                 tool_result = tool(args)
                 # TODO: here we need to discriminate between failures on success clearly
                 yield ToolResultEvent(call_id=tool_call.id, name=tool_name, args=args, result=tool_result)

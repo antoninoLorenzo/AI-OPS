@@ -29,7 +29,7 @@ from ai_ops.core.conversation import (
     get_token_count
 )
 
-from test.core.mocks.agent import mock_orchestrator
+from test.core.mocks.agent import mock_aorchestrator, mock_orchestrator
 from test.core.mocks.llm import mock_inference_client
 from test.core.mocks.tool import MockTool, MockIn, MockOut, register_mock_tool
 
@@ -362,6 +362,39 @@ def test_agent_runner_run(test_case, monkeypatch, register_mock_tool):
 
     expected_messages = test_case["persisted_messages"]
     conv = conversation_store.get_by_uuid(conv.uuid)
-    
+
+    for expected, persisted in zip(expected_messages, conv.messages[1:]):
+        assert persisted == expected
+
+
+@pytest.mark.parametrize("test_case", _RUNNER_RUN_TEST_CASES)
+async def test_agent_runner_arun(test_case, monkeypatch, register_mock_tool):
+    monkeypatch.setattr(
+        target=ai_ops.core.runner,
+        name="aorchestrator",
+        value=functools.partial(mock_aorchestrator, mock_events=test_case["events"])
+    )
+
+    conversation_store = get_conversation_store()
+    conv = conversation_store.create()
+
+    agent = AgentRunner(
+        conversation_id=conv.uuid,
+        client=mock_inference_client,
+        config=AgentConfig(tools=[MockTool])
+    )
+
+    expected_events = test_case["expected_events"]
+    event_stream = agent.arun(
+        user_message=UserMessageEvent(content=test_case["user_message"])
+    )
+    idx = 0
+    async for event in event_stream:
+        assert event == expected_events[idx]
+        idx += 1
+
+    expected_messages = test_case["persisted_messages"]
+    conv = conversation_store.get_by_uuid(conv.uuid)
+
     for expected, persisted in zip(expected_messages, conv.messages[1:]):
         assert persisted == expected

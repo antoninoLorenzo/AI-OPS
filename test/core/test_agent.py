@@ -14,9 +14,9 @@ import ai_ops.core.tracing  # we need to mock mlflow_ready to disable @agent_tra
 from ai_ops.core.schema import AgentMode, StopEvent
 from ai_ops.core.conversation import Conversation, Message
 from ai_ops.core.context_management import RawContextView
-from ai_ops.core.agent import orchestrator
+from ai_ops.core.agent import aorchestrator, orchestrator
 
-from test.core.mocks.llm import InferenceClient, MockChatCompletion, mock_model, mock_query
+from test.core.mocks.llm import InferenceClient, MockChatCompletion, mock_aquery, mock_model, mock_query
 from test.core.mocks.tool import MockTool
 
 
@@ -113,5 +113,31 @@ def test_agent_loop(test_case, monkeypatch):
     elif issubclass(test_case["expected"], Exception):
         with pytest.raises(test_case["expected"]):
             for event in event_stream:
+                pass
+
+
+@pytest.mark.parametrize("test_case", _AGENT_LOOP_TESTS)
+async def test_agent_loop_async(test_case, monkeypatch):
+    monkeypatch.setattr(
+        target=ai_ops.core.tracing,
+        name="mlflow_ready",
+        value=lambda: False
+    )
+
+    # mock aquery to completely isolate the agent loop from external code.
+    monkeypatch.setattr(
+        target=ai_ops.core.agent,
+        name="aquery",
+        value=mock_aquery
+    )
+
+    event_stream = aorchestrator(**test_case["parameters"])
+    if isinstance(test_case["expected"], list):
+        expected = iter(test_case["expected"])
+        async for event in event_stream:
+            assert event == next(expected)
+    elif issubclass(test_case["expected"], Exception):
+        with pytest.raises(test_case["expected"]):
+            async for event in event_stream:
                 pass
 

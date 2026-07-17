@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Type
+from typing import Any, AsyncIterator, Dict, Iterator, List, Optional, Tuple, Type
 
 import litellm
 from litellm import (
@@ -8,7 +8,7 @@ from litellm import (
     ChatCompletionUserMessage,
 )
 
-from ai_ops.core.agent import DEFAULT_TEMPERATURE, orchestrator
+from ai_ops.core.agent import DEFAULT_TEMPERATURE, aorchestrator, orchestrator
 from ai_ops.core.context_management import ContextView, RawContextView
 from ai_ops.core.conversation import Message, get_conversation_store, get_token_count
 from ai_ops.core.llm import InferenceClient, ModelConfig
@@ -172,11 +172,94 @@ class AgentRunner:
             )
 
         log_event(
-            _logger, logging.INFO, "", 
-            conversation_id=self.conversation_id, 
+            _logger, logging.INFO, "",
+            conversation_id=self.conversation_id,
             total_event_count=total_event_count
         )
-   
+
+    async def arun(
+        self,
+        user_message: UserMessageEvent,
+        mode: AgentMode = AgentMode.SUPERVISED,
+        max_iterations: Optional[int] = None
+    ) -> AsyncIterator[Event]:
+        """Async twin of `run`.
+
+        The event handling (conversation persistence, tool result formatting and
+        event routing) is identical to `run`; the only difference is that events
+        are consumed from `aorchestrator` with `async for`, so the awaited inference
+        doesn't block the event loop. State management stays synchronous.
+        """
+        self._append_user_message(user_message.content)
+
+        conversation = self._conversation_store.get_by_uuid(conversation_id=self.conversation_id)
+
+        total_event_count = 0
+        event_stream = aorchestrator(
+            client=self.client,
+            conversation=conversation,
+            tools=self.tools,
+            context_fn=self.context_fn,
+            mode=mode,
+            max_iterations=max_iterations,
+            temperature=self.agent_config.temperature
+        )
+
+        # TODO refactor: we only get ValueError if the message list is malformed
+        try:
+            async for event in event_stream:
+                total_event_count += 1
+                if isinstance(event, Message):
+                    # this currently handles non-streaming
+                    text_content = event.message.get("content")
+                    reasoning_content = event.message.get("reasoning_content")
+
+                    if not event.internal:
+                        if reasoning_content is not None and isinstance(reasoning_content, str):
+                            yield ReasoningEvent(chunk=reasoning_content)
+
+                        if text_content is not None and isinstance(text_content, str):
+                            yield TextEvent(chunk=text_content)
+
+                    self._conversation_store.append(conversation_id=self.conversation_id, message=event)
+                elif isinstance(event, ToolResultEvent):
+                    # the orchestrator validates tool calls so we can be sure this doesn't raise
+                    tool = self.tools[event.name]
+                    # format_result is required to return a string, if different we get ValueError
+                    tool_content = tool.format_result(event.result)
+
+                    yield event
+
+                    tool_message = ChatCompletionToolMessage(
+                        role="tool",
+                        content=tool_content,
+                        tool_call_id=event.call_id
+                    )
+                    self._conversation_store.append(
+                        conversation_id=self.conversation_id,
+                        message=Message(
+                            message=tool_message,
+                            token_count=get_token_count(tool_message)
+                        )
+                    )
+                elif isinstance(event, (ToolCallEvent, ToolErrorEvent, StopEvent)):
+                    yield event
+
+                if self._user_stopped:
+                    break
+        except Exception as fatal:
+            log_event(_logger, logging.ERROR, "Fatal error in agent loop", error=f"\"{fatal}\"")
+            yield StopEvent(
+                issuer="agent",
+                error=str(fatal)
+            )
+
+        log_event(
+            _logger, logging.INFO, "",
+            conversation_id=self.conversation_id,
+            total_event_count=total_event_count
+        )
+
 
     def send(self, user_event: UserMessageEvent):
         self._append_user_message(user_event.content)
