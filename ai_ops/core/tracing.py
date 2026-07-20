@@ -1,4 +1,5 @@
 import functools
+import inspect
 import os
 import uuid
 from typing import Callable, Dict
@@ -6,7 +7,7 @@ from typing import Callable, Dict
 import urllib3
 
 from ai_ops.config import OBSERVABILITY_BACKEND_ENV
-from ai_ops.core._mlflow import mlflow_ready, mlflow_trace, setup_mlflow
+from ai_ops.core._mlflow import amlflow_trace, mlflow_ready, mlflow_trace, setup_mlflow
 from ai_ops.core.log import get_logger, log_event, logging
 
 _configured = False
@@ -35,9 +36,11 @@ def configure():
     _configured = True
 
 
-# decorator for the agent orchestrator, switches between tracing backends based
-# on which is enabled, defaults to no tracing.
 def agent_trace(fn: Callable) -> Callable:
+    """
+    Decorator for the agent orchestrator, switches between tracing backends based
+    on which is enabled, defaults to no tracing.
+    """
 
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
@@ -46,6 +49,18 @@ def agent_trace(fn: Callable) -> Callable:
         else:
             yield from fn(*args, **kwargs)
 
-    return wrapper
+    @functools.wraps(fn)
+    async def a_wrapper(*args, **kwargs):
+        if mlflow_ready():
+            async for event in amlflow_trace(fn, *args, **kwargs):
+                yield event
+        else:
+            async for event in fn(*args, **kwargs):
+                yield event
+
+    if inspect.isasyncgenfunction(fn):
+        return a_wrapper
+    else:
+        return wrapper
 
 configure()

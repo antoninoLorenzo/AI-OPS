@@ -10,10 +10,12 @@ from litellm import (
     ChatCompletionToolCallFunctionChunk
 )
 from ai_ops.core.schema import (
+    AgentMode,
     UserMessageEvent,
     TextEvent,
     ReasoningEvent,
     ToolCallEvent,
+    ToolConfirmationEvent,
     ToolResultEvent,
     StopEvent,
     ToolErrorFailure,
@@ -31,7 +33,15 @@ from ai_ops.core.conversation import (
 
 from test.core.mocks.agent import mock_aorchestrator, mock_orchestrator
 from test.core.mocks.llm import mock_inference_client
-from test.core.mocks.tool import MockTool, MockIn, MockOut, register_mock_tool
+from test.core.mocks.tool import (
+    MockTool,
+    MockConfirmTool,
+    MockIn,
+    MockOut,
+    NOT_ADMITTED_VAL,
+    register_mock_tool,
+    register_mock_confirm_tool,
+)
 
 
 # Test cases follow the format 
@@ -365,6 +375,95 @@ def test_agent_runner_run(test_case, monkeypatch, register_mock_tool):
 
     for expected, persisted in zip(expected_messages, conv.messages[1:]):
         assert persisted == expected
+
+
+# --- confirmation wiring (arun)
+# A stand-in aorchestrator that actually exercises the injected `confirm`
+# callback: it yields a confirmation request, awaits the decision, then reports
+# either the executed result or the not-admitted result.
+async def _confirming_aorchestrator(*, tools, confirm, **kwargs):
+    call = ToolCallEvent(
+        call_id="c1", name=MockConfirmTool.name,
+        args=MockIn(val=5), requires_confirmation=True
+    )
+    yield call
+
+    approved = await confirm(call)
+    tool = tools[MockConfirmTool.name]
+    result = tool(MockIn(val=5)) if approved else tool.not_admitted_result(MockIn(val=5))
+
+    yield ToolResultEvent(
+        call_id="c1", name=MockConfirmTool.name, args=MockIn(val=5), result=result
+    )
+    yield StopEvent(issuer="agent")
+
+
+async def test_agent_runner_arun_confirm_approved(monkeypatch, register_mock_confirm_tool):
+    monkeypatch.setattr(
+        target=ai_ops.core.runner, name="aorchestrator", value=_confirming_aorchestrator
+    )
+
+    conv = get_conversation_store().create()
+    agent = AgentRunner(
+        conversation_id=conv.uuid,
+        client=mock_inference_client,
+        config=AgentConfig(tools=[MockConfirmTool])
+    )
+
+    results = []
+    async for event in agent.arun(user_message=UserMessageEvent(content="Hello"), mode=AgentMode.SUPERVISED):
+        if isinstance(event, ToolCallEvent) and event.requires_confirmation:
+            # reply inline: the future is resolved before arun asks aorchestrator
+            # for the next event, so the awaited `confirm` returns immediately.
+            agent.confirm(ToolConfirmationEvent(call_id=event.call_id, approved=True))
+        if isinstance(event, ToolResultEvent):
+            results.append(event.result)
+
+    assert results == [MockOut(val=5)]
+
+
+async def test_agent_runner_arun_confirm_denied(monkeypatch, register_mock_confirm_tool):
+    monkeypatch.setattr(
+        target=ai_ops.core.runner, name="aorchestrator", value=_confirming_aorchestrator
+    )
+
+    conv = get_conversation_store().create()
+    agent = AgentRunner(
+        conversation_id=conv.uuid,
+        client=mock_inference_client,
+        config=AgentConfig(tools=[MockConfirmTool])
+    )
+
+    results = []
+    async for event in agent.arun(user_message=UserMessageEvent(content="Hello"), mode=AgentMode.SUPERVISED):
+        if isinstance(event, ToolCallEvent) and event.requires_confirmation:
+            agent.confirm(ToolConfirmationEvent(call_id=event.call_id, approved=False))
+        if isinstance(event, ToolResultEvent):
+            results.append(event.result)
+
+    assert results == [MockOut(val=NOT_ADMITTED_VAL)]
+
+
+async def test_agent_runner_arun_confirm_timeout(monkeypatch, register_mock_confirm_tool):
+    # never call agent.confirm -> the confirm callback times out and the call is
+    # treated as denied (not executed).
+    monkeypatch.setattr(
+        target=ai_ops.core.runner, name="aorchestrator", value=_confirming_aorchestrator
+    )
+
+    conv = get_conversation_store().create()
+    agent = AgentRunner(
+        conversation_id=conv.uuid,
+        client=mock_inference_client,
+        config=AgentConfig(tools=[MockConfirmTool], confirmation_timeout_s=0.05)
+    )
+
+    results = []
+    async for event in agent.arun(user_message=UserMessageEvent(content="Hello"), mode=AgentMode.SUPERVISED):
+        if isinstance(event, ToolResultEvent):
+            results.append(event.result)
+
+    assert results == [MockOut(val=NOT_ADMITTED_VAL)]
 
 
 @pytest.mark.parametrize("test_case", _RUNNER_RUN_TEST_CASES)

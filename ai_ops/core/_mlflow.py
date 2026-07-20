@@ -64,10 +64,12 @@ def setup_mlflow():
         )
 
 
-def mlflow_trace(fn: Callable, *args, **kwargs):
-    import mlflow
-    from mlflow.entities import SpanEvent, SpanStatus, SpanStatusCode, SpanType
+def _resolve_trace_ids(args, kwargs) -> tuple[str, str]:
+    """Resolve `(session_id, model_id)` from the orchestrator's call arguments.
 
+    Both `orchestrator` and `aorchestrator` receive the `conversation` and
+    `client` either as keyword or positional arguments, so we look in both.
+    """
     # get conversation id from fn (orchestrator)
     conversation: Conversation | None = kwargs.get("conversation")
     if conversation is None:
@@ -82,7 +84,7 @@ def mlflow_trace(fn: Callable, *args, **kwargs):
     else:
         session_id = conversation.uuid
 
-    # get model being used 
+    # get model being used
     model_client: InferenceClient | None = kwargs.get("client")
     if model_client is None:
         model_client_arg_idx = next(
@@ -91,10 +93,19 @@ def mlflow_trace(fn: Callable, *args, **kwargs):
                 if isinstance(arg, InferenceClient)
             ), None
         )
-        model_id = args[model_client_arg_idx].model if model_client_arg_idx \
+        model_id = args[model_client_arg_idx].model if model_client_arg_idx is not None \
             else "unknown"
     else:
         model_id = model_client.model
+
+    return session_id, model_id
+
+
+def mlflow_trace(fn: Callable, *args, **kwargs):
+    import mlflow
+    from mlflow.entities import SpanEvent, SpanStatus, SpanStatusCode, SpanType
+
+    session_id, model_id = _resolve_trace_ids(args, kwargs)
 
     tool_call_spans: Dict[str, tuple] = {} # tool_call_id -> (ctx, span)
     with mlflow.start_span(
@@ -109,6 +120,68 @@ def mlflow_trace(fn: Callable, *args, **kwargs):
 
         try:
             for event in fn(*args, **kwargs):
+                # to trace tool calls here we have to use context manager manually
+                if isinstance(event, ToolCallEvent):
+                    ctx = mlflow.start_span(name=event.name, span_type=SpanType.TOOL)
+                    span = ctx.__enter__()
+                    span.set_inputs(event.args)
+                    tool_call_spans[event.call_id] = (ctx, span)
+                elif isinstance(event, ToolResultEvent):
+                    ctx, span = tool_call_spans.pop(event.call_id, (None, None))
+                    if span is not None:
+                        span.set_outputs({"result": event.result.model_dump()})
+                        ctx.__exit__(None, None, None)
+
+                yield event
+        except Exception as exc:
+            agent_span.set_status(SpanStatus(SpanStatusCode.ERROR, str(exc)))
+            agent_span.add_event(SpanEvent(
+                name="Exception",
+                attributes={
+                    "exception.message": str(exc),
+                    "exception.type": type(exc).__name__,
+                    "exception.stacktrace": "".join(traceback.format_tb(exc.__traceback__))
+                }
+            ))
+            raise
+        finally:
+            for ctx, span in tool_call_spans.values():
+                ctx.__exit__(None, None, None)
+            agent_span.end()
+
+
+async def amlflow_trace(fn: Callable, *args, **kwargs):
+    """Async-generator twin of `mlflow_trace`.
+
+    Mirrors the synchronous tracer one-to-one; the only difference is that the
+    wrapped orchestrator is driven with `async for`. `mlflow.start_span` returns
+    a plain (sync) context manager, so it's still used with `with` here, and the
+    manual tool-span lifecycle is identical.
+
+    Caveat: unlike the sync path, autologged LLM spans from `litellm.acompletion`
+    do NOT nest under the AGENT span. litellm dispatches the mlflow success
+    callback to its `GLOBAL_LOGGING_WORKER` (a detached background task) which
+    runs after this span has ended and with no active span in context, so mlflow
+    records the LLM call as a separate trace. See ROADMAP.md / mlflow#16697.
+    """
+    import mlflow
+    from mlflow.entities import SpanEvent, SpanStatus, SpanStatusCode, SpanType
+
+    session_id, model_id = _resolve_trace_ids(args, kwargs)
+
+    tool_call_spans: Dict[str, tuple] = {} # tool_call_id -> (ctx, span)
+    with mlflow.start_span(
+        name=MLFLOW_AGENT_TRACE_NAME,
+        span_type=SpanType.AGENT,
+        attributes={"ai.model.name": model_id}
+    ) as agent_span:
+        mlflow.update_current_trace(
+            tags={"model": model_id},
+            metadata={"mlflow.trace.session": session_id}
+        )
+
+        try:
+            async for event in fn(*args, **kwargs):
                 # to trace tool calls here we have to use context manager manually
                 if isinstance(event, ToolCallEvent):
                     ctx = mlflow.start_span(name=event.name, span_type=SpanType.TOOL)

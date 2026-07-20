@@ -22,6 +22,7 @@ from ai_ops.core.conversation import (
 from ai_ops.core.llm import InferenceClient, aquery, query
 from ai_ops.core.schema import (
     AgentMode,
+    ConfirmCallback,
     Event,
     StopEvent,
     ToolCallEvent,
@@ -158,10 +159,20 @@ def orchestrator(
                 )
                 continue
 
+            # admission: a blocked call is not executed. The sync path can't
+            # await a user decision, so a blocked call is simply skipped (as in
+            # UNSUPERVISED); the confirmation branch lives in `aorchestrator`.
+            blocked = tool.evaluate(args)
             yield ToolCallEvent(call_id=tool_call.id, name=tool_name, args=args)
+            if blocked:
+                yield ToolResultEvent(
+                    call_id=tool_call.id, name=tool_name, args=args,
+                    result=tool.not_admitted_result(args)
+                )
+                continue
+
             try:
                 tool_result = tool(args)
-                # TODO: here we need to discriminate between failures on success clearly
                 yield ToolResultEvent(call_id=tool_call.id, name=tool_name, args=args, result=tool_result)
             except Exception as tool_failure:
                 yield ToolErrorEvent(
@@ -179,8 +190,9 @@ def orchestrator(
 # block the event loop while waiting on the model provider.
 # Tool execution stays synchronous on purpose: tools are not async and moving them
 # off-thread is a separate concern from making the agent loop awaitable.
-# Note: unlike `orchestrator` this is intentionally *not* wrapped in `@agent_trace`,
-# the tracing decorator only supports synchronous generators.
+# `agent_trace` detects the async-generator function and dispatches to the async
+# tracer, so tracing works the same way it does for `orchestrator`.
+@agent_trace
 async def aorchestrator(
     client: InferenceClient,
     conversation: Conversation,
@@ -188,7 +200,8 @@ async def aorchestrator(
     context_fn: ContextView,
     mode: AgentMode = AgentMode.SUPERVISED,
     max_iterations: Optional[int] = None,
-    temperature: float = DEFAULT_TEMPERATURE
+    temperature: float = DEFAULT_TEMPERATURE,
+    confirm: Optional[ConfirmCallback] = None
 ) -> AsyncIterator[Message | Event]:
     if not is_valid_message_list(conversation.messages):
         raise ValueError(f"Invalid conversation. Expected [system, user, ...] message list.")
@@ -276,11 +289,33 @@ async def aorchestrator(
                 )
                 continue
 
-            yield ToolCallEvent(call_id=tool_call.id, name=tool_name, args=args)
+            # admission: `evaluate` decides whether the call is blocked. A blocked
+            # call is not executed in UNSUPERVISED; in SUPERVISED the user is asked
+            # to confirm (the injected `confirm` awaits the decision, applying its
+            # own timeout policy). A not-executed call still reports a result so
+            # the conversation stays well-formed.
+            blocked = tool.evaluate(args)
+            will_confirm = blocked and mode == AgentMode.SUPERVISED
+            tool_call_event = ToolCallEvent(
+                call_id=tool_call.id, name=tool_name, args=args,
+                requires_confirmation=will_confirm
+            )
+            yield tool_call_event
+
+            if blocked:
+                approved = False
+                if will_confirm and confirm is not None:
+                    approved = await confirm(tool_call_event)
+                if not approved:
+                    yield ToolResultEvent(
+                        call_id=tool_call.id, name=tool_name, args=args,
+                        result=tool.not_admitted_result(args)
+                    )
+                    continue
+
             try:
-                # tool execution stays synchronous, see the note on `aorchestrator`.
+                # tool execution stays synchronous
                 tool_result = tool(args)
-                # TODO: here we need to discriminate between failures on success clearly
                 yield ToolResultEvent(call_id=tool_call.id, name=tool_name, args=args, result=tool_result)
             except Exception as tool_failure:
                 yield ToolErrorEvent(

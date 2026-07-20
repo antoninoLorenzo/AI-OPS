@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass, field
 from typing import Any, AsyncIterator, Dict, Iterator, List, Optional, Tuple, Type
 
@@ -21,6 +22,7 @@ from ai_ops.core.schema import (
     StopEvent,
     TextEvent,
     ToolCallEvent,
+    ToolConfirmationEvent,
     ToolErrorEvent,
     ToolResultEvent,
     UserMessageEvent,
@@ -38,6 +40,10 @@ from ai_ops.core.tools import (
 
 _logger = get_logger(__name__)
 
+# Default time to wait for a user confirmation before a blocked call is treated
+# as denied (not executed). Overridable per runner via `AgentConfig`.
+CONFIRMATION_TIMEOUT_S = 300.0
+
 
 @dataclass
 class AgentConfig:
@@ -47,6 +53,7 @@ class AgentConfig:
     command_policies: Tuple[CommandAdmissionPolicy] = field(default_factory=tuple)
     temperature: float = DEFAULT_TEMPERATURE
     prompt_extension: str | None = None
+    confirmation_timeout_s: float = CONFIRMATION_TIMEOUT_S
 
 
 class AgentRunner:
@@ -100,6 +107,11 @@ class AgentRunner:
             if (factory := ToolRegistry.get(tool.name)) is not None
         }
         self._user_stopped = False
+        # pending tool-confirmation decisions, keyed by tool call id. The
+        # orchestrator awaits these futures (via `_confirm`); the client resolves
+        # them (via `confirm`). get-or-create on both sides removes the race
+        # between the client replying and the orchestrator starting to await.
+        self._confirmations: Dict[str, asyncio.Future] = {}
     
     def run(
         self, 
@@ -202,7 +214,8 @@ class AgentRunner:
             context_fn=self.context_fn,
             mode=mode,
             max_iterations=max_iterations,
-            temperature=self.agent_config.temperature
+            temperature=self.agent_config.temperature,
+            confirm=self._confirm
         )
 
         # TODO refactor: we only get ValueError if the message list is malformed
@@ -267,6 +280,39 @@ class AgentRunner:
     def stop(self, stop_event: StopEvent):
         # non-preemptive
         self._user_stopped = True
+
+    def confirm(self, confirmation: ToolConfirmationEvent):
+        """Resolve a pending tool-confirmation request issued by the client in
+        response to a `ToolCallEvent` with `requires_confirmation` set."""
+        future = self._get_confirmation_future(confirmation.call_id)
+        if not future.done():
+            future.set_result(confirmation.approved)
+
+    async def _confirm(self, tool_call: ToolCallEvent) -> bool:
+        """Injected into `aorchestrator`: await the user's decision for a
+        confirmation request, bounded by the configured timeout. On timeout the
+        call is treated as denied (not executed)."""
+        future = self._get_confirmation_future(tool_call.call_id)
+        try:
+            approved = await asyncio.wait_for(
+                future, timeout=self.agent_config.confirmation_timeout_s
+            )
+        except asyncio.TimeoutError:
+            log_event(
+                _logger, logging.WARNING, "Tool confirmation timed out",
+                conversation_id=self.conversation_id, call_id=tool_call.call_id
+            )
+            approved = False
+        finally:
+            self._confirmations.pop(tool_call.call_id, None)
+        return approved
+
+    def _get_confirmation_future(self, call_id: str) -> asyncio.Future:
+        future = self._confirmations.get(call_id)
+        if future is None:
+            future = asyncio.get_event_loop().create_future()
+            self._confirmations[call_id] = future
+        return future
 
     def _append_user_message(self, content: str):
         self._conversation_store.append(

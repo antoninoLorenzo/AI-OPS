@@ -83,6 +83,45 @@ def test_tool_call_tracing(test_case):
 
 
 @agent_trace
+async def mock_async_agent_loop(conversation: Conversation, events: List[Event]):
+    for event in events:
+        yield event
+
+
+@pytest.mark.skipif(not mlflow_ready(), reason="MLFlow disabled, skipping test.")
+@pytest.mark.parametrize("test_case", _TOOL_TRACING_TESTS)
+async def test_async_tool_call_tracing(test_case):
+    conv = test_case["conversation"]
+    events = test_case["events"]
+    async for _ in mock_async_agent_loop(conversation=conv, events=events):
+        pass
+
+    trace_id = mlflow.get_last_active_trace_id()
+    assert trace_id is not None, "No trace was created"
+
+    trace = mlflow.get_trace(trace_id)
+    assert trace is not None
+
+    # verify orchestrator span exists
+    agent_spans = trace.search_spans(span_type=SpanType.AGENT)
+    assert len(agent_spans) == 1
+    assert agent_spans[0].name == MLFLOW_AGENT_TRACE_NAME
+
+    # verify tool spans
+    tool_spans = trace.search_spans(span_type=SpanType.TOOL)
+    assert len(tool_spans) == 1
+    assert tool_spans[0].name == "mock_tool"
+
+    # verify inputs/outputs were captured
+    assert tool_spans[0].inputs is not None
+    assert tool_spans[0].outputs is not None
+
+    # verify tool span is child of orchestrator (guards against async span
+    # hierarchy flattening, see mlflow/mlflow#16880)
+    assert tool_spans[0].parent_id == agent_spans[0].span_id
+
+
+@agent_trace
 def llm_agent_loop(conversation: Conversation):
     model = os.environ["AI_OPS_TESTING_MODEL"]
     api_base = os.environ.get("LLM_API_BASE")
@@ -139,5 +178,69 @@ def test_llm_call_tracing(test_case):
 
     llm_spans = trace.search_spans(span_type=SpanType.LLM)
     assert len(llm_spans) == 1
+
+
+@agent_trace
+async def llm_async_agent_loop(conversation: Conversation):
+    model = os.environ["AI_OPS_TESTING_MODEL"]
+    api_base = os.environ.get("LLM_API_BASE")
+    api_key = os.environ.get("LLM_API_KEY")
+
+    response = await litellm.acompletion(
+        model=model,
+        messages=conversation.messages,
+        max_tokens=10,
+        base_url=api_base,
+        api_key=api_key
+    )
+    response_message = response.choices[0].message
+    print(f'\nllm_async_agent_loop DEBUG: {response_message}') # use -s
+
+    yield Message(
+        message=cast(litellm.ChatCompletionAssistantMessage, response_message.model_dump()),
+        token_count=litellm.token_counter(text=response_message.content or "")
+    )
+
+
+@pytest.mark.skipif(
+    os.environ.get("AI_OPS_TESTING_MODEL", None) is None,
+    reason="Missing test model. Set AI_OPS_TESTING_MODEL env var."
+)
+@pytest.mark.xfail(
+    reason=(
+        "litellm.acompletion dispatches the mlflow success callback to litellm's "
+        "GLOBAL_LOGGING_WORKER (a detached background task), so the autologged LLM "
+        "span is created with no active agent span in context and lands in a separate "
+        "trace. mlflow's litellm autolog only patches the sync thread pool. "
+        "See ROADMAP.md / mlflow#16697."
+    ),
+    strict=False,
+)
+@pytest.mark.parametrize("test_case", _LLM_TRACING_TESTS)
+async def test_async_llm_call_tracing(test_case):
+    conv = test_case["conversation"]
+
+    try:
+        async for _ in llm_async_agent_loop(conv):
+            pass
+    except Exception as llm_err:
+        # note: this is in place to avoid false-positives due to some provider
+        # or configuration error, but since the function is wrapped by agent_trace
+        # it may reasonably be an error in the tracing code.
+        pytest.skip(f"Failed generating response: {llm_err}")
+
+    trace_id = mlflow.get_last_active_trace_id()
+    assert trace_id is not None, "No trace was created"
+
+    trace = mlflow.get_trace(trace_id)
+    assert trace is not None
+
+    llm_spans = trace.search_spans(span_type=SpanType.LLM)
+    assert len(llm_spans) == 1
+
+    # verify the autologged LLM span nests under the agent span
+    agent_spans = trace.search_spans(span_type=SpanType.AGENT)
+    assert len(agent_spans) == 1
+    assert llm_spans[0].parent_id == agent_spans[0].span_id
 
 

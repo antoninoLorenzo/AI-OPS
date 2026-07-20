@@ -55,9 +55,10 @@ class TerminalResult(BaseModel):
 class Terminal(Tool[TerminalRequest, TerminalResult]):
     name = "terminal"
     description = get_prompt(name="terminal", kind="tool")
+    requires_confirmation = True
 
     def __init__(
-        self, 
+        self,
         conversation_id: str,
         working_directory: Path,
         policies: Tuple[CommandAdmissionPolicy]
@@ -69,10 +70,11 @@ class Terminal(Tool[TerminalRequest, TerminalResult]):
         self.__sessions: Dict[str, BashSession] = {}
         self.__policies: Tuple[CommandAdmissionPolicy] = policies
 
-    def __call__(self, tool_args: TerminalRequest) -> TerminalResult:
+    def evaluate(self, tool_args: TerminalRequest) -> bool:
+        """
+        :returns: True if tool execution requires confirmation (supervised) or can't execute (unsupervised).
+        """
         command = tool_args.command
-        session_id = tool_args.session_id if tool_args.session_id else str(uuid.uuid4())
-
         for policy in self.__policies:
             policy_result = policy(CommandContext(conversation_id=self.conversation_id, command=command))
             if not policy_result.allowed:
@@ -81,8 +83,17 @@ class Terminal(Tool[TerminalRequest, TerminalResult]):
                     conversation_id=self.conversation_id,
                     command=command, reason=policy_result.reason
                 )
-                return TerminalResult(session_id=session_id, command=command, allowed=False)
-            
+                return True
+        return False
+
+    def not_admitted_result(self, tool_args: TerminalRequest) -> TerminalResult:
+        session_id = tool_args.session_id if tool_args.session_id else str(uuid.uuid4())
+        return TerminalResult(session_id=session_id, command=tool_args.command, allowed=False)
+
+    def __call__(self, tool_args: TerminalRequest) -> TerminalResult:
+        command = tool_args.command
+        session_id = tool_args.session_id if tool_args.session_id else str(uuid.uuid4())
+
         bash_session = self.__sessions.get(session_id)
         if bash_session is None:
             log_event(_logger, logging.INFO, "Crearing BashSession", session_id=session_id)
