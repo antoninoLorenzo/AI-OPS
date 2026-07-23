@@ -1,5 +1,7 @@
+import os
 import re
 import sys
+import shutil
 import subprocess
 from pathlib import Path
 from typing import List, Optional, Annotated, Dict, Union
@@ -7,7 +9,7 @@ from typing import List, Optional, Annotated, Dict, Union
 import yaml
 from pydantic import BaseModel, Field
 
-from ai_ops.config import AI_OPS_BASE_DIR
+from ai_ops.config import AI_OPS_BASE_DIR, SKILL_VERIFY_INSTALLED_ENV, DEFAULT_SKILL_VERIFY_INSTALLED
 from ai_ops.core.tools.base import Tool
 from ai_ops.core.prompt import get_prompt
 from ai_ops.core.log import get_logger, log_event, logging
@@ -26,44 +28,6 @@ class Skill(BaseModel):
     description: str
     content: str
     requirements: Optional[List[str]] = None
-
-
-def verify_installed(dependency: Union[str, List[str]]):
-    # TODO: 
-    # * replace with `shutil.which` (can't fucking believe it)
-    # * make possible to disable verification (fucking autopenbench I can't verify
-    #   your kali container from there)
-    # * sys.exit is completely blind on the CLI
-    # * make a test for this (mock shutil.which)
-    # ---
-    # SkillRegistry calls fetch_skill on user supplied skills, fetch_skill parses 
-    # the SKILL.md frontmatter and if there's a metadata.requirements list field 
-    # this function is called to ensure all dependencies are available.
-    # 
-    # Since the list is user-supplied input, in order to avoid Command Injection 
-    # we use `subprocess.run` with a list of arguments and shell=False, plus to be 
-    # thorough we check that the string conforms to executable names.
-
-    if isinstance(dependency, str):
-        dependency = [dependency]
-    
-    def _is_dependency(dep: str) -> bool:
-        return bool(_VALID_DEP_RE.match(dep))
-
-    unavailable = []
-    for dep in dependency:
-        if not _is_dependency(dep):
-            continue
-
-        result = subprocess.run(
-            ["/usr/bin/which", dep], capture_output=True, shell=False
-        )
-        if result.returncode != 0:
-            unavailable.append(dep)
-
-    if len(unavailable):
-        print(f"The following binaries are not available in PATH: {unavailable}.")
-        sys.exit(1)
 
 
 def fetch_skill(skill_path: Path) -> Skill | None:
@@ -102,10 +66,20 @@ def fetch_skill(skill_path: Path) -> Skill | None:
 
     # skill with no requirements is allowed
     requirements = []
+    not_available = []
+    verify_requirements_env = os.environ.get(SKILL_VERIFY_INSTALLED_ENV, str(DEFAULT_SKILL_VERIFY_INSTALLED))
+    verify_requirements = verify_requirements_env.lower() == "true"
+
     if skill_meta is not None:
         requirements = skill_meta.get('requirements', [])
-        # if len(requirements) > 0:
-        #     verify_installed(requirements)
+        if verify_requirements:
+            for dep in requirements:
+                if shutil.which(dep) is None:
+                    not_available.append(dep)
+
+            if len(not_available) > 0:
+                print(f"The following binaries are not available in PATH: {not_available}.")
+                sys.exit(1)
     
     return Skill(
         name=skill_name, 

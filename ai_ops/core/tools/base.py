@@ -107,6 +107,9 @@ class Tool[ToolInputT, ToolOutputT](abc.ABC):
         input_type, _ = get_args(base)
         return input_type
 
+    def __hash__(self):
+        return hash(self.name)
+        
 
 def validate_tool_call(
     available_tools: Dict[str, Tool], 

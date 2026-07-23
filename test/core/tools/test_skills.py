@@ -148,13 +148,7 @@ Maybe those are just instructions.
 ]
 
 @pytest.mark.parametrize("test_case", _FETCH_SKILL_TEST_PARAMETERS)
-def test_fetch_skill(tmp_path, test_case, monkeypatch):
-    monkeypatch.setattr(
-        target=ai_ops.core.tools.load_skill.skill,
-        name="verify_installed",
-        value=lambda _: None
-    )
-
+def test_fetch_skill(tmp_path, test_case):
     skill_dir = tmp_path / test_case.get('id', 'undefined')
     skill_content = test_case.get('content')
     test_expected = test_case['expected']

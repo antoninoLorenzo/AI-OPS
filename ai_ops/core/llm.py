@@ -68,6 +68,7 @@ async def aquery(
 ) -> ModelResponse | CustomStreamWrapper:
     """
     :param tools: Serialized tool list.
+    :raises `RuntimeError`: Fatal unrecoverable error.
     """
     if tools and not client.metadata.tool_use:
         raise RuntimeError(f"Model {client.model} does not support tool use")
@@ -82,10 +83,8 @@ async def aquery(
         )
         log_event(_logger, logging.DEBUG, "Completed async query", model=client.model)
     except RateLimitError as rate_limit:
-        # litellm.Router did it's best, at that point rate limits can't be ignored anymore
         raise RuntimeError(f"Maximum retry limit reached: {rate_limit}")
     except APIError as fatal:
-        # that's a server-side 500
         log_event(
             _logger, logging.ERROR, "API Error", 
             status_code=fatal.status_code,
@@ -114,58 +113,31 @@ def query(
     stream: bool = False,
     **kwargs # additional configs to pass to litellm
 ) -> Union[ModelResponse, CustomStreamWrapper]:
+    """
+    :param tools: Serialized tool list.
+    :raises `RuntimeError`: Fatal unrecoverable error.
+    """
     log_event(_logger, logging.INFO, "Starting query", model=client.model)
 
-    json_retries = 0
-    while True:
-        try:
-            response = client.client.completion(
-                model=client.model,
-                messages=messages,
-                stream=stream,
-                tools=tools,
-                **kwargs
-            )
-
-            break
-        except RateLimitError as rate_limit:
-            # litellm.Router did it's best, at that point rate limits can't be ignored anymore
-            raise RuntimeError(f"Maximum retry limit reached: {rate_limit}")
-        except litellm.exceptions.APIError as fatal:
-            # that's a server-side 500
-            log_event(
-                _logger, logging.ERROR, "API Error", 
-                status_code=fatal.status_code,
-                message=fatal.message,
-                model=fatal.model,
-                provider=fatal.llm_provider
-            )
-            raise RuntimeError(f"APIError in query")
-        except ContextWindowExceededError:
-            # in the possibility the context window is exceeded, retry with truncation of the context
-            # length as *last resort fallback*. This gives some reliability guarantees, however to 
-            # avoid degradation in the agent performance the caller (orchestrator) should employ a 
-            # context management policy. 
-            max_ctx = client.metadata.max_context_length
-            if max_ctx <= 0:
-                # TODO: is this even allowed?
-                raise RuntimeError(
-                    f"Context window exceeded and no max_context_length configured for {client.model}"
-                )
-            
-            max_tokens = int(max_ctx * 0.75)
-            trimmed = litellm.utils.trim_messages(messages, max_tokens=max_tokens)
-            trimmed_messages = trimmed[0] if isinstance(trimmed, tuple) else trimmed
-            if len(trimmed_messages) == len(messages):
-                # trim_messages returned unchanged -> can't recover
-                raise RuntimeError(f"Context window exceeded and trim_messages made no progress for {client.model}")
-            
-            messages = trimmed_messages
-            log_event(
-                _logger, logging.ERROR, "Context limit exceeded, messages trimmed", 
-                model=client.model, max_tokens=int(max_ctx * 0.75)
-            )
-            continue
+    try:
+        response = client.client.completion(
+            model=client.model,
+            messages=messages,
+            stream=stream,
+            tools=tools,
+            **kwargs
+        )
+    except RateLimitError as rate_limit:
+        raise RuntimeError(f"Maximum retry limit reached: {rate_limit}")
+    except litellm.exceptions.APIError as fatal:
+        log_event(
+            _logger, logging.ERROR, "API Error", 
+            status_code=fatal.status_code,
+            message=fatal.message,
+            model=fatal.model,
+            provider=fatal.llm_provider
+        )
+        raise RuntimeError(f"APIError in query")
         
     return response
 

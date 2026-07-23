@@ -61,7 +61,8 @@ def setup_logging():
         "git", # mlflow dependency
         "asyncio",
         "urllib3",
-        "httpcore"
+        "httpcore",
+        "mlflow.store.model_registry.abstract_store"
     )
 
     for name in yappers:

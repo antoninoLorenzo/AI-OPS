@@ -31,21 +31,6 @@ _message_list = [
     Message(message=ChatCompletionUserMessage(role="user", content="content"))
 ]
 _AGENT_LOOP_TESTS = [
-    # --- pre-conditions
-    # if the given conversation doesn't have at least [system, user] messages 
-    # the orchestrator raises ValueError.
-    {
-        "parameters": {
-            "client": InferenceClient(
-                metadata=mock_model,
-                client=MockChatCompletion(RuntimeError("whatever"))
-            ),
-            "conversation": Conversation(uuid="1234", short_id="1234", messages=[_message_list[0]]),
-            "tools": {MockTool.name : MockTool()},
-            "context_fn": RawContextView()
-        },
-        "expected": ValueError
-    },
     # --- stop conditions
     # any error from query (RuntimeError) should be caught and the orchestrator 
     # should yield a StopEvent with an `error` reason.

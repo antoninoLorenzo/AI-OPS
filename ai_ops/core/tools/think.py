@@ -29,4 +29,4 @@ class ThinkTool(Tool[ThinkRequest, ThinkResult]):
 
     @staticmethod
     def format_result(tool_result: ThinkResult) -> str:
-        return ""
+        return "(no output)"

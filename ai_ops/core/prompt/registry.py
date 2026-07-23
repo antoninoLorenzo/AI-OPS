@@ -31,8 +31,6 @@ def build_prompt(
     
     return system_prompt
     
-# TODO: cache it and call once at startup
-# TODO: disable the log
 def get_prompt(
     name: str, 
     kind: Literal["agent", "tool", "example"] = "agent",

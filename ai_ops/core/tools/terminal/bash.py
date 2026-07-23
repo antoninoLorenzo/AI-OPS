@@ -32,6 +32,7 @@ def _setup_subprocess(fd, ps1, working_directory):
         os.setsid()                               # set slave as session owner
         fcntl.ioctl(fd, termios.TIOCSCTTY, 0)     # set slave as controlling terminal
         os.environ['PS1'] = ps1
+        os.environ['PS2'] = ''
         os.chdir(working_directory)      
     return inner
 
@@ -120,7 +121,7 @@ class BashSession:
             self.__send_signal(String2Signal[command])
             log_event(_logger, logging.DEBUG, "done __send_signal", command=command)
         else:
-            self.__send_command(command)
+            self.__send_command(command, wrap=not (interactive or self.is_interactive))
             log_event(_logger, logging.DEBUG, "done __send_command", command=command)
 
         if interactive or self.is_interactive:
@@ -199,8 +200,9 @@ class BashSession:
         _ = self.__read()
         time.sleep(0.5)
 
-    def __send_command(self, command: str):
-        cmd_bytes = (command + '\n').encode()
+    def __send_command(self, command: str, wrap: bool = True):
+        text = f"{{\n{command}\n}}" if wrap else command
+        cmd_bytes = (text + '\n').encode()
         sent_bytes = os.write(self.master_fd, cmd_bytes)
         if sent_bytes != len(cmd_bytes):
             log_event(

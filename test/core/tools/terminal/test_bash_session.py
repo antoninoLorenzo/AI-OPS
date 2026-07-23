@@ -178,47 +178,69 @@ _BASH_SESSION_TESTS = [
             }
         ]
     },
-    # interactive commands sequence
-    # Hello\r\n\x07;print('Hello')\x07;0\x07\x07>>>
-    # Hello
-    # ;print('Hello');0>>>
-    # {
-    #     "init_parameters": {"default_timeout": 7.0},
-    #     "commands": [
-    #         {"command": "python3", "interactive": True},
-    #         {"command": "print('Hello')", "interactive": True},
-    #         {"command": "exit()"}
-    #     ],
-    #     "expected": [
-    #         {
-    #             "callback": functools.partial(
-    #                 output_expected,
-    #                 timeout=7.0,
-    #                 expected_status=CommandStatus.UNKNOWN,
-    #                 should_timeout=False
-    #             ),
-    #             "output": None
-    #         },
-    #         {
-    #             "callback": functools.partial(
-    #                 output_expected,
-    #                 timeout=7.0,
-    #                 expected_status=CommandStatus.UNKNOWN,
-    #                 should_timeout=False
-    #             ),
-    #             "output": "Hello"
-    #         },
-    #         {
-    #             "callback": functools.partial(
-    #                 output_expected,
-    #                 timeout=7.0,
-    #                 expected_status=CommandStatus.UNKNOWN,
-    #                 should_timeout=False
-    #             ),
-    #             "output": None
-    #         }
-    #     ] 
-    # }
+    # command substitution
+    {
+        "init_parameters": {"default_timeout": 5.0},
+        "commands": [
+            {"command": "echo \"result: $(echo hello)\""}
+        ],
+        "expected": [
+            {
+                "callback": functools.partial(
+                    output_expected, timeout=5.0,
+                    expected_status=CommandStatus.OK, should_timeout=False
+                ),
+                "output": "result: hello"
+            }
+        ]
+    },
+    # assignment via command substitution
+    {
+        "init_parameters": {"default_timeout": 5.0},
+        "commands": [
+            {"command": "R1=$(echo 404); echo \"Sample 1: $R1\""}
+        ],
+        "expected": [
+            {
+                "callback": functools.partial(
+                    output_expected, timeout=5.0,
+                    expected_status=CommandStatus.OK, should_timeout=False
+                ),
+                "output": "Sample 1: 404"
+            }
+        ]
+    },
+    # multi-line for loop
+    {
+        "init_parameters": {"default_timeout": 5.0},
+        "commands": [
+            {"command": "for p in a b c; do\n  echo \"item: $p\"\ndone"}
+        ],
+        "expected": [
+            {
+                "callback": functools.partial(
+                    output_expected, timeout=5.0,
+                    expected_status=CommandStatus.OK, should_timeout=False
+                ),
+                "output": "item: a\r\nitem: b\r\nitem: c\r\n"
+            }
+        ]
+    },
+    {
+    "init_parameters": {"default_timeout": 5.0},
+        "commands": [
+            {"command": "echo one\necho two\necho three"}
+        ],
+        "expected": [
+            {
+                "callback": functools.partial(
+                    output_expected, timeout=5.0,
+                    expected_status=CommandStatus.OK, should_timeout=False
+                ),
+                "output": "one\r\ntwo\r\nthree"
+            }
+        ]
+    },
 ]
 
 @pytest.mark.parametrize("test_case", _BASH_SESSION_TESTS)

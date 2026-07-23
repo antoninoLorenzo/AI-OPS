@@ -7,6 +7,14 @@ API_BASE_ENV_NAME = "LLM_API_BASE"
 API_KEY_ENV_NAME = "LLM_API_KEY"
 API_MODEL_MAX_CONTEXT_LENGTH = "LLM_MAX_CONTEXT_LENGTH"
 
+SKILL_VERIFY_INSTALLED_ENV = "SKILL_VERIFY_INSTALLED"
+"""Whether to ensure binaries declared in skill requirements are available. If True, the agent 
+won't start. Defaults to False."""
+DEFAULT_SKILL_VERIFY_INSTALLED = False
+
+TEMPERATURE_ENV = "AI_OPS_AGENT_TEMPERATURE"
+DEFAULT_TEMPERATURE = 0.4
+
 LOG_FILE_ENV = "AI_OPS_LOG_FILE"
 """The log file will be created at `AI_OPS_BASE_DIR/LOG_FILE_ENV`, needs to be a filename."""
 LOG_LEVEL_ENV = "AI_OPS_LOG_LEVEL"

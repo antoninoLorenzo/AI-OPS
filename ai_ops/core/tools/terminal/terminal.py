@@ -127,7 +127,7 @@ class Terminal(Tool[TerminalRequest, TerminalResult]):
             )
 
         output = terminal_result.output or "(no output)"
-        status = Status2String[terminal_result.status] or "unknown"
+        status = Status2String.get(terminal_result.status) or "unknown"
 
         return (
             f"Session: {terminal_result.session_id}\n"

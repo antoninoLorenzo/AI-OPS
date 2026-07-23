@@ -1,4 +1,5 @@
 # Agent Orchestrator Implementation
+import os
 import json
 from typing import AsyncIterator, Dict, Iterator, Optional, List, cast
 
@@ -34,11 +35,15 @@ from ai_ops.core.tools import Tool, WhiteboardWrite, validate_tool_call
 from ai_ops.core.conversation import get_token_count
 from ai_ops.core.tracing import agent_trace
 from ai_ops.core.log import get_logger, log_event, logging
+from ai_ops.config import TEMPERATURE_ENV, DEFAULT_TEMPERATURE
 
 _logger = get_logger(__name__)
 
 DEFAULT_ITERATION_LIMIT = {AgentMode.SUPERVISED: 30, AgentMode.UNSUPERVISED: 60}
-DEFAULT_TEMPERATURE = 0.4
+try:
+    _AGENT_TEMPERATURE = float(os.environ.get(TEMPERATURE_ENV, str(DEFAULT_TEMPERATURE)))
+except ValueError:
+    _AGENT_TEMPERATURE = DEFAULT_TEMPERATURE
 
 class StopReason(BaseModel):
     reason: str
@@ -71,11 +76,8 @@ def orchestrator(
     context_fn: ContextView,
     mode: AgentMode = AgentMode.SUPERVISED,
     max_iterations: Optional[int] = None,
-    temperature: float = DEFAULT_TEMPERATURE
+    temperature: float = _AGENT_TEMPERATURE
 ) -> Iterator[Message | Event]:
-    if not is_valid_message_list(conversation.messages):
-        raise ValueError(f"Invalid conversation. Expected [system, user, ...] message list.")
-
     agent_tools = [tool.serialize() for tool in tools.values()]
 
     # stop tool is an orchestration primitive so it's always given
@@ -114,7 +116,6 @@ def orchestrator(
             yield StopEvent(issuer="agent", error=str(query_err))
             break
 
-
         response_message = response.choices[0].message
         chat_completion_message = cast(ChatCompletionAssistantMessage, response_message.model_dump())
 
@@ -128,7 +129,6 @@ def orchestrator(
             yield StopEvent(issuer="agent")
             break
         
-
         for tool_call in response_message.tool_calls:
             log_event(
                 _logger, logging.DEBUG, "raw tool call",
@@ -159,18 +159,8 @@ def orchestrator(
                 )
                 continue
 
-            # admission: a blocked call is not executed. The sync path can't
-            # await a user decision, so a blocked call is simply skipped (as in
-            # UNSUPERVISED); the confirmation branch lives in `aorchestrator`.
-            blocked = tool.evaluate(args)
+            # note: here we don't evaluate policy, at least for now
             yield ToolCallEvent(call_id=tool_call.id, name=tool_name, args=args)
-            if blocked:
-                yield ToolResultEvent(
-                    call_id=tool_call.id, name=tool_name, args=args,
-                    result=tool.not_admitted_result(args)
-                )
-                continue
-
             try:
                 tool_result = tool(args)
                 yield ToolResultEvent(call_id=tool_call.id, name=tool_name, args=args, result=tool_result)
@@ -200,12 +190,9 @@ async def aorchestrator(
     context_fn: ContextView,
     mode: AgentMode = AgentMode.SUPERVISED,
     max_iterations: Optional[int] = None,
-    temperature: float = DEFAULT_TEMPERATURE,
+    temperature: float = _AGENT_TEMPERATURE,
     confirm: Optional[ConfirmCallback] = None
 ) -> AsyncIterator[Message | Event]:
-    if not is_valid_message_list(conversation.messages):
-        raise ValueError(f"Invalid conversation. Expected [system, user, ...] message list.")
-
     agent_tools = [tool.serialize() for tool in tools.values()]
 
     # stop tool is an orchestration primitive so it's always given
@@ -243,7 +230,6 @@ async def aorchestrator(
         except RuntimeError as query_err:
             yield StopEvent(issuer="agent", error=str(query_err))
             break
-
 
         response_message = response.choices[0].message
         chat_completion_message = cast(ChatCompletionAssistantMessage, response_message.model_dump())

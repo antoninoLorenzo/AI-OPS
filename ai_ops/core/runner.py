@@ -9,9 +9,15 @@ from litellm import (
     ChatCompletionUserMessage,
 )
 
-from ai_ops.core.agent import DEFAULT_TEMPERATURE, aorchestrator, orchestrator
+from ai_ops.core.agent import _AGENT_TEMPERATURE, aorchestrator, orchestrator
 from ai_ops.core.context_management import ContextView, RawContextView
-from ai_ops.core.conversation import Message, get_conversation_store, get_token_count
+from ai_ops.core.conversation import (
+    Conversation, 
+    Message, 
+    get_conversation_store, 
+    get_token_count, 
+    is_valid_message_list
+)
 from ai_ops.core.llm import InferenceClient, ModelConfig
 from ai_ops.core.log import get_logger, log_event, logging
 from ai_ops.core.prompt import build_prompt
@@ -51,7 +57,7 @@ class AgentConfig:
     context_fn: ContextView = RawContextView()
     working_directory: str | None = None # TODO: this shouldn't be configurable
     command_policies: Tuple[CommandAdmissionPolicy] = field(default_factory=tuple)
-    temperature: float = DEFAULT_TEMPERATURE
+    temperature: float = _AGENT_TEMPERATURE
     prompt_extension: str | None = None
     confirmation_timeout_s: float = CONFIRMATION_TIMEOUT_S
 
@@ -82,6 +88,7 @@ class AgentRunner:
         self.context_fn = config.context_fn
         self._conversation_store = get_conversation_store()
         
+        # TODO: here we are assuming the conversation is new, didn't I change that?
         # build_prompt will load the prompt variant for the specific model if available 
         # otherwise it loads the default ones.
         system_prompt = build_prompt(model=client.model, prompt_extension=config.prompt_extension)
@@ -119,10 +126,23 @@ class AgentRunner:
         mode: AgentMode = AgentMode.SUPERVISED,
         max_iterations: Optional[int] = None
     ) -> Iterator[Event]:
+        """
+        :raises `ValueError`: Invalid conversation format. Expected [system, user, ...] message list.
+        """
         self._append_user_message(user_message.content)
 
         conversation = self._conversation_store.get_by_uuid(conversation_id=self.conversation_id)
+        if not is_valid_message_list(conversation.messages):
+            raise ValueError(f"Invalid conversation. Expected [system, user, ...] message list.")
 
+        return self.__run_impl(conversation=conversation, mode=mode, max_iterations=max_iterations)
+
+    def __run_impl(
+        self, 
+        conversation: Conversation, 
+        mode: AgentMode = AgentMode.SUPERVISED,
+        max_iterations: Optional[int] = None
+    ) -> Iterator[Event]:
         total_event_count = 0
         event_stream = orchestrator(
             client=self.client,
@@ -133,79 +153,79 @@ class AgentRunner:
             max_iterations=max_iterations,
             temperature=self.agent_config.temperature
         )
+        
+        for event in event_stream:
+            total_event_count += 1
+            if isinstance(event, Message):
+                # this currently handles non-streaming
+                text_content = event.message.get("content")
+                reasoning_content = event.message.get("reasoning_content")
 
-        # TODO refactor: we only get ValueError if the message list is malformed
-        try:
-            for event in event_stream:
-                total_event_count += 1
-                if isinstance(event, Message):
-                    # this currently handles non-streaming
-                    text_content = event.message.get("content")
-                    reasoning_content = event.message.get("reasoning_content")
+                if not event.internal:
+                    if reasoning_content is not None and isinstance(reasoning_content, str):
+                        yield ReasoningEvent(chunk=reasoning_content)
 
-                    if not event.internal:
-                        if reasoning_content is not None and isinstance(reasoning_content, str):
-                            yield ReasoningEvent(chunk=reasoning_content)
+                    if text_content is not None and isinstance(text_content, str):
+                        yield TextEvent(chunk=text_content)
 
-                        if text_content is not None and isinstance(text_content, str):
-                            yield TextEvent(chunk=text_content)
-
-                    self._conversation_store.append(conversation_id=self.conversation_id, message=event)
-                elif isinstance(event, ToolResultEvent):
-                    # the orchestrator validates tool calls so we can be sure this doesn't raise
-                    tool = self.tools[event.name] 
-                    # format_result is required to return a string, if different we get ValueError
-                    tool_content = tool.format_result(event.result)
-                    
-                    yield event
-                    
-                    tool_message = ChatCompletionToolMessage(
-                        role="tool",
-                        content=tool_content,
-                        tool_call_id=event.call_id
+                self._conversation_store.append(conversation_id=self.conversation_id, message=event)
+            elif isinstance(event, ToolResultEvent):
+                # the orchestrator validates tool calls so we can be sure this doesn't raise
+                tool = self.tools[event.name] 
+                # format_result is required to return a string, if different we get ValueError
+                tool_content = tool.format_result(event.result)
+                
+                yield event
+                
+                tool_message = ChatCompletionToolMessage(
+                    role="tool",
+                    content=tool_content,
+                    tool_call_id=event.call_id
+                )
+                self._conversation_store.append(
+                    conversation_id=self.conversation_id, 
+                    message=Message(
+                        message=tool_message,
+                        token_count=get_token_count(tool_message)
                     )
-                    self._conversation_store.append(
-                        conversation_id=self.conversation_id, 
-                        message=Message(
-                            message=tool_message,
-                            token_count=get_token_count(tool_message)
-                        )
-                    )
-                elif isinstance(event, (ToolCallEvent, ToolErrorEvent, StopEvent)):
-                    yield event
+                )
+            elif isinstance(event, (ToolCallEvent, ToolErrorEvent, StopEvent)):
+                yield event
 
-                if self._user_stopped:
-                    break
-        except Exception as fatal:
-            log_event(_logger, logging.ERROR, "Fatal error in agent loop", error=f"\"{fatal}\"")
-            yield StopEvent(
-                issuer="agent",
-                error=str(fatal)
-            )
-
+            if self._user_stopped:
+                break
+        
         log_event(
             _logger, logging.INFO, "",
             conversation_id=self.conversation_id,
             total_event_count=total_event_count
         )
 
-    async def arun(
+    # note: that's sync because we need message validation to raise before stream starts, 
+    # it still returns an async iterator and is still consumed w/`async for`.
+    def arun(
         self,
         user_message: UserMessageEvent,
         mode: AgentMode = AgentMode.SUPERVISED,
         max_iterations: Optional[int] = None
     ) -> AsyncIterator[Event]:
-        """Async twin of `run`.
-
-        The event handling (conversation persistence, tool result formatting and
-        event routing) is identical to `run`; the only difference is that events
-        are consumed from `aorchestrator` with `async for`, so the awaited inference
-        doesn't block the event loop. State management stays synchronous.
+        """
+        :raises `ValueError`: Invalid conversation format. Expected [system, user, ...] message list.
         """
         self._append_user_message(user_message.content)
 
         conversation = self._conversation_store.get_by_uuid(conversation_id=self.conversation_id)
+        if not is_valid_message_list(conversation.messages):
+            raise ValueError(f"Invalid conversation. Expected [system, user, ...] message list.")
+        
+        return self.__arun_impl(conversation=conversation, mode=mode, max_iterations=max_iterations)
 
+    async def __arun_impl(
+        self,
+        conversation: Conversation, 
+        mode: AgentMode = AgentMode.SUPERVISED,
+        max_iterations: Optional[int] = None
+    ) -> AsyncIterator[Event]:
         total_event_count = 0
         event_stream = aorchestrator(
             client=self.client,
@@ -218,61 +238,54 @@ class AgentRunner:
             confirm=self._confirm
         )
 
-        # TODO refactor: we only get ValueError if the message list is malformed
-        try:
-            async for event in event_stream:
-                total_event_count += 1
-                if isinstance(event, Message):
-                    # this currently handles non-streaming
-                    text_content = event.message.get("content")
-                    reasoning_content = event.message.get("reasoning_content")
+        
+        async for event in event_stream:
+            total_event_count += 1
+            if isinstance(event, Message):
+                # this currently handles non-streaming
+                text_content = event.message.get("content")
+                reasoning_content = event.message.get("reasoning_content")
 
-                    if not event.internal:
-                        if reasoning_content is not None and isinstance(reasoning_content, str):
-                            yield ReasoningEvent(chunk=reasoning_content)
+                if not event.internal:
+                    if reasoning_content is not None and isinstance(reasoning_content, str):
+                        yield ReasoningEvent(chunk=reasoning_content)
 
-                        if text_content is not None and isinstance(text_content, str):
-                            yield TextEvent(chunk=text_content)
+                    if text_content is not None and isinstance(text_content, str):
+                        yield TextEvent(chunk=text_content)
 
-                    self._conversation_store.append(conversation_id=self.conversation_id, message=event)
-                elif isinstance(event, ToolResultEvent):
-                    # the orchestrator validates tool calls so we can be sure this doesn't raise
-                    tool = self.tools[event.name]
-                    # format_result is required to return a string, if different we get ValueError
-                    tool_content = tool.format_result(event.result)
+                self._conversation_store.append(conversation_id=self.conversation_id, message=event)
+            elif isinstance(event, ToolResultEvent):
+                # the orchestrator validates tool calls so we can be sure this doesn't raise
+                tool = self.tools[event.name]
+                # format_result is required to return a string, if different we get ValueError
+                tool_content = tool.format_result(event.result)
 
-                    yield event
+                yield event
 
-                    tool_message = ChatCompletionToolMessage(
-                        role="tool",
-                        content=tool_content,
-                        tool_call_id=event.call_id
+                tool_message = ChatCompletionToolMessage(
+                    role="tool",
+                    content=tool_content,
+                    tool_call_id=event.call_id
+                )
+                self._conversation_store.append(
+                    conversation_id=self.conversation_id,
+                    message=Message(
+                        message=tool_message,
+                        token_count=get_token_count(tool_message)
                     )
-                    self._conversation_store.append(
-                        conversation_id=self.conversation_id,
-                        message=Message(
-                            message=tool_message,
-                            token_count=get_token_count(tool_message)
-                        )
-                    )
-                elif isinstance(event, (ToolCallEvent, ToolErrorEvent, StopEvent)):
-                    yield event
+                )
+            elif isinstance(event, (ToolCallEvent, ToolErrorEvent, StopEvent)):
+                yield event
 
-                if self._user_stopped:
-                    break
-        except Exception as fatal:
-            log_event(_logger, logging.ERROR, "Fatal error in agent loop", error=f"\"{fatal}\"")
-            yield StopEvent(
-                issuer="agent",
-                error=str(fatal)
-            )
+            if self._user_stopped:
+                break
+        
 
         log_event(
             _logger, logging.INFO, "",
             conversation_id=self.conversation_id,
             total_event_count=total_event_count
         )
-
 
     def send(self, user_event: UserMessageEvent):
         self._append_user_message(user_event.content)
