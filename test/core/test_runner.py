@@ -420,6 +420,10 @@ async def test_agent_runner_arun_confirm_approved(monkeypatch, register_mock_con
             results.append(event.result)
 
     assert results == [MockOut(val=5)]
+    # tightened contract: confirmation state is released once the call resolves,
+    # so nothing lingers to leak futures or blocked-call entries.
+    assert agent._confirmations == {}
+    assert agent._blocked_calls == []
 
 
 async def test_agent_runner_arun_confirm_denied(monkeypatch, register_mock_confirm_tool):
@@ -442,6 +446,9 @@ async def test_agent_runner_arun_confirm_denied(monkeypatch, register_mock_confi
             results.append(event.result)
 
     assert results == [MockOut(val=NOT_ADMITTED_VAL)]
+    # tightened contract: a denied call cleans up just like an approved one.
+    assert agent._confirmations == {}
+    assert agent._blocked_calls == []
 
 
 async def test_agent_runner_arun_confirm_timeout(monkeypatch, register_mock_confirm_tool):
@@ -464,6 +471,153 @@ async def test_agent_runner_arun_confirm_timeout(monkeypatch, register_mock_conf
             results.append(event.result)
 
     assert results == [MockOut(val=NOT_ADMITTED_VAL)]
+    # tightened contract: a timed-out confirmation also releases its resources
+    # (the `finally` in `_confirm` runs even on `TimeoutError`).
+    assert agent._confirmations == {}
+    assert agent._blocked_calls == []
+
+
+# --- tightened contracts -----------------------------------------------------
+# The following tests exercise the guards added to `AgentRunner`:
+#   * `arun` may only drive one orchestrator at a time (`_running`).
+#   * `send` cannot be spammed while a message is still pending (`_send_lock`).
+#   * `confirm` refuses call ids that were never blocked, so it never allocates
+#     a confirmation future that nothing will ever resolve.
+
+
+async def test_agent_runner_arun_rejects_concurrent_call(monkeypatch, register_mock_tool):
+    # A runner is tied to one conversation and runs a single orchestrator at a
+    # time: while a run is in flight, a second `arun` must raise.
+    monkeypatch.setattr(
+        target=ai_ops.core.runner,
+        name="aorchestrator",
+        value=functools.partial(
+            mock_aorchestrator, mock_events=[StopEvent(issuer="agent")]
+        )
+    )
+
+    conv = get_conversation_store().create()
+    agent = AgentRunner(
+        conversation_id=conv.uuid,
+        client=mock_inference_client,
+        config=AgentConfig(tools=[MockTool])
+    )
+
+    # first call sets `_running` (synchronously, before iteration begins)
+    event_stream = agent.arun(user_message=UserMessageEvent(content="Hello"))
+    assert agent._running is True
+
+    with pytest.raises(RuntimeError):
+        agent.arun(user_message=UserMessageEvent(content="Again"))
+
+    # draining the first run releases the guard so the runner can be reused
+    async for _ in event_stream:
+        pass
+    assert agent._running is False
+
+
+def test_agent_runner_send_rejected_when_not_running(register_mock_tool):
+    # `send` only enqueues while a run is active; otherwise there is nothing to
+    # deliver the message to.
+    conv = get_conversation_store().create()
+    agent = AgentRunner(
+        conversation_id=conv.uuid,
+        client=mock_inference_client,
+        config=AgentConfig(tools=[MockTool])
+    )
+
+    assert agent.send(UserMessageEvent(content="nobody home")) is False
+
+
+async def test_agent_runner_send_not_spammable(monkeypatch, register_mock_tool):
+    # Only one message may be pending at a time: the first `send` is accepted and
+    # locks out further sends until the runner processes an event.
+    send_events = [
+        Message(message=ChatCompletionAssistantMessage(role="assistant", content="a")),
+        Message(message=ChatCompletionAssistantMessage(role="assistant", content="b")),
+        StopEvent(issuer="agent"),
+    ]
+    monkeypatch.setattr(
+        target=ai_ops.core.runner,
+        name="aorchestrator",
+        value=functools.partial(mock_aorchestrator, mock_events=send_events)
+    )
+
+    conv = get_conversation_store().create()
+    agent = AgentRunner(
+        conversation_id=conv.uuid,
+        client=mock_inference_client,
+        config=AgentConfig(tools=[MockTool])
+    )
+
+    event_stream = agent.arun(user_message=UserMessageEvent(content="Hello"))
+
+    assert agent.send(UserMessageEvent(content="first")) is True   # accepted, locks
+    assert agent.send(UserMessageEvent(content="spam")) is False   # rejected
+    assert agent.send(UserMessageEvent(content="spam")) is False   # still rejected
+
+    # once the runner processes an event the lock is released and `send` is
+    # accepted again (at most once more, then re-locked).
+    accepted_again = False
+    async for _ in event_stream:
+        if agent.send(UserMessageEvent(content="later")):
+            accepted_again = True
+            break
+    assert accepted_again is True
+
+    # draining the run leaves the runner idle, so `send` is refused again
+    async for _ in event_stream:
+        pass
+    assert agent.send(UserMessageEvent(content="done")) is False
+
+
+def test_agent_runner_confirm_unknown_call_id_raises(register_mock_confirm_tool):
+    # Confirming a call that was never blocked must raise and, crucially, must
+    # not allocate a confirmation future that would never be resolved.
+    conv = get_conversation_store().create()
+    agent = AgentRunner(
+        conversation_id=conv.uuid,
+        client=mock_inference_client,
+        config=AgentConfig(tools=[MockConfirmTool])
+    )
+
+    with pytest.raises(RuntimeError):
+        agent.confirm(ToolConfirmationEvent(call_id="never-blocked", approved=True))
+
+    assert agent._confirmations == {}
+    assert agent._blocked_calls == []
+
+
+async def test_agent_runner_confirm_stale_call_raises(monkeypatch, register_mock_confirm_tool):
+    # After a blocked call has been resolved it is removed from the blocked set,
+    # so a late/duplicate `confirm` for the same id raises instead of resurrecting
+    # a resolved call.
+    monkeypatch.setattr(
+        target=ai_ops.core.runner, name="aorchestrator", value=_confirming_aorchestrator
+    )
+
+    conv = get_conversation_store().create()
+    agent = AgentRunner(
+        conversation_id=conv.uuid,
+        client=mock_inference_client,
+        config=AgentConfig(tools=[MockConfirmTool])
+    )
+
+    call_id = None
+    async for event in agent.arun(
+        user_message=UserMessageEvent(content="Hello"), mode=AgentMode.SUPERVISED
+    ):
+        if isinstance(event, ToolCallEvent) and event.requires_confirmation:
+            call_id = event.call_id
+            agent.confirm(ToolConfirmationEvent(call_id=call_id, approved=True))
+        if isinstance(event, ToolResultEvent):
+            # the call has already resolved and been cleaned up
+            with pytest.raises(RuntimeError):
+                agent.confirm(ToolConfirmationEvent(call_id=call_id, approved=True))
+
+    assert call_id is not None
+    assert agent._confirmations == {}
+    assert agent._blocked_calls == []
 
 
 @pytest.mark.parametrize("test_case", _RUNNER_RUN_TEST_CASES)
