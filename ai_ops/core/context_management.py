@@ -323,6 +323,8 @@ class LayeredContextView(ContextView):
 
         # do deep copy here so we're sure context_fn doesn't change the Conversation
         _messages = copy.deepcopy(messages)
+        # TODO: test this I think if we have other user messages we are actually dropping 
+        # them... oh no I may need to touch that mess again.
         context = [_messages[0], _messages[1]]
         
         checkpoint = self.search_checkpoint(_messages)
@@ -344,3 +346,9 @@ class LayeredContextView(ContextView):
         )
 
         return context
+
+
+CONTEXT_VIEW_REGISTRY = {
+    "raw": RawContextView,
+    "layered": LayeredContextView
+}

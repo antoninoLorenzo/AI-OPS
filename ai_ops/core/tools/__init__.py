@@ -16,6 +16,17 @@ from ai_ops.core.tools.terminal import Terminal, CommandAdmissionPolicy
 from ai_ops.core.log import get_logger
 
 
+DEFAULT_TOOLS = [LoadSkill, ThinkTool, WhiteboardWrite, WriteFile, Terminal]
+
+ToolMap: Dict[str, Tool] = {
+    LoadSkill.name: LoadSkill,
+    ThinkTool.name: ThinkTool,
+    WhiteboardRead.name: WhiteboardRead,
+    WhiteboardWrite.name: WhiteboardWrite,
+    WriteFile.name: WriteFile,
+    Terminal.name: Terminal
+}
+
 @dataclass
 class ToolContext:
     conversation_id: str

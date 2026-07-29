@@ -3,9 +3,9 @@
 # my own.
 import abc
 from enum import StrEnum, auto
-from typing import Awaitable, Callable, List, Type, Literal, ClassVar, Optional, Type
+from typing import Annotated, Awaitable, Callable, List, Type, Literal, Optional, Type, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, SerializeAsAny
 
 
 class AgentMode(StrEnum):
@@ -24,37 +24,34 @@ class EventType(StrEnum):
     TOOL_CONFIRMATION = auto()
 
 
-# Notes on pydantic:
 # `Event` could be a BaseModel itself and discriminate by type, this would 
 # allow pydantic to serialize types directly into the subclass. To do so 
-# `kind` should become a Literal[EventType] always set to text.
-
 class Event(abc.ABC):
     kind: EventType
 
 
 class UserMessageEvent(Event, BaseModel):
-    kind: ClassVar[EventType] = EventType.USER_MESSAGE
+    kind: Literal[EventType.USER_MESSAGE] = EventType.USER_MESSAGE
     content: str
 
 
 class TextEvent(Event, BaseModel):
-    kind: ClassVar[EventType] = EventType.TEXT
+    kind: Literal[EventType.TEXT] = EventType.TEXT
     chunk: str
     stream: bool = False
     stream_done: bool = False
 
 
 class ReasoningEvent(Event, BaseModel):
-    kind: ClassVar[EventType] = EventType.REASONING
+    kind: Literal[EventType.REASONING] = EventType.REASONING
     chunk: str
 
 
 class ToolCallEvent(Event, BaseModel):
-    kind: ClassVar[EventType] = EventType.TOOL_CALL
+    kind: Literal[EventType.TOOL_CALL] = EventType.TOOL_CALL
     call_id: str
     name: str
-    args: BaseModel
+    args: SerializeAsAny[BaseModel]
     # Set when the orchestrator is going to block on a user decision before
     # executing this call (SUPERVISED mode + the tool's `evaluate` blocked it).
     # The client should render the call and reply with a `ToolConfirmationEvent`
@@ -65,7 +62,7 @@ class ToolCallEvent(Event, BaseModel):
 class ToolConfirmationEvent(Event, BaseModel):
     # Issued by the user/client in response to a `ToolCallEvent` whose
     # `requires_confirmation` is set. `approved=False` blocks the call.
-    kind: ClassVar[EventType] = EventType.TOOL_CONFIRMATION
+    kind: Literal[EventType.TOOL_CONFIRMATION] = EventType.TOOL_CONFIRMATION
     call_id: str
     approved: bool
 
@@ -77,15 +74,15 @@ ConfirmCallback = Callable[[ToolCallEvent], Awaitable[bool]]
 
 
 class ToolResultEvent(Event, BaseModel):
-    kind: ClassVar[EventType] = EventType.TOOL_RESULT
+    kind: Literal[EventType.TOOL_RESULT] = EventType.TOOL_RESULT
     call_id: str
     name: str
-    args: BaseModel
-    result: BaseModel
+    args: SerializeAsAny[BaseModel]
+    result: SerializeAsAny[BaseModel]
 
 
 class StopEvent(Event, BaseModel):
-    kind: ClassVar[EventType] = EventType.STOP
+    kind: Literal[EventType.STOP] = EventType.STOP
     issuer: Literal['agent', 'user']
     reason: Optional[str] = None
     max_iteration: bool = False
@@ -98,9 +95,26 @@ class ToolErrorFailure(StrEnum):
 
 
 class ToolErrorEvent(Event, BaseModel):
-    kind: ClassVar[EventType] = EventType.TOOL_ERROR
+    kind: Literal[EventType.TOOL_ERROR] = EventType.TOOL_ERROR
     failure: ToolErrorFailure
     tool_call_id: str # should rename to `call_id`
     name: str
     error: str
+
+
+# Discriminated union of every concrete event, keyed by `kind` for deserialization
+# of a streamed/persisted event back into its concrete type.
+AnyEvent = Annotated[
+    Union[
+        UserMessageEvent,
+        TextEvent,
+        ReasoningEvent,
+        ToolCallEvent,
+        ToolConfirmationEvent,
+        ToolResultEvent,
+        StopEvent,
+        ToolErrorEvent,
+    ],
+    Field(discriminator="kind"),
+]
 

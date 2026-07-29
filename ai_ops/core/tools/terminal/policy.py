@@ -55,3 +55,8 @@ class AllowListPolicy(CommandAdmissionPolicy):
                 blocked=not_allowed
             )
         return PolicyResult(allowed=True)
+
+
+COMMAND_POLICY_REGISTRY = {
+    "allowlist": AllowListPolicy
+}

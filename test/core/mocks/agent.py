@@ -9,7 +9,8 @@ from ai_ops.core.schema import (
     AgentMode, 
     Event,
     ToolCallEvent,
-    ToolResultEvent
+    ToolResultEvent,
+    StopEvent
 )
 from ai_ops.core.llm import InferenceClient
 from ai_ops.core.tools import Tool
@@ -31,7 +32,7 @@ def mock_orchestrator(
         for event in mock_events:
             yield event
     elif isinstance(mock_events, Exception):
-        raise mock_events
+        yield StopEvent(issuer="agent", error=str(mock_events))
 
 
 async def mock_aorchestrator(
@@ -48,5 +49,5 @@ async def mock_aorchestrator(
         for event in mock_events:
             yield event
     elif isinstance(mock_events, Exception):
-        raise mock_events
+        yield StopEvent(issuer="agent", error=str(mock_events))
 

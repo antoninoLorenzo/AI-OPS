@@ -15,6 +15,12 @@ DEFAULT_SKILL_VERIFY_INSTALLED = False
 TEMPERATURE_ENV = "AI_OPS_AGENT_TEMPERATURE"
 DEFAULT_TEMPERATURE = 0.4
 
+CONFIRMATION_TIMEOUT_S = 300.0
+"""
+Default time to wait for a user confirmation before a blocked call is treated
+as denied (not executed). Overridable per runner via `AgentConfig`.
+"""
+
 LOG_FILE_ENV = "AI_OPS_LOG_FILE"
 """The log file will be created at `AI_OPS_BASE_DIR/LOG_FILE_ENV`, needs to be a filename."""
 LOG_LEVEL_ENV = "AI_OPS_LOG_LEVEL"

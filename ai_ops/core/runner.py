@@ -43,12 +43,9 @@ from ai_ops.core.tools import (
     get_skill_registry,
     get_whiteboard_store,
 )
+from ai_ops.config import CONFIRMATION_TIMEOUT_S
 
 _logger = get_logger(__name__)
-
-# Default time to wait for a user confirmation before a blocked call is treated
-# as denied (not executed). Overridable per runner via `AgentConfig`.
-CONFIRMATION_TIMEOUT_S = 300.0
 
 
 @dataclass
@@ -309,7 +306,7 @@ class AgentRunner:
             return True
         return False
 
-    def stop(self, stop_event: StopEvent):
+    def stop(self):
         """
         Stop agent execution after the current event is completed (ex. tool execution).
         """
