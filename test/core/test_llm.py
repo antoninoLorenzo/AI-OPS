@@ -6,10 +6,13 @@ from litellm.exceptions import RateLimitError, APIError
 from ai_ops.core.llm import (
     InferenceClient,
     ModelMetadata,
+    ModelConfig,
     aquery,
-    parse_model_string, 
-    get_model_capabilities
+    parse_model_string,
+    get_model_capabilities,
+    get_model_metadata,
 )
+from ai_ops.config import API_MODEL_MAX_CONTEXT_LENGTH
 
 from test.core.mocks.llm import MockChatCompletion, mock_metadata
 from test.core.mocks.tool import MockTool
@@ -80,6 +83,30 @@ _GET_MODEL_CAPABILITIES_TESTS = [
         }
     }
 ]
+
+
+# get_model_metadata now treats max_context_length as Optional[int]: absent info
+# or a non-positive value collapses to None, and the env override wins when set.
+# allow_requests=False keeps these offline (model_info stays empty).
+_MAX_CONTEXT_LENGTH_CASES = [
+    {"name": "no info, no env -> None", "env": None, "expected": None},
+    {"name": "env sets a positive value", "env": "128000", "expected": 128000},
+    {"name": "env zero collapses to None", "env": "0", "expected": None},
+    {"name": "env negative collapses to None", "env": "-5", "expected": None},
+]
+
+
+@pytest.mark.parametrize("test_case", _MAX_CONTEXT_LENGTH_CASES, ids=lambda tc: tc["name"])
+def test_get_model_metadata_max_context_length(test_case, monkeypatch):
+    if test_case["env"] is None:
+        monkeypatch.delenv(API_MODEL_MAX_CONTEXT_LENGTH, raising=False)
+    else:
+        monkeypatch.setenv(API_MODEL_MAX_CONTEXT_LENGTH, test_case["env"])
+
+    metadata = get_model_metadata(
+        ModelConfig(model="provider/model-id"), allow_requests=False
+    )
+    assert metadata.max_context_length == test_case["expected"]
 
 
 @pytest.mark.parametrize("test_case", _GET_MODEL_CAPABILITIES_TESTS)

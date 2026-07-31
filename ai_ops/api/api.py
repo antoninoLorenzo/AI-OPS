@@ -12,20 +12,23 @@
 
 # TODO: logging here should bind to the fastapi logger
 from contextlib import asynccontextmanager
-from typing import Annotated, AsyncIterable, Dict
+from typing import Annotated, AsyncIterable, Dict, List
 
-from fastapi import FastAPI, APIRouter, Depends, Request, HTTPException, status
+from fastapi import FastAPI, APIRouter, Depends, Request, Body, HTTPException, status
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import StreamingResponse
 
 from ai_ops.api.config import get_settings, build_agent_config
 from ai_ops.api.auth import handle_api_key
+from ai_ops.api.model import StartAgentRequest
 
 from ai_ops.core.schema import Event, UserMessageEvent, ToolConfirmationEvent
 from ai_ops.core.runner import AgentRunner, AgentConfig
 from ai_ops.core.agent import AgentMode
 from ai_ops.core.conversation import Conversation, ConversationStore
 from ai_ops.core.conversation import get_conversation_store as _core_get_conversation_store
+from ai_ops.core.event_store import EventStore
+from ai_ops.core.event_store import get_event_store as _core_get_event_store
 from ai_ops.core.llm import InferenceClient, ModelMetadata, ModelConfig, build_inference_client
 
 
@@ -47,6 +50,7 @@ async def lifespan(app: FastAPI):
     # call get_conversation_store once with the intended strategy (pay init cost 
     # at startup since the JSONL strategy init does disk i/o).
     _ = _core_get_conversation_store(strategy=settings.storage_strategy)
+    _ = _core_get_event_store(strategy=settings.storage_strategy)
 
     yield
 
@@ -68,10 +72,11 @@ async def get_inference_client(request: Request) -> InferenceClient:
 async def get_conversation_store() -> ConversationStore:
     return _core_get_conversation_store()
 
+async def get_event_store() -> EventStore:
+    return _core_get_event_store()
 
 async def get_runner_map(request: Request) -> Dict[int, AgentRunner]:
     return request.app.state.runner_map
-
 
 async def get_agent_config(request: Request) -> AgentConfig:
     return request.app.state.agent_config
@@ -110,14 +115,17 @@ async def create_conversation(
     return conversation
 
 
-@conversation_router.get("/{short_id}")
+# response_model=None: the return is List[Event] (an ABC, not a pydantic field),
+# so let jsonable_encoder serialize the concrete event instances directly.
+@conversation_router.get("/{short_id}", response_model=None)
 async def load_conversation(
     short_id: int,
     conversation_store: Annotated[ConversationStore, Depends(get_conversation_store)],
+    event_store: Annotated[EventStore, Depends(get_event_store)],
     inference_client: Annotated[InferenceClient, Depends(get_inference_client)],
     runner_map: Annotated[Dict[int, AgentRunner], Depends(get_runner_map)],
     agent_config: Annotated[AgentConfig, Depends(get_agent_config)]
-) -> Conversation:
+) -> List[Event]:
     try:
         conversation = conversation_store.get_by_short_id(short_id=short_id)
     except ValueError:
@@ -133,14 +141,16 @@ async def load_conversation(
         )
         runner_map[conversation.short_id] = runner
 
-    return conversation
+    try:
+        return event_store.get_by_conversation_uuid(conversation_id=conversation.uuid)
+    except RuntimeError:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @conversation_router.post("/{short_id}")
 async def start_agent(
     short_id: int,
-    content: str,
-    mode: AgentMode,
+    body: StartAgentRequest,
     runner_map: Annotated[Dict[int, AgentRunner], Depends(get_runner_map)]
 ) -> StreamingResponse:
     runner = runner_map.get(short_id)
@@ -150,7 +160,7 @@ async def start_agent(
     # `arun` raises before returning the async iterator, so resolving the stream here lets 
     # us surface errors as proper status codes before the streaming response starts. 
     try:
-        event_stream = runner.arun(user_message=UserMessageEvent(content=content), mode=mode)
+        event_stream = runner.arun(user_message=UserMessageEvent(content=body.content), mode=body.mode)
     except RuntimeError:
         # here we assume `RuntimeError` is raised only because the agent is already running
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
@@ -164,6 +174,22 @@ async def start_agent(
             yield event.model_dump_json() + "\n"
 
     return StreamingResponse(event_generator(), media_type="application/x-ndjson")
+
+
+@conversation_router.post("/{short_id}/send")
+async def send_message(
+    short_id: int,
+    runner_map: Annotated[Dict[int, AgentRunner], Depends(get_runner_map)],
+    content: str = Body(..., embed=True),
+):
+    runner = runner_map.get(short_id)
+    if runner is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND) 
+    
+    if not runner.send(UserMessageEvent(content=content)):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT)
+
+    return {"enqueued": True}
 
     
 @conversation_router.delete("/{short_id}")
@@ -234,11 +260,10 @@ async def get_usage(
         for message in conversation.messages 
         if message.token_count is not None
     ))
-    max_context_length = inference_client.metadata.max_context_length
 
     return {
         "total_tokens": total,
-        "max_context_length": max_context_length
+        "max_context_length": inference_client.metadata.max_context_length
     }
 
 

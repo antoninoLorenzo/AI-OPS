@@ -43,7 +43,7 @@ class ModelConfig(BaseModel):
 class ModelMetadata(BaseModel):
     provider: str
     model_id: str
-    max_context_length: int
+    max_context_length: Optional[int] = None
     tool_use: bool
     reasoning: bool
     response_format: bool   # JSON not guaranteed
@@ -231,7 +231,7 @@ def get_model_metadata(config: ModelConfig, allow_requests: bool = True) -> Mode
     metadata = {
         "provider": "",
         "model_id": "",
-        "max_context_length": -1,
+        "max_context_length": None,
         "tool_use": False,
         "reasoning": False,
         "response_format": False,
@@ -252,13 +252,14 @@ def get_model_metadata(config: ModelConfig, allow_requests: bool = True) -> Mode
         metadata['reasoning'] = 'reasoning' in model_info
         metadata['response_format'] = 'response_format' in model_info
         metadata['structured_output'] = 'structured_output' in model_info
-        metadata['max_context_length'] = model_info.get("max_input_tokens", -1)
+        metadata['max_context_length'] = model_info.get("max_input_tokens")
 
     # allow specifying model max context length (ex vLLM)
-    metadata['max_context_length'] = int(os.environ.get(
-        API_MODEL_MAX_CONTEXT_LENGTH, 
-        metadata['max_context_length']
-    ))
+    env_value = os.environ.get(API_MODEL_MAX_CONTEXT_LENGTH)
+    if env_value is not None:
+        metadata['max_context_length'] = int(env_value)
+    if metadata['max_context_length'] is not None and metadata['max_context_length'] <= 0:
+        metadata['max_context_length'] = None
 
     log_event(
         _logger, logging.INFO, "Done loading ModelMetadata", 

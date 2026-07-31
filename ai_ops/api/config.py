@@ -16,7 +16,7 @@ from ai_ops.config import (
     CONFIRMATION_TIMEOUT_S
 )
 from ai_ops.core.runner import AgentConfig
-from ai_ops.core.conversation import ConversationStoreStrategy
+from ai_ops.core.conversation import StorageStrategy
 from ai_ops.core.tools import DEFAULT_TOOLS
 from ai_ops.core.context_management import CONTEXT_VIEW_REGISTRY
 from ai_ops.core.tools import ToolMap
@@ -28,7 +28,7 @@ class APISettings(BaseSettings):
 
     host: str = Field(default="127.0.0.1")
     auth_token: SecretStr | None = Field(default=None)
-    storage_strategy: ConversationStoreStrategy | None = Field(default=ConversationStoreStrategy.JSONL)
+    storage_strategy: StorageStrategy | None = Field(default=StorageStrategy.JSONL)
 
     # note: the original ai_ops.config was implemented around core, so there's some duplication 
     # on how configuration should be managed overall (both ModelConfig and AgentConfig).

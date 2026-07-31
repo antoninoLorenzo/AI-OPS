@@ -26,7 +26,9 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 import ai_ops.core.conversation as conversation_mod
+import ai_ops.core.event_store as event_store_mod
 from ai_ops.core.conversation import ConversationStore, InMemoryConversationStore
+from ai_ops.core.event_store import EventStore, InMemoryEventStore
 from ai_ops.core.runner import AgentConfig
 
 from ai_ops.api.api import (
@@ -34,6 +36,7 @@ from ai_ops.api.api import (
     get_inference_client,
     get_runner_map,
     get_agent_config,
+    get_event_store,
 )
 
 from test.core.mocks.llm import mock_inference_client
@@ -57,6 +60,20 @@ def fresh_store():
 
 
 @pytest.fixture
+def fresh_event_store():
+    """Reset the global event store to a clean in-memory instance.
+
+    `AgentRunner` grabs the singleton directly at construction, so route tests
+    that stream events need this pointing at an in-memory store (a JSONL store
+    would try to write to a non-existent on-disk conversation dir).
+    """
+    store = EventStore(store_cls=InMemoryEventStore)
+    event_store_mod._EVENT_STORE = store
+    yield store
+    event_store_mod._EVENT_STORE = None
+
+
+@pytest.fixture
 def runner_map():
     """The map handed to the routes; tests can inspect it after a request."""
     return {}
@@ -68,10 +85,11 @@ def agent_config():
 
 
 @pytest_asyncio.fixture
-async def client(fresh_store, runner_map, agent_config):
+async def client(fresh_store, fresh_event_store, runner_map, agent_config):
     app.dependency_overrides[get_inference_client] = lambda: mock_inference_client
     app.dependency_overrides[get_runner_map] = lambda: runner_map
     app.dependency_overrides[get_agent_config] = lambda: agent_config
+    app.dependency_overrides[get_event_store] = lambda: fresh_event_store
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url=BASE_URL) as ac:

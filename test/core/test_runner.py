@@ -52,7 +52,7 @@ from test.core.mocks.tool import (
 # }
 # What's not being tested:
 # * empty user message, can't happen because pydantic would raise before
-# * user sends message during agent loop, a pain in the ass to simulate
+# (user sends message during agent loop is covered by the send/drain tests below)
 _RUNNER_RUN_TEST_CASES = [
     # Case 1
     # The agent calls a tool but doesn't provide any text -> content is None,
@@ -190,11 +190,18 @@ _RUNNER_RUN_TEST_CASES = [
                     )
                 ]
             )),
-            Message(message=ChatCompletionToolMessage(
-                role="tool",
-                content="Tool call with wrong arguments",
-                tool_call_id="1234"
-            ))
+            Message(
+                message=ChatCompletionToolMessage(
+                    role="tool",
+                    content="mock_tool validation_error: Tool call with wrong arguments",
+                    tool_call_id="1234"
+                ),
+                token_count=get_token_count(ChatCompletionToolMessage(
+                    role="tool",
+                    content="mock_tool validation_error: Tool call with wrong arguments",
+                    tool_call_id="1234"
+                ))
+            )
         ],
         "expected_events": [
             TextEvent(chunk="I'm a silly boi"),
@@ -264,11 +271,18 @@ _RUNNER_RUN_TEST_CASES = [
                     )
                 ]
             )),
-            Message(message=ChatCompletionToolMessage(
-                role="tool",
-                content="Execution failed",
-                tool_call_id="1234"
-            ))
+            Message(
+                message=ChatCompletionToolMessage(
+                    role="tool",
+                    content="mock_tool execution_error: Execution failed",
+                    tool_call_id="1234"
+                ),
+                token_count=get_token_count(ChatCompletionToolMessage(
+                    role="tool",
+                    content="mock_tool execution_error: Execution failed",
+                    tool_call_id="1234"
+                ))
+            )
         ],
         "expected_events": [
             ToolCallEvent(
@@ -377,6 +391,169 @@ def test_agent_runner_run(test_case, monkeypatch, register_mock_tool):
         assert persisted == expected
 
 
+@pytest.mark.parametrize("test_case", _RUNNER_RUN_TEST_CASES)
+async def test_agent_runner_arun_persists_events(test_case, monkeypatch, register_mock_tool):
+    # every event the client receives is also written to the event store, and the
+    # user turn is persisted ahead of them (via `_append_user_message`).
+    monkeypatch.setattr(
+        target=ai_ops.core.runner,
+        name="aorchestrator",
+        value=functools.partial(mock_aorchestrator, mock_events=test_case["events"])
+    )
+
+    conv = get_conversation_store().create()
+    agent = AgentRunner(
+        conversation_id=conv.uuid,
+        client=mock_inference_client,
+        config=AgentConfig(tools=[MockTool])
+    )
+
+    async for _ in agent.arun(user_message=UserMessageEvent(content=test_case["user_message"])):
+        pass
+
+    expected_events = [UserMessageEvent(content=test_case["user_message"])] + test_case["expected_events"]
+    persisted_events = agent._event_store.get_by_conversation_uuid(conv.uuid)
+    assert persisted_events == expected_events
+
+
+# --- send / drain (arun) -----------------------------------------------------
+# `send` enqueues a user message mid-run; the runner drains it only once there
+# are no pending tool calls (an assistant tool-call message must be immediately
+# followed by its tool result). If the drain happens after a StopEvent, the
+# orchestrator loop restarts to process the new turn.
+
+
+async def test_agent_runner_send_drains_after_stop_and_restarts(monkeypatch, register_mock_tool):
+    call_state = {"calls": 0}
+
+    async def _orch(state, **kwargs):
+        state["calls"] += 1
+        yield StopEvent(issuer="agent")
+
+    monkeypatch.setattr(
+        target=ai_ops.core.runner,
+        name="aorchestrator",
+        value=functools.partial(_orch, call_state),
+    )
+
+    conv = get_conversation_store().create()
+    agent = AgentRunner(
+        conversation_id=conv.uuid,
+        client=mock_inference_client,
+        config=AgentConfig(tools=[MockTool]),
+    )
+
+    sent = False
+    async for event in agent.arun(user_message=UserMessageEvent(content="start")):
+        if isinstance(event, StopEvent) and not sent:
+            # queue a follow-up: it drains after this stop and restarts the loop.
+            assert agent.send(UserMessageEvent(content="follow up")) is True
+            sent = True
+
+    # the orchestrator ran twice: once for the initial turn, once for the drained
+    # follow-up message.
+    assert call_state["calls"] == 2
+
+    conv = get_conversation_store().get_by_uuid(conv.uuid)
+    user_contents = [m.message.get("content") for m in conv.messages if m.message.get("role") == "user"]
+    assert user_contents == ["start", "follow up"]
+
+    persisted = agent._event_store.get_by_conversation_uuid(conv.uuid)
+    assert any(isinstance(e, UserMessageEvent) and e.content == "follow up" for e in persisted)
+
+
+async def test_agent_runner_send_preserves_ordering_under_pending_tool_calls(
+    monkeypatch, register_mock_tool
+):
+    # a queued message must not slip between an assistant tool-call and its tool
+    # result: the drain waits until pending tool calls reach zero.
+    call_state = {"calls": 0}
+
+    async def _orch(state, **kwargs):
+        state["calls"] += 1
+        if state["calls"] == 1:
+            yield Message(message=ChatCompletionAssistantMessage(
+                role="assistant",
+                content="working",
+                tool_calls=[
+                    ChatCompletionAssistantToolCall(
+                        type="function",
+                        id="1",
+                        function=ChatCompletionToolCallFunctionChunk(
+                            name=MockTool.name,
+                            arguments=MockIn(val=1).model_dump_json(),
+                        ),
+                    )
+                ],
+            ))
+            yield ToolResultEvent(
+                call_id="1", name=MockTool.name, args=MockIn(val=1), result=MockOut(val=1)
+            )
+            yield StopEvent(issuer="agent")
+        else:
+            yield StopEvent(issuer="agent")
+
+    monkeypatch.setattr(
+        target=ai_ops.core.runner,
+        name="aorchestrator",
+        value=functools.partial(_orch, call_state),
+    )
+
+    conv = get_conversation_store().create()
+    agent = AgentRunner(
+        conversation_id=conv.uuid,
+        client=mock_inference_client,
+        config=AgentConfig(tools=[MockTool]),
+    )
+
+    sent = False
+    async for event in agent.arun(user_message=UserMessageEvent(content="start")):
+        # send while a tool call is still pending (right after the assistant text)
+        if isinstance(event, TextEvent) and not sent:
+            assert agent.send(UserMessageEvent(content="mid")) is True
+            sent = True
+
+    conv = get_conversation_store().get_by_uuid(conv.uuid)
+    roles = [m.message["role"] for m in conv.messages]
+    # system, user(start), assistant(tool call), tool(result), user(mid)
+    assert roles == ["system", "user", "assistant", "tool", "user"]
+    assert conv.messages[-1].message["content"] == "mid"
+
+
+async def test_agent_runner_send_then_stop_drops_pending_message(monkeypatch, register_mock_tool):
+    # user sends then immediately stops: the stop wins, the enqueued message is
+    # discarded, and a user-issued StopEvent is persisted.
+    async def _orch(**kwargs):
+        yield Message(message=ChatCompletionAssistantMessage(role="assistant", content="a"))
+        yield StopEvent(issuer="agent")
+
+    monkeypatch.setattr(target=ai_ops.core.runner, name="aorchestrator", value=_orch)
+
+    conv = get_conversation_store().create()
+    agent = AgentRunner(
+        conversation_id=conv.uuid,
+        client=mock_inference_client,
+        config=AgentConfig(tools=[MockTool]),
+    )
+
+    async for event in agent.arun(user_message=UserMessageEvent(content="start")):
+        if isinstance(event, TextEvent):
+            assert agent.send(UserMessageEvent(content="ghost")) is True
+            agent.stop()
+
+    assert agent._pending_message is None
+
+    conv = get_conversation_store().get_by_uuid(conv.uuid)
+    user_contents = [m.message.get("content") for m in conv.messages if m.message.get("role") == "user"]
+    assert "ghost" not in user_contents
+
+    persisted = agent._event_store.get_by_conversation_uuid(conv.uuid)
+    # the user-stop persists a StopEvent(issuer="user")...
+    assert any(isinstance(e, StopEvent) and e.issuer == "user" for e in persisted)
+    # ...and the discarded message never reaches the event store.
+    assert not any(isinstance(e, UserMessageEvent) and e.content == "ghost" for e in persisted)
+
+
 # --- confirmation wiring (arun)
 # A stand-in aorchestrator that actually exercises the injected `confirm`
 # callback: it yields a confirmation request, awaits the decision, then reports
@@ -480,7 +657,7 @@ async def test_agent_runner_arun_confirm_timeout(monkeypatch, register_mock_conf
 # --- tightened contracts -----------------------------------------------------
 # The following tests exercise the guards added to `AgentRunner`:
 #   * `arun` may only drive one orchestrator at a time (`_running`).
-#   * `send` cannot be spammed while a message is still pending (`_send_lock`).
+#   * `send` cannot be spammed while a message is still pending.
 #   * `confirm` refuses call ids that were never blocked, so it never allocates
 #     a confirmation future that nothing will ever resolve.
 
@@ -505,7 +682,7 @@ async def test_agent_runner_arun_rejects_concurrent_call(monkeypatch, register_m
 
     # first call sets `_running` (synchronously, before iteration begins)
     event_stream = agent.arun(user_message=UserMessageEvent(content="Hello"))
-    assert agent._running is True
+    assert agent.running is True
 
     with pytest.raises(RuntimeError):
         agent.arun(user_message=UserMessageEvent(content="Again"))
@@ -513,7 +690,7 @@ async def test_agent_runner_arun_rejects_concurrent_call(monkeypatch, register_m
     # draining the first run releases the guard so the runner can be reused
     async for _ in event_stream:
         pass
-    assert agent._running is False
+    assert agent.running is False
 
 
 def test_agent_runner_send_rejected_when_not_running(register_mock_tool):
@@ -528,7 +705,7 @@ def test_agent_runner_send_rejected_when_not_running(register_mock_tool):
 
     assert agent.send(UserMessageEvent(content="nobody home")) is False
 
-
+# TODO: this tests below could be parametrized AND should test `send` doesn't break ordering.
 async def test_agent_runner_send_not_spammable(monkeypatch, register_mock_tool):
     # Only one message may be pending at a time: the first `send` is accepted and
     # locks out further sends until the runner processes an event.

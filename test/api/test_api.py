@@ -23,9 +23,10 @@ from litellm import ChatCompletionAssistantMessage
 import ai_ops.core.runner
 import ai_ops.api.auth as auth_mod
 import ai_ops.api.api as api_mod
+from ai_ops.api.api import get_event_store
 from ai_ops.api.config import APISettings
 from ai_ops.api.auth import _handle_api_key, _handle_no_op, setup_auth, API_KEY_NAME
-from ai_ops.core.conversation import ConversationStoreStrategy, Message
+from ai_ops.core.conversation import StorageStrategy, Message
 from ai_ops.core.runner import AgentRunner, AgentConfig
 from ai_ops.core.schema import AnyEvent, EventType, StopEvent, TextEvent
 from ai_ops.core.agent import AgentMode
@@ -42,7 +43,7 @@ def _settings(host="127.0.0.1", auth_token=None):
     return APISettings(
         host=host,
         auth_token=auth_token,
-        storage_strategy=ConversationStoreStrategy.IN_MEMORY,
+        storage_strategy=StorageStrategy.IN_MEMORY,
         model="provider/model-id",
         llm_provider_base="https://testprovider-not-exists",
         llm_provider_key=None,
@@ -143,7 +144,9 @@ async def test_lifespan_populates_state(monkeypatch):
     monkeypatch.setattr(api_mod, "build_inference_client", lambda config: mock_inference_client)
     monkeypatch.setattr(api_mod, "build_agent_config", lambda: sentinel_config)
     monkeypatch.setattr(api_mod, "_core_get_conversation_store",
-                        lambda strategy=None: recorded.setdefault("strategy", strategy))
+                        lambda strategy=None: recorded.setdefault("conversation_strategy", strategy))
+    monkeypatch.setattr(api_mod, "_core_get_event_store",
+                        lambda strategy=None: recorded.setdefault("event_strategy", strategy))
 
     # a throwaway app object so we don't clobber the imported one's state.
     from fastapi import FastAPI
@@ -154,8 +157,10 @@ async def test_lifespan_populates_state(monkeypatch):
         assert dummy.state.agent_config is sentinel_config
         assert isinstance(dummy.state.runner_map, dict)
 
-    # store initialised once with the configured strategy (default JSONL).
-    assert recorded["strategy"] == api_mod.get_settings().storage_strategy
+    # both stores initialised once with the configured strategy (default JSONL).
+    strategy = api_mod.get_settings().storage_strategy
+    assert recorded["conversation_strategy"] == strategy
+    assert recorded["event_strategy"] == strategy
 
 
 # =============================================================================
@@ -186,7 +191,55 @@ async def test_load_conversation_existing(client):
     short_id = await _create_conversation(client)
     resp = await client.get(f"/conversation/{short_id}")
     assert resp.status_code == 200, resp.text
-    assert resp.json()["short_id"] == short_id
+    # the route now returns the persisted event list, not the conversation.
+    # a freshly created conversation has produced no events yet.
+    assert resp.json() == []
+
+
+async def test_load_conversation_returns_persisted_events(
+    client, runner_map, monkeypatch, register_mock_tool
+):
+    # run an agent so events get persisted, then load them back.
+    short_id = await _create_conversation(client)
+
+    events = [
+        Message(message=ChatCompletionAssistantMessage(role="assistant", content="hello")),
+        StopEvent(issuer="agent", reason="done"),
+    ]
+    monkeypatch.setattr(
+        ai_ops.core.runner, "aorchestrator",
+        functools.partial(mock_aorchestrator, mock_events=events),
+    )
+
+    resp = await client.post(f"/conversation/{short_id}", json={"content": "hi", "mode": "supervised"})
+    assert resp.status_code == 200, resp.text
+    # drain the stream so the runner finishes and everything is persisted.
+    _ = resp.text
+
+    resp = await client.get(f"/conversation/{short_id}")
+    assert resp.status_code == 200, resp.text
+
+    parsed = [_event_adapter.validate_python(e) for e in resp.json()]
+    kinds = [p.kind for p in parsed]
+    # the user turn is persisted first, then the assistant text and the stop.
+    assert kinds == [EventType.USER_MESSAGE, EventType.TEXT, EventType.STOP]
+    assert parsed[0].content == "hi"
+    assert isinstance(parsed[1], TextEvent) and parsed[1].chunk == "hello"
+
+
+async def test_load_conversation_malformed_events_returns_500(client, runner_map):
+    # a malformed on-disk event list surfaces as RuntimeError from the store,
+    # which the route maps to 500. The client fixture clears the override on teardown.
+    short_id = await _create_conversation(client)
+
+    class _RaisingEventStore:
+        def get_by_conversation_uuid(self, conversation_id):
+            raise RuntimeError("malformed event list")
+
+    api_mod.app.dependency_overrides[get_event_store] = lambda: _RaisingEventStore()
+
+    resp = await client.get(f"/conversation/{short_id}")
+    assert resp.status_code == 500, resp.text
 
 
 async def test_load_conversation_rehydrates_runner(client, runner_map):
@@ -222,7 +275,7 @@ async def test_start_agent_streams_events(client, runner_map, monkeypatch, regis
         functools.partial(mock_aorchestrator, mock_events=events),
     )
 
-    resp = await client.post(f"/conversation/{short_id}", params={"content": "hi", "mode": "supervised"})
+    resp = await client.post(f"/conversation/{short_id}", json={"content": "hi", "mode": "supervised"})
     assert resp.status_code == 200, resp.text
 
     lines = [ln for ln in resp.text.splitlines() if ln.strip()]
@@ -236,7 +289,7 @@ async def test_start_agent_streams_events(client, runner_map, monkeypatch, regis
 
 
 async def test_start_agent_missing_runner_returns_404(client):
-    resp = await client.post("/conversation/999", params={"content": "hi", "mode": "supervised"})
+    resp = await client.post("/conversation/999", json={"content": "hi", "mode": "supervised"})
     assert resp.status_code == 404, resp.text
 
 
@@ -245,7 +298,7 @@ async def test_start_agent_already_running_returns_400(client, runner_map):
     # the guard is checked synchronously inside `arun`, before the stream starts.
     runner_map[short_id]._running = True
 
-    resp = await client.post(f"/conversation/{short_id}", params={"content": "hi", "mode": "supervised"})
+    resp = await client.post(f"/conversation/{short_id}", json={"content": "hi", "mode": "supervised"})
     assert resp.status_code == 400, resp.text
 
 
@@ -261,8 +314,35 @@ async def test_start_agent_invalid_conversation_returns_500(client, fresh_store,
     )
     runner_map[conv.short_id] = runner
 
-    resp = await client.post(f"/conversation/{conv.short_id}", params={"content": "hi", "mode": "supervised"})
+    resp = await client.post(f"/conversation/{conv.short_id}", json={"content": "hi", "mode": "supervised"})
     assert resp.status_code == 500, resp.text
+
+
+# =============================================================================
+# POST /conversation/{short_id}/send
+# =============================================================================
+
+async def test_send_enqueues_when_running(client, runner_map):
+    short_id = await _create_conversation(client)
+    # send only accepts while a run is in flight and no message is pending.
+    runner_map[short_id]._running = True
+
+    resp = await client.post(f"/conversation/{short_id}/send", json={"content": "hi"})
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == {"enqueued": True}
+    assert runner_map[short_id]._pending_message is not None
+
+
+async def test_send_conflict_when_not_running(client, runner_map):
+    short_id = await _create_conversation(client)
+    # runner is idle (_running is False) -> send returns False -> 409.
+    resp = await client.post(f"/conversation/{short_id}/send", json={"content": "hi"})
+    assert resp.status_code == 409, resp.text
+
+
+async def test_send_missing_runner_returns_404(client):
+    resp = await client.post("/conversation/999/send", json={"content": "hi"})
+    assert resp.status_code == 404, resp.text
 
 
 # =============================================================================

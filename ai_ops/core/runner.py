@@ -18,6 +18,7 @@ from ai_ops.core.conversation import (
     get_token_count, 
     is_valid_message_list
 )
+from ai_ops.core.event_store import get_event_store
 from ai_ops.core.llm import InferenceClient, ModelConfig
 from ai_ops.core.log import get_logger, log_event, logging
 from ai_ops.core.prompt import build_prompt
@@ -77,6 +78,7 @@ class AgentRunner:
         self.client = client
         self.context_fn = config.context_fn
         self._conversation_store = get_conversation_store()
+        self._event_store = get_event_store()
         
         if is_new_conversation:
             system_prompt = build_prompt(model=client.model, prompt_extension=config.prompt_extension)
@@ -103,8 +105,6 @@ class AgentRunner:
 
         # guards run from being invoked when it already was
         self._running = False
-        # guards send from being invoked if a user message isn't processed yet
-        self._send_lock = False
         # stop flag, non-preemptive
         self._user_stopped = False
         # pending tool confirmation keyed by tool call id
@@ -112,6 +112,13 @@ class AgentRunner:
         # list of blocked tool call ids to verify one actually exists (prevent 
         # creation of confirmation futures that will never be resolved).
         self._blocked_calls = []
+        # when send is called the user message is temporarily set as pending until 
+        # there are no pending tool calls, that is required because an assistant 
+        # message with tool calls has to be followed with tool messages corresponding 
+        # to them.
+        # https://joseferben.com/posts/openai-tool-calls-must-be-followed-by-tool-messages/
+        self._pending_message: UserMessageEvent | None = None
+        self._pending_tool_calls = 0
     
     @property
     def running(self):
@@ -226,67 +233,113 @@ class AgentRunner:
         max_iterations: Optional[int] = None
     ) -> AsyncIterator[Event]:
         total_event_count = 0
-        event_stream = aorchestrator(
-            client=self.client,
-            conversation=conversation,
-            tools=self.tools,
-            context_fn=self.context_fn,
-            mode=mode,
-            max_iterations=max_iterations,
-            temperature=self.agent_config.temperature,
-            confirm=self._confirm
-        )
-
         
-        async for event in event_stream:
-            total_event_count += 1
-            if isinstance(event, Message):
-                # this currently handles non-streaming
-                text_content = event.message.get("content")
-                reasoning_content = event.message.get("reasoning_content")
+        while True:
+            should_continue = False
+            event_stream = aorchestrator(
+                client=self.client,
+                conversation=conversation,
+                tools=self.tools,
+                context_fn=self.context_fn,
+                mode=mode,
+                max_iterations=max_iterations,
+                temperature=self.agent_config.temperature,
+                confirm=self._confirm
+            )
 
-                if not event.internal:
+            async for event in event_stream:
+                total_event_count += 1
+                if isinstance(event, Message):
+                    # this currently handles non-streaming
+                    text_content = event.message.get("content")
+                    reasoning_content = event.message.get("reasoning_content")
+
                     if reasoning_content is not None and isinstance(reasoning_content, str):
-                        yield ReasoningEvent(chunk=reasoning_content)
+                        reasoning_event = ReasoningEvent(chunk=reasoning_content)
+                        yield reasoning_event
+                        self._event_store.append(conversation_id=self.conversation_id, event=reasoning_event)
 
                     if text_content is not None and isinstance(text_content, str):
-                        yield TextEvent(chunk=text_content)
+                        txt_event = TextEvent(chunk=text_content)
+                        yield txt_event
+                        self._event_store.append(conversation_id=self.conversation_id, event=txt_event)
 
-                self._conversation_store.append(conversation_id=self.conversation_id, message=event)
-            elif isinstance(event, ToolResultEvent):
-                # the orchestrator validates tool calls so we can be sure this doesn't raise
-                tool = self.tools[event.name]
-                # format_result is required to return a string, if different we get ValueError
-                tool_content = tool.format_result(event.result)
+                    tool_calls = event.message.get("tool_calls") or []
+                    self._pending_tool_calls = len(tool_calls)
 
-                yield event
+                    self._conversation_store.append(conversation_id=self.conversation_id, message=event)
+                elif isinstance(event, ToolCallEvent):
+                    if event.requires_confirmation:
+                        self._blocked_calls.append(event.call_id)
+                    
+                    yield event
+                    self._event_store.append(conversation_id=self.conversation_id, event=event)
+                elif isinstance(event, ToolResultEvent):
+                    # the orchestrator validates tool calls so we can be sure this doesn't raise
+                    tool = self.tools[event.name]
+                    # format_result is required to return a string, if different we get ValueError
+                    tool_content = tool.format_result(event.result)
 
-                tool_message = ChatCompletionToolMessage(
-                    role="tool",
-                    content=tool_content,
-                    tool_call_id=event.call_id
-                )
-                self._conversation_store.append(
-                    conversation_id=self.conversation_id,
-                    message=Message(
-                        message=tool_message,
-                        token_count=get_token_count(tool_message)
+                    yield event
+
+                    tool_message = ChatCompletionToolMessage(
+                        role="tool",
+                        content=tool_content,
+                        tool_call_id=event.call_id
                     )
-                )
-            elif isinstance(event, ToolCallEvent):
-                if event.requires_confirmation:
-                    self._blocked_calls.append(event.call_id)
-                
-                yield event
-            elif isinstance(event, (ToolErrorEvent, StopEvent)):
-                yield event
+                    self._conversation_store.append(
+                        conversation_id=self.conversation_id,
+                        message=Message(
+                            message=tool_message,
+                            token_count=get_token_count(tool_message)
+                        )
+                    )
+                    self._event_store.append(conversation_id=self.conversation_id, event=event)
+                    self._pending_tool_calls -= 1
+                elif isinstance(event, ToolErrorEvent):
+                    yield event
+                    
+                    tool_message = ChatCompletionToolMessage(
+                        role="tool",
+                        content=f"{event.name} {event.failure}: {event.error}",
+                        tool_call_id=event.tool_call_id
+                    )
 
-            self._send_lock = False
+                    self._conversation_store.append(
+                        conversation_id=self.conversation_id,
+                        message=Message(
+                            message=tool_message,
+                            token_count=get_token_count(tool_message)
+                        )
+                    )
+                    self._event_store.append(conversation_id=self.conversation_id, event=event)
+                    self._pending_tool_calls -= 1
+                elif isinstance(event, StopEvent):
+                    yield event
+                    self._event_store.append(conversation_id=self.conversation_id, event=event)
 
-            if self._user_stopped:
+                if self._user_stopped:
+                    stop_event = StopEvent(issuer="user")
+                    yield stop_event
+                    self._event_store.append(conversation_id=self.conversation_id, event=stop_event)
+                    self._running = False
+                    break
+
+                # drain send message
+                if self._pending_tool_calls == 0 and self._pending_message is not None:
+                    self._append_user_message(self._pending_message.content)
+                    self._pending_message = None
+                    # if we get a user message when the agent issued a stop event the 
+                    # loop restarts.
+                    should_continue = True
+            
+            if not should_continue:
                 break
-        
+
         self._running = False
+        # edge case: the user called send and then stop, before the enqueued message 
+        # could have been consumed
+        self._pending_message = None
         log_event(
             _logger, logging.INFO, "",
             conversation_id=self.conversation_id,
@@ -300,9 +353,8 @@ class AgentRunner:
 
         :returns: True if the message is enqueued, False otherwise.
         """
-        if self._running and not self._send_lock:
-            self._append_user_message(user_event.content)
-            self._send_lock = True
+        if self._running and self._pending_message is None:
+            self._pending_message = user_event
             return True
         return False
 
@@ -358,4 +410,8 @@ class AgentRunner:
                 message=ChatCompletionUserMessage(role="user", content=content),
                 # token_count=litellm.token_counter(text=content)
             )
+        )
+        self._event_store.append(
+            conversation_id=self.conversation_id,
+            event=UserMessageEvent(content=content)
         )

@@ -19,8 +19,9 @@ from pydantic import (
     Field, Tag
 )
 
-from ai_ops.core.log import get_logger, log_event, logging
 from ai_ops.config import AI_OPS_BASE_DIR
+from ai_ops.core.log import get_logger, log_event, logging
+from ai_ops.core.utils import read_jsonl, append_jsonl
 
 _logger = get_logger(__name__)
 
@@ -235,22 +236,6 @@ class InMemoryConversationStore(AbstractConversationStore):
         if conversation is None:
             raise ValueError(f"No conversation for conversation_id={conversation_id}")
         conversation.messages.append(message)
-
-
-# note: could merge this in conversation store and the file handles returned by `open` 
-# could be cached and deleted at object destruction.
-def read_jsonl(file: Path):
-    with open(str(file), 'r', encoding='utf-8') as fp:
-        for line_no, line in enumerate(fp, start=1):
-            try:
-                yield json.loads(line)
-            except json.JSONDecodeError:
-                pass
-
-
-def append_jsonl(file: Path, raw: str):
-    with open(str(file), 'a', encoding='utf-8') as fp:
-        fp.write(raw + "\n")
         
 
 class JSONLConversationStore(AbstractConversationStore):
@@ -377,19 +362,19 @@ class ConversationStore:
         self.__store.append(conversation_id=conversation_id, message=message)
 
 
-class ConversationStoreStrategy(StrEnum):
+class StorageStrategy(StrEnum):
     IN_MEMORY = auto()
     JSONL = auto()
 
 
 _CONVERSATION_STORE_IMPL = {
-    ConversationStoreStrategy.IN_MEMORY: InMemoryConversationStore,
-    ConversationStoreStrategy.JSONL: JSONLConversationStore
+    StorageStrategy.IN_MEMORY: InMemoryConversationStore,
+    StorageStrategy.JSONL: JSONLConversationStore
 }
 _CONVERSATION_STORE: ConversationStore | None = None
 
 
-def get_conversation_store(strategy: ConversationStoreStrategy = ConversationStoreStrategy.IN_MEMORY) -> ConversationStore:
+def get_conversation_store(strategy: StorageStrategy = StorageStrategy.IN_MEMORY) -> ConversationStore:
     global _CONVERSATION_STORE
     if _CONVERSATION_STORE is None:
         _CONVERSATION_STORE = ConversationStore(store_cls=_CONVERSATION_STORE_IMPL[strategy])
