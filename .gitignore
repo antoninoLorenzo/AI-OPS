@@ -1,7 +1,7 @@
-benchmark/model_selection/*
+prompt_optimization/data/tmp
 .coverage
 htmlcov/*
-.understand-anything
+cli/node_modules
 
 # IDEs
 .idea/

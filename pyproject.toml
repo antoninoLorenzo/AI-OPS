@@ -39,7 +39,8 @@ dev = [
     "matplotlib~=3.9.0",
     "seaborn~=0.13.2",
     "tqdm~=4.66.4",
-    "transformers>=5.5.3"
+    "transformers>=5.5.3",
+    "streamlit>=1.40"
 ]
 bench = [
     "autopenbench"
@@ -60,3 +61,5 @@ exclude = [
 [tool.uv.sources]
 autopenbench = { path = "benchmark/auto_pen_bench/auto-pen-bench", editable = true }
 
+[tool.setuptools.packages.find]
+include = ["ai_ops*"]
