@@ -31,9 +31,10 @@ class CommandAdmissionPolicy(abc.ABC):
 
 class AllowListPolicy(CommandAdmissionPolicy):
     DEFAULT = {
-        'ls', 'cd', 'pwd',          # read-only filesystem navigation
-        'cat', 'grep', 'awk', 'sed',
-        'which', 'wc', 'sort', 'find' 
+        # binaries are considered safe if at most they have file read 
+        # here: https://gtfobins.org/#
+        'ls', 'cd', 'pwd', 'cat', 'grep', 'which', 'wc', 'tree',
+        'ping', 
     }
 
     def __init__(self, allowlist: List[str]):

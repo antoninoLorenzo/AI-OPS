@@ -25,6 +25,11 @@ _EXTRACT_EXECUTABLE_TESTS = [
         "command": "echo 'grep pattern file.txt'",  
         "expected": {"echo"}
     },
+    {
+        # process substitution
+        "command": "echo <(ls -l $(cat file.txt))",
+        "expected": {"echo", "ls", "cat"}
+    }
     # TODO: fix this edge case (see core.tools.utils)
     # {
     #     "command": "sudo docker ps -a",
