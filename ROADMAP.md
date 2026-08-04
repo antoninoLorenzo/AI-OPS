@@ -1,6 +1,26 @@
 # Roadmap
 
-> Last updated: 2026-07-20 | current version 0.1.0
+> Last updated: 2026-08-04 | current version 0.2.0
+
+## Fixes
+
+**Correctness**
+- [ ] Implement persistent `WhiteboardStore` otherwise `--resume` path is unusable.
+- [ ] `LayeredContextView` likely drops user messages after the first one. Implement a test to verify this, refactor the implementation and then fix.
+
+**Performance**
+- [ ] Tool execution is synchronous independently of `arun` so the api blocks. Implement a test to verify this behaviour and fix it.
+
+**Security**
+- [ ] Make API key comparison constant-time. Test the behaviour, then fix with `secrets.compare_digest`.
+- [ ] Make API default to `AllowListPolicy` with it's defaults.
+
+## Missing (for publishing)
+
+- [ ] Integration/End-to-End Testing
+- [ ] CI Pipeline
+- [ ] Distribution (Docker Image, Installable CLI)
+- [ ] Thorough Documentation/README.md 
 
 ## Help Wanted
 
