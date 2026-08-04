@@ -1,0 +1,26 @@
+{
+  "name": "ai-ops-cli",
+  "version": "1.0.0",
+  "description": "CLI client for the AI-OPS API",
+  "type": "module",
+  "bin": {"ai-ops-cli": "./src/cli.tsx"},
+  "scripts": {
+    "start": "tsx src/cli.tsx",
+    "test": "node --import tsx --test \"test/**/*.test.ts\" \"test/**/*.test.tsx\"",
+    "typecheck": "tsc --noEmit",
+    "bundle": "esbuild src/cli.tsx --bundle --platform=node --format=esm --packages=external --outfile=dist/cli.js"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "ink-testing-library": "^4.0.0",
+    "tsx": "^4.23.1",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "ink": "^7.1.1",
+    "ink-scroll-view": "^0.3.7",
+    "react": "^19.2.8",
+    "zod": "^4.4.3"
+  }
+}
