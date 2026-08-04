@@ -5,11 +5,41 @@ from typing import List, Type
 from pydantic import TypeAdapter, ValidationError
 
 from ai_ops.config import AI_OPS_BASE_DIR
-from ai_ops.core.schema import Event, AnyEvent
+from ai_ops.core.schema import Event, EventType, AnyEvent
 from ai_ops.core.conversation import StorageStrategy
 from ai_ops.core.utils import read_jsonl, append_jsonl
+from ai_ops.core.tools import resolve_args_type, resolve_result_type
+from ai_ops.core.log import get_logger, log_event, logging
 
+_logger = get_logger(__name__)
 _event_adapter = TypeAdapter(AnyEvent)
+
+
+def _hydrate_tool_payload(raw: dict) -> dict:
+    # deserialization of ToolCallEvent/ToolResultEvent is tricky because the Event 
+    # schema uses `SerializeAsAny[BaseModel]` so we need to resolve the actual BaseModel 
+    # on the way back to keep type-safety.
+    kind = raw.get("kind")
+    if kind not in (EventType.TOOL_CALL, EventType.TOOL_RESULT):
+        return raw
+
+    name = raw.get("name")
+
+    args_type = resolve_args_type(name)
+    if isinstance(raw.get("args"), dict):
+        if args_type is not None:
+            raw["args"] = args_type.model_validate(raw["args"])
+        else:
+            log_event(_logger, logging.WARNING, "Unresolvable tool args type", tool_name=name)
+
+    if kind == EventType.TOOL_RESULT and isinstance(raw.get("result"), dict):
+        result_type = resolve_result_type(name)
+        if result_type is not None:
+            raw["result"] = result_type.model_validate(raw["result"])
+        else:
+            log_event(_logger, logging.WARNING, "Unresolvable tool result type", tool_name=name)
+
+    return raw
 
 
 class AbstractEventStore(abc.ABC):
@@ -47,7 +77,10 @@ class JSONLEventStore(AbstractEventStore):
             return []
 
         try:
-            return [_event_adapter.validate_python(raw) for raw in read_jsonl(events_path)]
+            return [
+                _event_adapter.validate_python(_hydrate_tool_payload(raw)) 
+                for raw in read_jsonl(events_path)
+            ]
         except ValidationError:
             raise RuntimeError(f"Malformed event list at {events_path}")
 

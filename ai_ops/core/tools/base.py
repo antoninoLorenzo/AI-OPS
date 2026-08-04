@@ -11,6 +11,10 @@ ToolInputT = TypeVar("ToolInput", bound=BaseModel)
 ToolOutputT = TypeVar("ToolOutput", bound=BaseModel)
 
 
+class Noop(BaseModel): 
+    pass
+
+
 # https://stackoverflow.com/a/78682340
 class GenerateJsonSchemaTool(GenerateJsonSchema):
     def field_title_should_be_set(self, schema) -> bool:

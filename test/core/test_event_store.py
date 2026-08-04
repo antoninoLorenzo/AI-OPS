@@ -30,7 +30,7 @@ from ai_ops.core.event_store import (
 )
 import ai_ops.core.event_store as event_store_mod
 
-from test.core.mocks.tool import MockTool, MockIn, MockOut
+from test.core.mocks.tool import MockTool, MockIn, MockOut, register_mock_tool
 
 
 @pytest.fixture
@@ -120,6 +120,33 @@ def test_malformed_events_file_raises_runtime_error(jsonl_base):
 
     with pytest.raises(RuntimeError):
         JSONLEventStore().get_by_conversation_uuid("conv-4")
+
+
+def test_roundtrip_preserves_tool_payload_types(jsonl_base, register_mock_tool):
+    # tool args and result are `SerializeAsAny[BaseModel]`, the persist -> load
+    # roundtrip has to preserve the tool in/out base models.
+    store = JSONLEventStore()
+    _conversation_dir(jsonl_base, "conv-5")
+
+    store.append(
+        "conv-5",
+        ToolResultEvent(
+            call_id="1", name=MockTool.name,
+            args=MockIn(val=42), result=MockOut(val=42)
+        ),
+    )
+
+    # note: the event store doesn't have an in-memory cache so this actually 
+    # reads from the serialized jsonl
+    reloaded = store.get_by_conversation_uuid("conv-5")[0]
+    assert isinstance(reloaded.args, MockIn)
+    assert isinstance(reloaded.result, MockOut)
+    assert reloaded.args.val == 42
+    assert reloaded.result.val == 42
+    
+    dumped = reloaded.model_dump(mode="json")
+    assert dumped["result"] == {"val": 42}
+    assert dumped["args"] == {"val": 42}
 
 
 # --- get_event_store singleton ----------------------------------------------

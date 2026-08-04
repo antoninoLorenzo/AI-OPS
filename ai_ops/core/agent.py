@@ -31,7 +31,7 @@ from ai_ops.core.schema import (
     ToolErrorEvent,
     ToolErrorFailure
 )
-from ai_ops.core.tools import Tool, WhiteboardWrite, validate_tool_call
+from ai_ops.core.tools import Tool, WhiteboardWrite, StopTool, validate_tool_call
 from ai_ops.core.conversation import get_token_count
 from ai_ops.core.tracing import agent_trace
 from ai_ops.core.log import get_logger, log_event, logging
@@ -44,23 +44,6 @@ try:
     _AGENT_TEMPERATURE = float(os.environ.get(TEMPERATURE_ENV, str(DEFAULT_TEMPERATURE)))
 except ValueError:
     _AGENT_TEMPERATURE = DEFAULT_TEMPERATURE
-
-class StopReason(BaseModel):
-    reason: str
-
-class Noop(BaseModel): 
-    pass
-
-class StopTool(Tool[StopReason, Noop]):    
-    name = "stop"
-    description = "Call this tool when you reached the user objective."
-
-    def __call__(self, _: StopReason) -> Noop:
-        return Noop()
-
-    @staticmethod
-    def format_result(_: Noop) -> str:
-        return ""
 
 
 # The orchestrator implements the agent logic, currently that's just ReAct loop.

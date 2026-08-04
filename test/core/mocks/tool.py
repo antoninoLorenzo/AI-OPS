@@ -49,14 +49,14 @@ class MockConfirmTool(Tool[MockIn, MockOut]):
 
 @pytest.fixture
 def register_mock_tool():
-    register_tool(MockTool.name, lambda _: MockTool())
+    register_tool(MockTool, MockIn, MockOut, lambda _: MockTool())
     yield
     ToolRegistry.pop(MockTool.name)
 
 
 @pytest.fixture
 def register_mock_confirm_tool():
-    register_tool(MockConfirmTool.name, lambda _: MockConfirmTool())
+    register_tool(MockConfirmTool, MockIn, MockOut, lambda _: MockConfirmTool())
     yield
     ToolRegistry.pop(MockConfirmTool.name)
     
