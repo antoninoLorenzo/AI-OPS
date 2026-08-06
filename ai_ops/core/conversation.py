@@ -94,6 +94,20 @@ class Message(BaseModel):
 
 # --- message utilities
 
+def count_tokens(messages: List[Message]) -> int:
+    token_count = 0
+    for message in messages:
+        if message.token_count is None:
+            message.token_count = get_token_count(message.message)
+        token_count += message.token_count
+    return token_count
+
+
+def is_user_message(message: Message) -> bool:
+    msg = message.message
+    return msg.get("role", "") == "user"
+
+
 def is_tool_call(message: Message, tool_name_key: str) -> Tuple[bool, List[str] | None]:
     """
     Whether or not ChatCompletionAssistantMessage contains a tool call of 

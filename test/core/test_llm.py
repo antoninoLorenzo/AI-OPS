@@ -160,36 +160,6 @@ _ASYNC_QUERY_TESTS = [
             ],
         },
         "expected": RuntimeError
-    },
-    # model doesn't support tool_use but tools is passed -> RuntimeError
-    {
-        "parameters": {
-            "client": InferenceClient(
-                metadata=ModelMetadata(
-                    provider="mock_provider",
-                    model_id="mock_model_id",
-                    max_context_length=0,
-                    tool_use=False,
-                    reasoning=True,
-                    response_format=True,
-                    structured_output=True
-                ),
-                client=MockChatCompletion(completion_output=ModelResponse(
-                    id="1234",
-                    choices=[Choices(
-                        finish_reason="stop", index=0,
-                        message={"role": "assistant", "content": "srry"}
-                    )],
-                    usage=Usage()
-                ))
-            ),
-            "messages": [
-                {"role": "system", "content": "YoU aRe... not an AI exPeRt!!1!"},
-                {"role": "user", "content": "ccccccc"}
-            ],
-            "tools": { MockTool.name: MockTool() }
-        },
-        "expected": RuntimeError
     }
 ]
 

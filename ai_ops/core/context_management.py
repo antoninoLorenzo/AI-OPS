@@ -8,8 +8,11 @@ from litellm import ChatCompletionAssistantMessage, ChatCompletionToolMessage
 from ai_ops.core.conversation import (
     Message, 
     is_tool_call, 
+    is_user_message,
     find_tool_call_result, 
-    get_token_count
+    get_token_count,
+    count_tokens,
+    is_valid_message_list
 )
 from ai_ops.core.tools import (
     WhiteboardWrite, 
@@ -311,35 +314,30 @@ class LayeredContextView(ContextView):
 
 
     def __call__(self, messages: List[Message]) -> List[Message]:
-        if messages[0].message.get("role", "") != "system" or \
-            messages[1].message.get("role", "") != "user":
+        if not is_valid_message_list(messages):
             raise ValueError("Malformed messages: expected [system, user, ...]")
-        
-        token_before = sum([
-            message.token_count 
-            for message in messages 
-            if message.token_count
-        ])
 
-        # do deep copy here so we're sure context_fn doesn't change the Conversation
+        # note: count_tokens adds the token count if not present in the original 
+        # message list and this is intentional.
+        token_before = count_tokens(messages=messages)
+
         _messages = copy.deepcopy(messages)
-        # TODO: test this I think if we have other user messages we are actually dropping 
-        # them... oh no I may need to touch that mess again.
         context = [_messages[0], _messages[1]]
         
         checkpoint = self.search_checkpoint(_messages)
         if checkpoint is not None:
+            # don't drop user messages before checkpoint
+            user_messages = [
+                message for message in _messages[2:checkpoint] if is_user_message(message)
+            ]
+            context.extend(user_messages)
             context.extend(_messages[checkpoint+1:])
         else:
             context.extend(_messages[2:])
 
         context = self.apply_active_window(context)
         
-        token_after = sum([
-            message.token_count 
-            for message in context
-            if message.token_count
-        ])
+        token_after = count_tokens(messages=context)
         log_event(
             _logger, logging.INFO, "Applied Context Compression",
             token_before=token_before, token_after=token_after

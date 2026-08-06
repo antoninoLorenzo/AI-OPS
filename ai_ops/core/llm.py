@@ -70,9 +70,6 @@ async def aquery(
     :param tools: Serialized tool list.
     :raises `RuntimeError`: Fatal unrecoverable error.
     """
-    if tools and not client.metadata.tool_use:
-        raise RuntimeError(f"Model {client.model} does not support tool use")
-
     log_event(_logger, logging.DEBUG, "Starting async query", model=client.model)
     try:
         response = await client.client.acompletion(
@@ -294,7 +291,7 @@ def build_inference_client(config: ModelConfig) -> InferenceClient:
         model_list=model_list,
         # rate limits usually come in req/min so do the first retry after 30s, then do two
         # other attempts, at that point raise (maybe daily budget or smth is reached).
-        retry_after=30, 
+        retry_after=45, 
         retry_policy=RetryPolicy(
             # that's an issue in how the client interacts with different providers and
             # signals an issue in the agent code.
@@ -303,7 +300,7 @@ def build_inference_client(config: ModelConfig) -> InferenceClient:
             ContentPolicyViolationErrorRetries=0, # fuck you
             InternalServerErrorRetries=1, # just once maybe was an isolated error
             TimeoutErrorRetries=1,
-            RateLimitErrorRetries=3 # that's the whole reason to use the Router
+            RateLimitErrorRetries=5 # that's the whole reason to use the Router
         )
     )
 

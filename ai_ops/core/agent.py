@@ -136,7 +136,7 @@ def orchestrator(
 
                 yield ToolErrorEvent(
                     failure=ToolErrorFailure.VALIDATION_ERROR,
-                    tool_call_id=tool_call.id,
+                    call_id=tool_call.id,
                     name=tool_name,
                     error=error_msg
                 )
@@ -150,7 +150,7 @@ def orchestrator(
             except Exception as tool_failure:
                 yield ToolErrorEvent(
                     failure=ToolErrorFailure.EXECUTION_ERROR,
-                    tool_call_id=tool_call.id,
+                    call_id=tool_call.id,
                     name=tool_name,
                     error=str(tool_failure)
                 )
@@ -252,7 +252,7 @@ async def aorchestrator(
 
                 yield ToolErrorEvent(
                     failure=ToolErrorFailure.VALIDATION_ERROR,
-                    tool_call_id=tool_call.id,
+                    call_id=tool_call.id,
                     name=tool_name,
                     error=error_msg
                 )
@@ -289,7 +289,7 @@ async def aorchestrator(
             except Exception as tool_failure:
                 yield ToolErrorEvent(
                     failure=ToolErrorFailure.EXECUTION_ERROR,
-                    tool_call_id=tool_call.id,
+                    call_id=tool_call.id,
                     name=tool_name,
                     error=str(tool_failure)
                 )

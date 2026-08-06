@@ -444,3 +444,75 @@ def test_apply_active_window(test_case):
         assert ac[:80] == ec[:80], f"[{i}] content start:\n  actual:   {ac[:80]!r}\n  expected: {ec[:80]!r}"
         assert ac[-80:] == ec[-80:], f"[{i}] content end:\n  actual:   {ac[-80:]!r}\n  expected: {ec[-80:]!r}"
         assert a.token_count == e.token_count, f"[{i}] token_count: {a.token_count} vs {e.token_count}"
+
+
+
+def test_does_deep_copy():
+    messages = [
+        Message(message={"role": "system", "content": "system prompt"}),
+        Message(message={"role": "user", "content": "user message 1"}),
+    ]
+    context_fn = LayeredContextView(max_window_tokens=1024)
+
+    result = context_fn(messages=messages)
+    assert result is not messages
+    assert all(r is not m for r, m in zip(result, messages))
+
+    result[0].message["content"] = "MUTATED"
+    assert messages[0].message["content"] == "system prompt", "LayeredContextView did shallow copy"
+
+
+_COMPACTION_TESTS = [
+    # raise on malformed message list 
+    {
+        "name": "verifies-malformed-messages",
+        "messages": [
+            Message(message=ChatCompletionUserMessage(role="user", content="Hi"))
+        ],
+        "expected": ValueError
+    },
+    # preserves all user messages
+    {
+        "name": "no-drop-user-messages",
+        "messages": [
+            Message(message={"role": "system", "content": "system prompt"}, token_count=1),
+            Message(message={"role": "user", "content": "user message 1"}, token_count=1),
+            Message(message={"role": "user", "content": "user message 2"}, token_count=1),
+            Message(message={
+                "role": "assistant", 
+                "content": "wassup",
+                "tool_calls": [{
+                    "id": "123",
+                    "type": "function",
+                    "function": {
+                        "name": WhiteboardWrite.name,
+                        "arguments": WhiteboardWriteRequest(
+                            name="asd",
+                            description="asd",
+                            content="asd"
+                        ).model_dump_json()
+                    }
+                }]
+            }, token_count=1),
+            Message(message={"role": "tool", "tool_call_id": "123", "content": "tool result"}, token_count=1),
+        ],
+        "expected": [
+            Message(message={"role": "system", "content": "system prompt"}, token_count=1),
+            Message(message={"role": "user", "content": "user message 1"}, token_count=1),
+            Message(message={"role": "user", "content": "user message 2"}, token_count=1),
+        ]
+    }
+]
+
+@pytest.mark.parametrize("test_case", _COMPACTION_TESTS, ids=lambda tc: tc["name"])
+def test_layered_context_compaction(test_case):
+    messages = test_case["messages"]
+    context_fn = LayeredContextView(max_window_tokens=1024)
+
+    expected = test_case["expected"]
+    if isinstance(expected, list):
+        result = context_fn(messages=messages)
+        assert result == expected
+    else:
+        with pytest.raises(expected):
+            _ = context_fn(messages=messages)

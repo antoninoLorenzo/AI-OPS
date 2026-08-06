@@ -2,13 +2,7 @@ import asyncio
 from dataclasses import dataclass, field
 from typing import Any, AsyncIterator, Dict, Iterator, List, Optional, Tuple, Type
 
-import litellm
-from litellm import (
-    ChatCompletionSystemMessage,
-    ChatCompletionToolMessage,
-    ChatCompletionUserMessage,
-)
-
+from ai_ops.config import BASE_AGENT_ID, CONFIRMATION_TIMEOUT_S
 from ai_ops.core.agent import _AGENT_TEMPERATURE, aorchestrator, orchestrator
 from ai_ops.core.context_management import ContextView, RawContextView
 from ai_ops.core.conversation import (
@@ -44,13 +38,13 @@ from ai_ops.core.tools import (
     get_skill_registry,
     get_whiteboard_store,
 )
-from ai_ops.config import CONFIRMATION_TIMEOUT_S
 
 _logger = get_logger(__name__)
 
 
 @dataclass
 class AgentConfig:
+    agent_id: str = BASE_AGENT_ID
     tools: List[Type[Tool]] = field(default_factory=list)
     context_fn: ContextView = RawContextView()
     working_directory: str | None = None # TODO: this shouldn't be configurable
@@ -81,8 +75,12 @@ class AgentRunner:
         self._event_store = get_event_store()
         
         if is_new_conversation:
-            system_prompt = build_prompt(model=client.model, prompt_extension=config.prompt_extension)
-            system_prompt_message = ChatCompletionSystemMessage(role='system', content=system_prompt)
+            system_prompt = build_prompt(
+                agent_id=config.agent_id,
+                model=client.model, 
+                prompt_extension=config.prompt_extension
+            )
+            system_prompt_message = {"role": "system", "content": system_prompt}
             system_prompt_tokens = get_token_count(system_prompt_message)
             self._conversation_store.append(
                 conversation_id=self.conversation_id,
@@ -181,11 +179,11 @@ class AgentRunner:
                 
                 yield event
                 
-                tool_message = ChatCompletionToolMessage(
-                    role="tool",
-                    content=tool_content,
-                    tool_call_id=event.call_id
-                )
+                tool_message = {
+                    "role": "tool",
+                    "tool_call_id": event.call_id,
+                    "content": tool_content
+                }
                 self._conversation_store.append(
                     conversation_id=self.conversation_id, 
                     message=Message(
@@ -282,11 +280,11 @@ class AgentRunner:
 
                     yield event
 
-                    tool_message = ChatCompletionToolMessage(
-                        role="tool",
-                        content=tool_content,
-                        tool_call_id=event.call_id
-                    )
+                    tool_message = {
+                        "role": "tool",
+                        "tool_call_id": event.call_id,
+                        "content": tool_content
+                    }
                     self._conversation_store.append(
                         conversation_id=self.conversation_id,
                         message=Message(
@@ -299,11 +297,11 @@ class AgentRunner:
                 elif isinstance(event, ToolErrorEvent):
                     yield event
                     
-                    tool_message = ChatCompletionToolMessage(
-                        role="tool",
-                        content=f"{event.name} {event.failure}: {event.error}",
-                        tool_call_id=event.tool_call_id
-                    )
+                    tool_message = tool_message = {
+                        "role": "tool",
+                        "tool_call_id": event.call_id,
+                        "content": f"{event.name} {event.failure}: {event.error}"
+                    }
 
                     self._conversation_store.append(
                         conversation_id=self.conversation_id,
@@ -404,11 +402,13 @@ class AgentRunner:
         return future
 
     def _append_user_message(self, content: str):
+        user_message = {"role": "user", "content": content}
+
         self._conversation_store.append(
             conversation_id=self.conversation_id,
             message=Message(
-                message=ChatCompletionUserMessage(role="user", content=content),
-                # token_count=litellm.token_counter(text=content)
+                message=user_message,
+                token_count=get_token_count(message=user_message)
             )
         )
         self._event_store.append(

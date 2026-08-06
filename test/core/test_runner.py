@@ -9,6 +9,7 @@ from litellm import (
     ChatCompletionAssistantToolCall,
     ChatCompletionToolCallFunctionChunk
 )
+from ai_ops.core.conversation import get_token_count
 from ai_ops.core.schema import (
     AgentMode,
     UserMessageEvent,
@@ -43,6 +44,8 @@ from test.core.mocks.tool import (
     register_mock_confirm_tool,
 )
 
+_USER_MESSAGE = {"role": "user", "content": "hello"}
+_USER_MESSAGE_TOKENS = get_token_count(_USER_MESSAGE)
 
 # Test cases follow the format 
 # {
@@ -62,7 +65,7 @@ _RUNNER_RUN_TEST_CASES = [
     # * the client gets ToolCallEvent -> ToolResultEvent -> StopEvent.
     {
         "conversation_id": "case_1",
-        "user_message": "Hello",
+        "user_message": _USER_MESSAGE["content"],
         "events": [
             Message(message=ChatCompletionAssistantMessage(
                 role="assistant",
@@ -92,10 +95,7 @@ _RUNNER_RUN_TEST_CASES = [
             StopEvent(issuer="agent", reason="Done")
         ],
         "persisted_messages": [
-            Message(message=ChatCompletionUserMessage(
-                role="user",
-                content="Hello"
-            )),
+            Message(message=_USER_MESSAGE, token_count=_USER_MESSAGE_TOKENS),
             Message(message=ChatCompletionAssistantMessage(
                 role="assistant",
                 content=None,
@@ -147,7 +147,7 @@ _RUNNER_RUN_TEST_CASES = [
     # * the client gets TextEvent -> AgentErrorEvent -> StopEvent.
     {
         "conversation_id": "case_2",
-        "user_message": "Hello",
+        "user_message": _USER_MESSAGE["content"],
         "events": [
             Message(message=ChatCompletionAssistantMessage(
                 role="assistant",
@@ -165,17 +165,14 @@ _RUNNER_RUN_TEST_CASES = [
             )),
             ToolErrorEvent(
                 failure=ToolErrorFailure.VALIDATION_ERROR,
-                tool_call_id="1234",
+                call_id="1234",
                 name=MockTool.name,
                 error="Tool call with wrong arguments"
             ),
             StopEvent(issuer="agent")
         ],
         "persisted_messages": [
-            Message(message=ChatCompletionUserMessage(
-                role="user",
-                content="Hello"
-            )),
+            Message(message=_USER_MESSAGE, token_count=_USER_MESSAGE_TOKENS),
             Message(message=ChatCompletionAssistantMessage(
                 role="assistant",
                 content="I'm a silly boi",
@@ -207,7 +204,7 @@ _RUNNER_RUN_TEST_CASES = [
             TextEvent(chunk="I'm a silly boi"),
             ToolErrorEvent(
                 failure=ToolErrorFailure.VALIDATION_ERROR,
-                tool_call_id="1234",
+                call_id="1234",
                 name=MockTool.name,
                 error="Tool call with wrong arguments"
             ),
@@ -223,7 +220,7 @@ _RUNNER_RUN_TEST_CASES = [
     # * the client gets TextEvent -> ToolCallEvent -> AgentErrorEvent -> StopEvent.
     {
         "conversation_id": "case_3",
-        "user_message": "Hello",
+        "user_message": _USER_MESSAGE["content"],
         "events": [
             Message(message=ChatCompletionAssistantMessage(
                 role="assistant",
@@ -246,17 +243,14 @@ _RUNNER_RUN_TEST_CASES = [
             ),
             ToolErrorEvent(
                 failure=ToolErrorFailure.EXECUTION_ERROR,
-                tool_call_id="1234",
+                call_id="1234",
                 name=MockTool.name,
                 error="Execution failed"
             ),
             StopEvent(issuer="agent")
         ],
         "persisted_messages": [
-            Message(message=ChatCompletionUserMessage(
-                role="user",
-                content="Hello"
-            )),
+            Message(message=_USER_MESSAGE, token_count=_USER_MESSAGE_TOKENS),
             Message(message=ChatCompletionAssistantMessage(
                 role="assistant",
                 content=None,
@@ -292,7 +286,7 @@ _RUNNER_RUN_TEST_CASES = [
             ),
             ToolErrorEvent(
                 failure=ToolErrorFailure.EXECUTION_ERROR,
-                tool_call_id="1234",
+                call_id="1234",
                 name=MockTool.name,
                 error="Execution failed"
             ),
@@ -307,7 +301,7 @@ _RUNNER_RUN_TEST_CASES = [
     # * the client gets ReasoningEvent -> TextEvent -> StopEvent.
     {
         "conversation_id": "case_4",
-        "user_message": "Hello",
+        "user_message": _USER_MESSAGE["content"],
         "events": [
             Message(message=ChatCompletionAssistantMessage(
                 role="assistant",
@@ -317,10 +311,7 @@ _RUNNER_RUN_TEST_CASES = [
             StopEvent(issuer="agent")
         ],
         "persisted_messages": [
-            Message(message=ChatCompletionUserMessage(
-                role="user",
-                content="Hello"
-            )),
+            Message(message=_USER_MESSAGE, token_count=_USER_MESSAGE_TOKENS),
             Message(message=ChatCompletionAssistantMessage(
                 role="assistant",
                 content="yes 2+2=5",
@@ -339,13 +330,10 @@ _RUNNER_RUN_TEST_CASES = [
     # yielding a StopEvent with an error message.
     {
         "conversation_id": "case_5",
-        "user_message": "Hello",
+        "user_message": _USER_MESSAGE["content"],
         "events": RuntimeError("The model provider cockblocked us again..."),
         "persisted_messages": [
-            Message(message=ChatCompletionUserMessage(
-                role="user",
-                content="Hello"
-            )),
+            Message(message=_USER_MESSAGE, token_count=_USER_MESSAGE_TOKENS),
         ],
         "expected_events": [
             StopEvent(

@@ -97,7 +97,7 @@ class ToolErrorFailure(StrEnum):
 class ToolErrorEvent(Event, BaseModel):
     kind: Literal[EventType.TOOL_ERROR] = EventType.TOOL_ERROR
     failure: ToolErrorFailure
-    tool_call_id: str # should rename to `call_id`
+    call_id: str
     name: str
     error: str
 

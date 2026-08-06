@@ -37,6 +37,7 @@ OBSERVABILITY_BACKEND_ENV = "AI_OPS_OBSERVABILITY_BACKEND"
 MLFLOW_TRACKING_URI_ENV = "MLFLOW_TRACKING_URI"
 MLFLOW_EXPERIMENT_ENV = "MLFLOW_EXPERIMENT_NAME"
 
+BASE_AGENT_ID = "react"
 
 def build_environment() -> Path:
     # AI-OPS stuff goes into a single directory (for simplicity), this stuff currently includes 

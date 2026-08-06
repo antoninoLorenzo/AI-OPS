@@ -3,12 +3,11 @@ import json
 from pathlib import Path
 from typing import Literal
 
+from ai_ops.config import BASE_AGENT_ID
 from ai_ops.core.log import get_logger, log_event, logging
 from ai_ops.core._mlflow import mlflow_ready
 
-
 PROMPT_BASE_PATH = Path(__file__).parent / "local"
-BASE_PROMPT_NAME = "react"
 
 _logger = get_logger(__name__)
 
@@ -21,10 +20,11 @@ def _normalize_model_name(model: str | None) -> str | None:
 
 
 def build_prompt(
+    agent_id: str = BASE_AGENT_ID,
     model: str | None = None,
     prompt_extension: str | None = None
 ) -> str:
-    system_prompt = get_prompt(name=BASE_PROMPT_NAME, model=model)
+    system_prompt = get_prompt(name=agent_id, model=model)
     
     if prompt_extension:
         system_prompt += prompt_extension
