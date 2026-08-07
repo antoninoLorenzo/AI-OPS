@@ -50,13 +50,14 @@ Also note that *every route* requires the token to be set.
 Creates a new conversation, seeds it with the system prompt, and constructs the
 backing `AgentRunner` (registered in-memory under `short_id`).
 
-**Response `200`** — a [`Conversation`](#conversation). `messages` already
-contains at least the `system` message.
+**Response `200`** — a [`Session`](#session). `messages` already contains at
+least the `system` message; `events` is empty until the agent runs.
 
 ```json
 {
   "uuid": "6f1e...-...",
   "short_id": 1,
+  "events": [],
   "messages": [ { "message": { "role": "system", "content": "..." }, "token_count": 812 } ]
 }
 ```
@@ -65,12 +66,13 @@ contains at least the `system` message.
 
 ### `GET /conversation/{short_id}`
 
-Returns the stored [`Conversation`](#conversation). If no live `AgentRunner`
-exists for it (e.g. after a server restart, with a persistent store), one is
-rebuilt from the stored conversation before returning.
+Returns the session's persisted [event](#events) list (`Event[]`), not the
+messages. If no live `AgentRunner` exists for it (e.g. after a server restart,
+with a persistent store), one is rebuilt from the stored session before returning.
 
-- **`200`** — the conversation.
-- **`404`** — no conversation with that `short_id`.
+- **`200`** — the event list (empty for a freshly created session).
+- **`404`** — no session with that `short_id`.
+- **`500`** — the persisted event list is malformed.
 
 ---
 
@@ -161,14 +163,15 @@ the model's context window.
 
 ## Schemas
 
-### Conversation
+### Session
 
-`ai_ops.core.conversation.Conversation`
+`ai_ops.core.storage.Session`
 
 | Field | Type | Description |
 |---|---|---|
-| `uuid` | `string` | Stable conversation identifier. |
+| `uuid` | `string` | Stable session identifier. |
 | `short_id` | `int` | Human-friendly id used in all route paths. |
+| `events` | `Event[]` | The persisted structured [event](#events) stream. |
 | `messages` | `Message[]` | Ordered message list. |
 
 Each `Message` carries the raw provider `message` object (`role`, `content`,

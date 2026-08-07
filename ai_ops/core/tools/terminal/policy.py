@@ -8,7 +8,7 @@ from ai_ops.core.tools.terminal.utils import extract_executables
 
 
 class CommandContext(BaseModel):
-    conversation_id: str
+    session_id: str
     command: str
 
 

@@ -18,7 +18,8 @@ from ai_ops.core.schema import (
     ToolCallEvent,
     ToolResultEvent,
 )
-from ai_ops.core.conversation import Conversation, Message
+from ai_ops.core.conversation import Message
+from ai_ops.core.storage import Session
 from ai_ops.core.context_management import RawContextView
 from ai_ops.core.agent import aorchestrator, orchestrator
 
@@ -27,8 +28,8 @@ from test.core.mocks.tool import MockTool, MockConfirmTool, MockIn, MockOut, NOT
 
 
 _message_list = [
-    Message(message=ChatCompletionSystemMessage(role="system", content="content")),
-    Message(message=ChatCompletionUserMessage(role="user", content="content"))
+    Message(agent_id="react", message=ChatCompletionSystemMessage(role="system", content="content")),
+    Message(agent_id="react", message=ChatCompletionUserMessage(role="user", content="content"))
 ]
 _AGENT_LOOP_TESTS = [
     # --- stop conditions
@@ -40,7 +41,7 @@ _AGENT_LOOP_TESTS = [
                 metadata=mock_model,
                 client=MockChatCompletion(RuntimeError("whatever"))
             ),
-            "conversation": Conversation(uuid="1234", short_id="1234", messages=_message_list),
+            "session": Session(uuid="1234", short_id="1234", messages=_message_list),
             "tools": {MockTool.name : MockTool()},
             "context_fn": RawContextView()
         },
@@ -60,24 +61,19 @@ _AGENT_LOOP_TESTS = [
                     usage=Usage(prompt_tokens=4, completion_tokens=4, total_tokens=8)
                 ))
             ),
-            "conversation": Conversation(uuid="1234", short_id="1234", messages=_message_list),
+            "session": Session(uuid="1234", short_id="1234", messages=_message_list),
             "tools": {MockTool.name : MockTool()},
             "context_fn": RawContextView()
         },
         "expected": [
-            Message(
-                message=ChatCompletionAssistantMessage(
-                    role="assistant", content="content",
-                    tool_calls=None, function_call=None
-                ), 
-                token_count=1
+            Message(agent_id="react", 
+                message={"role": "assistant", "content": "content", "tool_calls": None, "function_call": None}, 
+                token_count=1,
+                model_id=mock_model.model_id
             ),
             StopEvent(issuer="agent")
         ]
     },
-    # when max_iterations is reached orchestrator yields a StopEvent with the 
-    # `max_iteration` flag set.
-    # TODO: can't really test this without MockChatCompletion getting a list of responses
 ]
 
 
@@ -139,8 +135,8 @@ async def test_agent_loop_async(test_case, monkeypatch):
 # mock model keeps returning the same tool call.
 
 _CONFIRM_MESSAGE_LIST = [
-    Message(message=ChatCompletionSystemMessage(role="system", content="content")),
-    Message(message=ChatCompletionUserMessage(role="user", content="content"))
+    Message(agent_id="react", message=ChatCompletionSystemMessage(role="system", content="content")),
+    Message(agent_id="react", message=ChatCompletionUserMessage(role="user", content="content"))
 ]
 
 
@@ -185,7 +181,7 @@ def _run_confirm_case(monkeypatch, mode, confirm, call_id="call_1", val=5):
     )
     return aorchestrator(
         client=client,
-        conversation=Conversation(uuid="1234", short_id="1234", messages=_CONFIRM_MESSAGE_LIST),
+        session=Session(uuid="1234", short_id="1234", messages=_CONFIRM_MESSAGE_LIST),
         tools={MockConfirmTool.name: MockConfirmTool()},
         context_fn=RawContextView(),
         mode=mode,

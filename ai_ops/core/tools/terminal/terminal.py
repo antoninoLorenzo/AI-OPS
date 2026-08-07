@@ -13,12 +13,6 @@ from ai_ops.core.log import get_logger, log_event, logging
 
 
 _logger = get_logger(__name__)
-
-DEFAULT_WORK_DIR = Path('/tmp/ai_ops/')
-if not DEFAULT_WORK_DIR.exists():
-    _logger.info("Creating terminal working directory '/tmp/ai_ops/'")
-    DEFAULT_WORK_DIR.mkdir(parents=True)
-
 MAX_COMMAND_TIMEOUT_S = 300.0
 
 class TerminalRequest(BaseModel):
@@ -59,11 +53,11 @@ class Terminal(Tool[TerminalRequest, TerminalResult]):
 
     def __init__(
         self,
-        conversation_id: str,
+        session_id: str,
         working_directory: Path,
         policies: Tuple[CommandAdmissionPolicy]
     ):
-        self.conversation_id = conversation_id # => tied to conversation
+        self.session_id = session_id # => tied to conversation
         self.working_directory = working_directory
         if not self.working_directory.exists():
             self.working_directory.mkdir(parents=True, exist_ok=True)
@@ -76,11 +70,11 @@ class Terminal(Tool[TerminalRequest, TerminalResult]):
         """
         command = tool_args.command
         for policy in self.__policies:
-            policy_result = policy(CommandContext(conversation_id=self.conversation_id, command=command))
+            policy_result = policy(CommandContext(session_id=self.session_id, command=command))
             if not policy_result.allowed:
                 log_event(
                     _logger, logging.WARNING, "Command not allowed",
-                    conversation_id=self.conversation_id,
+                    session_id=self.session_id,
                     command=command, reason=policy_result.reason
                 )
                 return True

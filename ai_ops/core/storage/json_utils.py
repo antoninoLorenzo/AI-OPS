@@ -1,8 +1,9 @@
 import json
+from typing import Iterator
 from pathlib import Path
 
 
-def read_jsonl(file: Path):
+def read_jsonl(file: Path) -> Iterator[dict]:
     with open(str(file), 'r', encoding='utf-8') as fp:
         for line_no, line in enumerate(fp, start=1):
             try:

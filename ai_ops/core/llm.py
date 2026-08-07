@@ -3,7 +3,7 @@ import os
 import re
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import List, Optional, Protocol, Tuple, Union, runtime_checkable
+from typing import Dict, List, Optional, Protocol, Tuple, Union, runtime_checkable
 
 import litellm
 from litellm import CustomStreamWrapper, ModelResponse, RetryPolicy, Router
@@ -14,7 +14,7 @@ from litellm.exceptions import (
     JSONSchemaValidationError,
     RateLimitError,
 )
-from pydantic import BaseModel, SecretStr
+from pydantic import BaseModel, ConfigDict, SecretStr
 
 from ai_ops.config import API_MODEL_MAX_CONTEXT_LENGTH
 from ai_ops.core.log import get_logger, log_event, logging
@@ -32,6 +32,9 @@ class ChatCompletion(Protocol):
 
 
 class ModelConfig(BaseModel):
+    # frozen -> hashable, so it can key the inference-client cache below.
+    model_config = ConfigDict(frozen=True)
+
     model: str
     """Fully-qualified Model ID (ex. `provider/model_id`, `huggingface/namespace/repo`)."""
     api_base: Optional[str] = None
@@ -266,9 +269,19 @@ def get_model_metadata(config: ModelConfig, allow_requests: bool = True) -> Mode
     return ModelMetadata(**metadata)
 
 
+# Inference clients are cached by `ModelConfig`: building one does network I/O
+# (`get_model_metadata`), so repeated resolutions of the same config reuse the
+# client. This is also the seam for multi-model runs (see `get_inference_client`).
+_INFERENCE_CLIENTS: Dict[ModelConfig, InferenceClient] = {}
+
+
 def build_inference_client(config: ModelConfig) -> InferenceClient:
+    cached = _INFERENCE_CLIENTS.get(config)
+    if cached is not None:
+        return cached
+
     model_metadata = get_model_metadata(config)
-    
+
     litellm_params = {
         "model": f"{model_metadata.provider}/{model_metadata.model_id}"
     }
@@ -304,4 +317,34 @@ def build_inference_client(config: ModelConfig) -> InferenceClient:
         )
     )
 
-    return InferenceClient(metadata=model_metadata, client=router)
+    client = InferenceClient(metadata=model_metadata, client=router)
+    _INFERENCE_CLIENTS[config] = client
+    return client
+
+
+def get_inference_client(config: ModelConfig) -> InferenceClient:
+    """Resolve (and cache) the `InferenceClient` for a `ModelConfig`.
+
+    Forward-looking seam for multi-model runs: today a single client is built at
+    startup, but keying by config lets a future multi-agent setup resolve a
+    distinct client per agent/model through one accessor without rebuilding on
+    every lookup. Mostly unused for now.
+    """
+    return build_inference_client(config)
+
+
+def check_inference_client(client: InferenceClient) -> None:
+    """Startup sanity check: issue a minimal completion to verify the model is
+    reachable and the credentials are valid.
+
+    Not wired into the API on purpose; call it explicitly wherever a fail-fast
+    startup check is wanted (ex. a CLI or a deployment healthcheck).
+
+    :raises RuntimeError: the client could not complete a trivial request.
+    """
+    query(
+        client=client,
+        messages=[{"role": "user", "content": "ping"}],
+        tools=None,
+        max_tokens=1
+    )

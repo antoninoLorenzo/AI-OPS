@@ -17,21 +17,21 @@ _ALLOW_LIST_POLICY_TESTS = [
     {
         "allowlist": ["cat"],
         "executables": {"export", "cat"},
-        "call": CommandContext(conversation_id="1", command="export VAR=$(cat secret)"),
+        "call": CommandContext(session_id="1", command="export VAR=$(cat secret)"),
         "expected": PolicyResult(allowed=False, blocked={"export"})
     },
     # none allowed -> block
         {
         "allowlist": [],
         "executables": {"nc"},
-        "call": CommandContext(conversation_id="1", command="nc -lnvp 4444"),
+        "call": CommandContext(session_id="1", command="nc -lnvp 4444"),
         "expected": PolicyResult(allowed=False, blocked={"nc"})
     },
     # allowed -> pass
         {
         "allowlist": ["ls"],
         "executables": {"ls"},
-        "call": CommandContext(conversation_id="1", command="ls -la"),
+        "call": CommandContext(session_id="1", command="ls -la"),
         "expected": PolicyResult(allowed=True)
     }
 ]

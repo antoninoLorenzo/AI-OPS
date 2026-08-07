@@ -1,7 +1,8 @@
-from typing import Annotated, Dict, Optional, Union
+from typing import Annotated, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field
 
+from ai_ops.core.schema import Event, ToolCallEvent
 from ai_ops.core.tools.base import Tool
 from ai_ops.core.prompt import get_prompt
 
@@ -127,7 +128,7 @@ class WhiteboardRead(Tool[WhiteboardReadRequest, WhiteboardResult]):
     def index(self) -> Optional[str]:
         store = get_whiteboard_store()
         return store.get_index(whiteboard_id=self.whiteboard_id)
-    
+
 
 class WhiteboardWrite(Tool[WhiteboardWriteRequest, WhiteboardResult]):
     name = 'write_whiteboard'
@@ -178,3 +179,24 @@ class WhiteboardWrite(Tool[WhiteboardWriteRequest, WhiteboardResult]):
     def index(self) -> Optional[str]:
         store = get_whiteboard_store()
         return store.get_index(whiteboard_id=self.whiteboard_id)
+
+
+def replay_whiteboard(whiteboard_id: str, events: List[Event]) -> None:
+    """Reconstruct a whiteboard's state from a resumed session's events.
+
+    :param whiteboard_id: Corresponds to `session_id`
+    :param events: event list used to reconstruct the `WhiteboardStore` state
+    """
+    store = get_whiteboard_store()
+    store.new_whiteboard(whiteboard_id)  # create empty, then re-apply writes
+    for event in events:
+        if isinstance(event, ToolCallEvent) and event.name == WhiteboardWrite.name:
+            args = event.args
+            store.upsert(
+                whiteboard_id,
+                WhiteboardEntry(
+                    name=args.name,
+                    description=args.description,
+                    content=args.content
+                )
+            )

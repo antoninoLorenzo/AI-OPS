@@ -1,10 +1,4 @@
-# Agent Orchestrator Implementation
-import abc
-import json 
-import uuid
-from enum import StrEnum, auto
-from pathlib import Path
-from typing import Annotated, Dict, List, Tuple, Optional, Union, Type
+from typing import Annotated, List, Tuple, Optional, Union
 
 import litellm
 from litellm import (
@@ -14,14 +8,12 @@ from litellm import (
     ChatCompletionUserMessage,
 )
 from pydantic import (
-    BaseModel, 
-    Discriminator, 
+    BaseModel,
+    Discriminator,
     Field, Tag
 )
 
-from ai_ops.config import AI_OPS_BASE_DIR
 from ai_ops.core.log import get_logger, log_event, logging
-from ai_ops.core.utils import read_jsonl, append_jsonl
 
 _logger = get_logger(__name__)
 
@@ -76,9 +68,7 @@ def get_token_count(
 
     return count
 
-
 class Message(BaseModel):
-    # https://pydantic.dev/docs/validation/latest/concepts/unions/#discriminated-unions-with-callable-discriminator
     message: Annotated[
         Union[
             Annotated[ChatCompletionSystemMessage, Tag("system")],
@@ -88,8 +78,18 @@ class Message(BaseModel):
         ],
         Discriminator(lambda v: v.get("role") if isinstance(v, dict) else None)
     ]
+    """`ChatCompletionX` is just a `TypedDict` of OpenAI schemas."""
+    # https://pydantic.dev/docs/validation/latest/concepts/unions/#discriminated-unions-with-callable-discriminator
+
+    agent_id: str
+    """Identifier of the agent that authored this message (see `AgentConfig.agent_id`)."""
+
     token_count: Optional[int] = None
-    internal: bool = False
+    """Required for context compaction."""
+
+    model_id: Optional[str] = None
+    """Useful for analysis. System and user messages won't have this field."""
+
 
 
 # --- message utilities
@@ -188,208 +188,3 @@ class Conversation(BaseModel):
     uuid: str
     short_id: int
     messages: List[Message] = Field(default_factory=list)
-
-
-class AbstractConversationStore(abc.ABC):
-    @abc.abstractmethod
-    def create(self) -> Conversation:
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    def from_conversation(self, conversation_id: str, conversation: Conversation):
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    def get_by_uuid(self, conversation_id: str) -> Conversation:
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    def get_by_short_id(self, short_id: int) -> Conversation:
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    def append(self, conversation_id: str, message: Message) -> None:
-        raise NotImplementedError()
-
-
-class InMemoryConversationStore(AbstractConversationStore):
-    def __init__(self):
-        self.__storage: Dict[str, Conversation] = {}
-        self.__short_id_idx: Dict[int, str] = {}
-        self.__last_short_id = 0
-
-    def create(self) -> Conversation:
-        conversation_id = str(uuid.uuid4())
-        short_id = self.__last_short_id + 1
-
-        self.__storage[conversation_id] = Conversation(uuid=conversation_id, short_id=short_id)
-        self.__short_id_idx[short_id] = conversation_id
-        self.__last_short_id = short_id
-
-        return self.__storage[conversation_id]
-
-    def from_conversation(self, conversation_id: str, conversation: Conversation):
-        self.__storage[conversation_id] = conversation
-        self.__short_id_idx[conversation.short_id] = conversation_id
-
-    def get_by_uuid(self, conversation_id: str) -> Conversation:
-        conversation = self.__storage.get(conversation_id, None)
-        if conversation is None:
-            raise ValueError(f"No conversation for conversation_id={conversation_id}")
-        return conversation
-
-    def get_by_short_id(self, short_id: int) -> Conversation:
-        conversation_id = self.__short_id_idx.get(short_id)
-        if conversation_id is None:
-            raise ValueError(f"No conversation for short_id={short_id}")
-            
-        return self.__storage[conversation_id]
-
-    def append(self, conversation_id: str, message: Message) -> None:
-        conversation = self.__storage.get(conversation_id, None)
-        if conversation is None:
-            raise ValueError(f"No conversation for conversation_id={conversation_id}")
-        conversation.messages.append(message)
-        
-
-class JSONLConversationStore(AbstractConversationStore):
-    MESSAGES_FILE = "messages.jsonl"
-
-    def __init__(self):
-        # note: paths need to be mocked in tests
-        self.base_dir = AI_OPS_BASE_DIR / "conversations"
-        self.index_path = AI_OPS_BASE_DIR / "index.json" 
-
-        if not self.index_path.exists():
-            self.__index: Dict[int, str] = {} # short_id -> uuid
-            self.index_path.touch()
-            with open(str(self.index_path), 'w') as fp:
-                json.dump(self.__index, fp)
-
-            self.__last_short_id = 0
-        else:
-            with open(str(self.index_path), 'r') as fp:
-                raw_index = json.load(fp)
-            self.__index = {int(k): v for k, v in raw_index.items()}
-
-            short_ids = sorted(self.__index)
-            self.__last_short_id = short_ids[-1] if len(short_ids) else 0
-
-        self.__conversations = {}
-
-    def __load_conversation(self, conversation_id: str) -> Conversation:
-        messages_path = self.base_dir / conversation_id / self.MESSAGES_FILE
-        if not messages_path.exists():
-            raise RuntimeError(f"Conversation not found: {conversation_id}")
-        
-        # here we assume there's always a short id btw
-        short_id = 0
-        for sid, cid in self.__index.items():
-            if cid == conversation_id:
-                short_id = sid
-                break
-
-        conversation = Conversation(uuid=conversation_id, short_id=short_id)
-        for raw_message in read_jsonl(messages_path):
-            # read_jsonl already parses each line into a dict, so validate the
-            # object rather than a JSON string.
-            message = Message.model_validate(raw_message)
-            conversation.messages.append(message)
-        
-        return conversation
-
-    def __update_index(self, short_id: int, conversation_id: str):
-        with open(str(self.index_path), 'r') as fp:
-            index = json.load(fp)
-        
-        index[short_id] = conversation_id
-
-        with open(str(self.index_path), 'w') as fp:
-            json.dump(index, fp)
-
-        self.__index[short_id] = conversation_id
-
-    def create(self) -> Conversation:
-        conversation_id = str(uuid.uuid4())
-        short_id = self.__last_short_id + 1
-        # collision realistically never happen within this scope so assume it never raises
-        (self.base_dir / conversation_id).mkdir()
-
-        conversation = Conversation(uuid=conversation_id, short_id=short_id)
-        self.__conversations[conversation_id] = conversation
-        self.__last_short_id = short_id
-        self.__update_index(short_id=short_id, conversation_id=conversation_id)
-        
-        return conversation
-    
-    def from_conversation(self, conversation_id: str, conversation: Conversation):
-        raise NotImplementedError()
-
-    def get_by_uuid(self, conversation_id: str) -> Conversation:
-        if conversation_id in self.__conversations:
-            return self.__conversations[conversation_id]
-        
-        try:
-            conversation = self.__load_conversation(conversation_id=conversation_id)
-            self.__conversations[conversation_id] = conversation
-            return conversation
-        except RuntimeError:
-            raise ValueError(f"No conversation for conversation_id={conversation_id}")
-    
-    def get_by_short_id(self, short_id: int) -> Conversation:
-        conversation_id = self.__index.get(short_id)
-        if conversation_id is None:
-            raise ValueError(f"No conversation for short_id={short_id}")
-
-        return self.get_by_uuid(conversation_id=conversation_id)
-    
-    def append(self, conversation_id: str, message: Message) -> None:
-        # resolving the conversation first keeps the in-memory cache in sync with
-        # what's persisted and mirrors InMemoryConversationStore by raising when the
-        # conversation is unknown.
-        conversation = self.get_by_uuid(conversation_id=conversation_id)
-
-        messages_path = self.base_dir / conversation_id / self.MESSAGES_FILE
-        raw_message = message.model_dump_json()
-        append_jsonl(file=messages_path, raw=raw_message)
-
-        conversation.messages.append(message)
-
-
-class ConversationStore:
-    def __init__(self, store_cls: Type[AbstractConversationStore]):
-        self.__store = store_cls()
-
-    def create(self) -> Conversation:
-        return self.__store.create()
-
-    def from_conversation(self, conversation_id: str, conversation: Conversation):
-        self.__store.from_conversation(conversation_id=conversation_id, conversation=conversation)
-
-    def get_by_uuid(self, conversation_id: str) -> Conversation:
-        return self.__store.get_by_uuid(conversation_id=conversation_id)
-
-    def get_by_short_id(self, short_id: int) -> Conversation:
-        return self.__store.get_by_short_id(short_id=short_id)
-
-    def append(self, conversation_id: str, message: Message) -> None:
-        self.__store.append(conversation_id=conversation_id, message=message)
-
-
-class StorageStrategy(StrEnum):
-    IN_MEMORY = auto()
-    JSONL = auto()
-
-
-_CONVERSATION_STORE_IMPL = {
-    StorageStrategy.IN_MEMORY: InMemoryConversationStore,
-    StorageStrategy.JSONL: JSONLConversationStore
-}
-_CONVERSATION_STORE: ConversationStore | None = None
-
-
-def get_conversation_store(strategy: StorageStrategy = StorageStrategy.IN_MEMORY) -> ConversationStore:
-    global _CONVERSATION_STORE
-    if _CONVERSATION_STORE is None:
-        _CONVERSATION_STORE = ConversationStore(store_cls=_CONVERSATION_STORE_IMPL[strategy])
-    return _CONVERSATION_STORE

@@ -46,7 +46,7 @@ def build_environment() -> Path:
     # ai_ops/
     #   user_skills/
     #   workspace/
-    #   conversations/
+    #   sessions/
     #   ai_ops.log
     # ```
     # For the choice of the base path I went for XDG_DATA_HOME because other options require 
@@ -59,7 +59,7 @@ def build_environment() -> Path:
     
     (base / "user_skills").mkdir(exist_ok=True)
     (base / "workspace").mkdir(exist_ok=True)
-    (base / "conversations").mkdir(exist_ok=True)
+    (base / "sessions").mkdir(exist_ok=True)
 
     return base
 

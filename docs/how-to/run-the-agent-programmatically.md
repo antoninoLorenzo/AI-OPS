@@ -4,7 +4,7 @@ You can execute the AI-OPS Agent programmatically. The Agent is driven by the `A
 
 There are both sync and async paths, for general use stick to the asynchronous version (that's what the api uses). For other use cases (ex. benchmarks, prompt optimization) you may want to use the [Synchronous Execution Model](#synchronous-execution-model).
 
-The `AgentRunner` needs a pre-existing conversation and an already configured `InferenceClient`. 
+The `AgentRunner` needs a pre-existing session and an already configured `InferenceClient`. 
 
 **Create an `InferenceClient`**
 ```python
@@ -19,12 +19,12 @@ agent_model = ModelConfig(
 llm_client = build_inference_client(config=agent_model)
 ```
 
-**Create a conversation**
+**Create a session**
 ```python
-from ai_ops.core.conversation import get_conversation_store
+from ai_ops.core.storage import get_session_store
 
-conversation_store = get_conversation_store()
-conversation = conversation_store.create()
+session_store = get_session_store()
+session = session_store.create_session()
 ```
 
 **Configure the `AgentRunner`**
@@ -35,7 +35,7 @@ from ai_ops.core.tools.terminal import AllowListPolicy
 from ai_ops.core.context_management import LayeredContextView
 
 agent = AgentRunner(
-    conversation_id=conversation.uuid,
+    session_id=session.uuid,
     client=llm_client,
     config=AgentConfig(
         tools=DEFAULT_TOOLS,
@@ -112,6 +112,6 @@ agent.stop()                                               # non-preemptive stop
 
 A synchronous `AgentRunner.run` also exists, however:
 - It never evaluates command policy or confirmation (`requires_confirmation` is never true).
-- It doesn't write to the event store, only messages are persisted, not the structured event stream. If you need `events.jsonl` for a conversation, drive it through `arun()`.
+- It doesn't append events to the session, only messages are persisted, not the structured event stream. If you need `events.jsonl` for a session, drive it through `arun()`.
 - `send()` will never successfully queue a message against a sync run. `stop()` still works, since it flips a flag shared by both paths.
 > Note: I may want to change some of this behaviour (specifically event persistence and send) but it's not currently a priority.

@@ -49,7 +49,7 @@ AgentConfig(tools=[MyTool, ...])
 ```python
 @dataclass
 class ToolContext:
-    conversation_id: str
+    session_id: str
     model_id: str | None = None
     is_new_conversation: bool = True
     working_directory: str | None = None
@@ -75,8 +75,8 @@ class MyTool(Tool[MyInput, MyOutput]):
     name = "my_tool"
     description = "Multiplies the given integer by a configured factor."
 
-    def __init__(self, conversation_id: str, multiplier: int):
-        self.conversation_id = conversation_id
+    def __init__(self, session_id: str, multiplier: int):
+        self.session_id = session_id
         self.multiplier = multiplier
 
     # execution logic
@@ -91,7 +91,7 @@ class MyTool(Tool[MyInput, MyOutput]):
 
 register_tool(
     MyTool, MyInput, MyOutput,
-    lambda ctx: MyTool(conversation_id=ctx.conversation_id, multiplier=ctx.extra["multiplier"]),
+    lambda ctx: MyTool(session_id=ctx.session_id, multiplier=ctx.extra["multiplier"]),
 )
 
 AgentConfig(tools=[MyTool, ...])

@@ -1,4 +1,5 @@
 import sys
+import secrets
 from typing import Annotated
 
 from fastapi import Depends, Request, HTTPException, status
@@ -12,8 +13,11 @@ api_key_header = APIKeyHeader(name=API_KEY_NAME)
 handle_api_key = None
 
 async def _handle_api_key(req: Request, api_key: Annotated[APIKeyHeader, Depends(api_key_header)]):
-    api_settings = get_settings()
-    if api_key != api_settings.auth_token.get_secret_value():
+    if api_key is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+
+    expected = get_settings().auth_token.get_secret_value()
+    if not secrets.compare_digest(api_key.encode(), expected.encode()):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
 
 

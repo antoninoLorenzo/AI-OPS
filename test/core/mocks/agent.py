@@ -14,13 +14,14 @@ from ai_ops.core.schema import (
 )
 from ai_ops.core.llm import InferenceClient
 from ai_ops.core.tools import Tool
-from ai_ops.core.conversation import Conversation, Message
+from ai_ops.core.conversation import Message
+from ai_ops.core.storage import Session
 from ai_ops.core.context_management import ContextView
 
 
 def mock_orchestrator(
     client: InferenceClient,
-    conversation: Conversation,
+    session: Session,
     tools: Dict[str, Tool],
     context_fn: ContextView,
     mode: AgentMode = AgentMode.SUPERVISED,
@@ -37,7 +38,7 @@ def mock_orchestrator(
 
 async def mock_aorchestrator(
     client: InferenceClient,
-    conversation: Conversation,
+    session: Session,
     tools: Dict[str, Tool],
     context_fn: ContextView,
     mode: AgentMode = AgentMode.SUPERVISED,

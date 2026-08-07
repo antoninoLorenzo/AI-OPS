@@ -1,17 +1,3 @@
-"""
-Challenging test-suite for `ai_ops.api`.
-
-Layout:
-* auth layer          -> `setup_auth` strategy binding, `_handle_api_key`, and an
-                         end-to-end 401/200 check through the app dependency.
-* app state / lifespan -> the `lifespan` populates `app.state`.
-* routes               -> conversation lifecycle, streaming, stop/delete,
-                         confirmation and usage, including the error branches.
-
-Route tests drive the app through httpx `AsyncClient` + `ASGITransport` and mock
-the inference / orchestration layer (`test.core.mocks`) so nothing hits a real
-model. `pytest-asyncio` runs in auto mode, so async tests need no marker.
-"""
 import functools
 
 import pytest
@@ -23,10 +9,11 @@ from litellm import ChatCompletionAssistantMessage
 import ai_ops.core.runner
 import ai_ops.api.auth as auth_mod
 import ai_ops.api.api as api_mod
-from ai_ops.api.api import get_event_store
+from ai_ops.api.api import get_store
 from ai_ops.api.config import APISettings
 from ai_ops.api.auth import _handle_api_key, _handle_no_op, setup_auth, API_KEY_NAME
-from ai_ops.core.conversation import StorageStrategy, Message
+from ai_ops.core.conversation import Message
+from ai_ops.core.storage import StorageStrategy
 from ai_ops.core.runner import AgentRunner, AgentConfig
 from ai_ops.core.schema import AnyEvent, EventType, StopEvent, TextEvent
 from ai_ops.core.agent import AgentMode
@@ -143,10 +130,8 @@ async def test_lifespan_populates_state(monkeypatch):
 
     monkeypatch.setattr(api_mod, "build_inference_client", lambda config: mock_inference_client)
     monkeypatch.setattr(api_mod, "build_agent_config", lambda: sentinel_config)
-    monkeypatch.setattr(api_mod, "_core_get_conversation_store",
-                        lambda strategy=None: recorded.setdefault("conversation_strategy", strategy))
-    monkeypatch.setattr(api_mod, "_core_get_event_store",
-                        lambda strategy=None: recorded.setdefault("event_strategy", strategy))
+    monkeypatch.setattr(api_mod, "_core_get_session_store",
+                        lambda strategy=None: recorded.setdefault("session_strategy", strategy))
 
     # a throwaway app object so we don't clobber the imported one's state.
     from fastapi import FastAPI
@@ -157,10 +142,9 @@ async def test_lifespan_populates_state(monkeypatch):
         assert dummy.state.agent_config is sentinel_config
         assert isinstance(dummy.state.runner_map, dict)
 
-    # both stores initialised once with the configured strategy (default JSONL).
+    # the store is initialised once with the configured strategy (default JSONL).
     strategy = api_mod.get_settings().storage_strategy
-    assert recorded["conversation_strategy"] == strategy
-    assert recorded["event_strategy"] == strategy
+    assert recorded["session_strategy"] == strategy
 
 
 # =============================================================================
@@ -203,7 +187,7 @@ async def test_load_conversation_returns_persisted_events(
     short_id = await _create_conversation(client)
 
     events = [
-        Message(message=ChatCompletionAssistantMessage(role="assistant", content="hello")),
+        Message(agent_id="react", message=ChatCompletionAssistantMessage(role="assistant", content="hello")),
         StopEvent(issuer="agent", reason="done"),
     ]
     monkeypatch.setattr(
@@ -232,11 +216,14 @@ async def test_load_conversation_malformed_events_returns_500(client, runner_map
     # which the route maps to 500. The client fixture clears the override on teardown.
     short_id = await _create_conversation(client)
 
-    class _RaisingEventStore:
-        def get_by_conversation_uuid(self, conversation_id):
+    class _RaisingStore:
+        def get_session_uuid(self, short_id):
+            return "some-uuid"
+
+        def get_events_by_uuid(self, session_id):
             raise RuntimeError("malformed event list")
 
-    api_mod.app.dependency_overrides[get_event_store] = lambda: _RaisingEventStore()
+    api_mod.app.dependency_overrides[get_store] = lambda: _RaisingStore()
 
     resp = await client.get(f"/conversation/{short_id}")
     assert resp.status_code == 500, resp.text
@@ -267,7 +254,7 @@ async def test_start_agent_streams_events(client, runner_map, monkeypatch, regis
     short_id = await _create_conversation(client)
 
     events = [
-        Message(message=ChatCompletionAssistantMessage(role="assistant", content="hello")),
+        Message(agent_id="react", message=ChatCompletionAssistantMessage(role="assistant", content="hello")),
         StopEvent(issuer="agent", reason="done"),
     ]
     monkeypatch.setattr(
@@ -305,9 +292,9 @@ async def test_start_agent_already_running_returns_400(client, runner_map):
 async def test_start_agent_invalid_conversation_returns_500(client, fresh_store, runner_map, agent_config):
     # a conversation with no system message: after `arun` appends the user turn
     # the list is [user] only, which fails `is_valid_message_list` -> ValueError.
-    conv = fresh_store.create()
+    conv = fresh_store.create_session()
     runner = AgentRunner(
-        conversation_id=conv.uuid,
+        session_id=conv.uuid,
         client=mock_inference_client,
         config=agent_config,
         is_new_conversation=False,
@@ -435,7 +422,7 @@ async def test_usage_reports_tokens(client, fresh_store):
     assert resp.status_code == 200, resp.text
 
     body = resp.json()
-    conv = fresh_store.get_by_short_id(short_id)
+    conv = fresh_store.get_session_by_uuid(fresh_store.get_session_uuid(short_id))
     expected = sum(m.token_count for m in conv.messages if m.token_count is not None)
     assert body["total_tokens"] == expected
     assert body["max_context_length"] == mock_inference_client.metadata.max_context_length

@@ -121,7 +121,7 @@ error code.
 
 ## Notes on persistence
 
-By default (`AI_OPS_STORAGE_STRATEGY=jsonl`) conversations are persisted under
-`~/.local/share/ai_ops/conversations/`, so they survive a restart —
-`GET /conversation/{short_id}` rebuilds a live agent for a stored conversation on
+By default (`AI_OPS_STORAGE_STRATEGY=jsonl`) sessions are persisted under
+`~/.local/share/ai_ops/sessions/`, so they survive a restart —
+`GET /conversation/{short_id}` rebuilds a live agent for a stored session on
 demand. Set `AI_OPS_STORAGE_STRATEGY=in_memory` to keep everything ephemeral.

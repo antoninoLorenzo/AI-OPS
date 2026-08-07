@@ -1,6 +1,7 @@
 # Agent Orchestrator Implementation
 import os
 import json
+import asyncio
 from typing import AsyncIterator, Dict, Iterator, Optional, List, cast
 
 import litellm
@@ -15,11 +16,11 @@ from pydantic import BaseModel
 
 from ai_ops.core.context_management import ContextView
 from ai_ops.core.conversation import (
-    Conversation, 
-    Message, 
-    is_valid_message_list, 
+    Message,
+    is_valid_message_list,
     find_last_user_message_index
 )
+from ai_ops.core.storage import Session
 from ai_ops.core.llm import InferenceClient, aquery, query
 from ai_ops.core.schema import (
     AgentMode,
@@ -35,7 +36,7 @@ from ai_ops.core.tools import Tool, WhiteboardWrite, StopTool, validate_tool_cal
 from ai_ops.core.conversation import get_token_count
 from ai_ops.core.tracing import agent_trace
 from ai_ops.core.log import get_logger, log_event, logging
-from ai_ops.config import TEMPERATURE_ENV, DEFAULT_TEMPERATURE
+from ai_ops.config import TEMPERATURE_ENV, DEFAULT_TEMPERATURE, BASE_AGENT_ID
 
 _logger = get_logger(__name__)
 
@@ -46,6 +47,26 @@ except ValueError:
     _AGENT_TEMPERATURE = DEFAULT_TEMPERATURE
 
 
+def build_context(
+    messages: List[Message],
+    context_fn: ContextView,
+    tools: Dict[str, Tool],
+) -> List[Message]:
+    context = context_fn(messages)
+
+    # append the whiteboard index to the last user message in every loop iteration,
+    # note: the index is not part of the "persisted" conversation, also this breaks 
+    # prefix caching.
+    if WhiteboardWrite.name in tools:
+        whiteboard_tool = tools[WhiteboardWrite.name]
+        last_user_idx = find_last_user_message_index(messages=context)
+        context[last_user_idx].message["content"] += "\n" + whiteboard_tool.index
+
+        log_event(_logger, logging.DEBUG, "Appended whiteboard index to message", last_user_idx={last_user_idx})
+
+    return context
+
+
 # The orchestrator implements the agent logic, currently that's just ReAct loop.
 # It's intentionally kept stateless so the only concern remains the orchestration 
 # of the agent actions. 
@@ -54,12 +75,13 @@ except ValueError:
 @agent_trace
 def orchestrator(
     client: InferenceClient,
-    conversation: Conversation,
+    session: Session,
     tools: Dict[str, Tool],
     context_fn: ContextView,
     mode: AgentMode = AgentMode.SUPERVISED,
     max_iterations: Optional[int] = None,
-    temperature: float = _AGENT_TEMPERATURE
+    temperature: float = _AGENT_TEMPERATURE,
+    agent_id: str = BASE_AGENT_ID
 ) -> Iterator[Message | Event]:
     agent_tools = [tool.serialize() for tool in tools.values()]
 
@@ -73,21 +95,10 @@ def orchestrator(
     while it < iteration_limit and not stop_called:
         log_event(
             _logger, logging.INFO, "Agent Loop Iteration", 
-            conversation_id=conversation.uuid, iteration=it
+            session_id=session.uuid, iteration=it
         )
 
-        context = context_fn(conversation.messages)
-
-        # append the whiteboard index to the last user message in every loop iteration,
-        # note: the index is not part of the "persisted" conversation, also this breaks 
-        # prefix caching.
-        if WhiteboardWrite.name in tools:
-            whiteboard_tool= tools[WhiteboardWrite.name]
-            last_user_idx = find_last_user_message_index(messages=context)
-
-            log_event(_logger, logging.DEBUG, "Appending whiteboard index to message", last_user_idx={last_user_idx})
-            context[last_user_idx].message["content"] += "\n" + whiteboard_tool.index
-
+        context = build_context(messages=session.messages, context_fn=context_fn, tools=tools)
         try:
             response = query(
                 client=client, 
@@ -103,12 +114,14 @@ def orchestrator(
         chat_completion_message = cast(ChatCompletionAssistantMessage, response_message.model_dump())
 
         yield Message(
-            message=chat_completion_message, 
-            token_count=get_token_count(chat_completion_message)
+            message=chat_completion_message,
+            token_count=get_token_count(chat_completion_message),
+            model_id=client.model,
+            agent_id=agent_id
         )
 
         if not response_message.tool_calls:
-            log_event(_logger, logging.DEBUG, "no tool call in response_message", conversation_id=conversation.uuid)
+            log_event(_logger, logging.DEBUG, "no tool call in response_message", session_id=session.uuid)
             yield StopEvent(issuer="agent")
             break
         
@@ -161,20 +174,21 @@ def orchestrator(
 # Async variant of `orchestrator`. It mirrors the synchronous loop one-to-one,
 # the only difference is that inference is awaited (`aquery`) so the loop doesn't
 # block the event loop while waiting on the model provider.
-# Tool execution stays synchronous on purpose: tools are not async and moving them
-# off-thread is a separate concern from making the agent loop awaitable.
+# Tools are still synchronous, but they're run via `asyncio.to_thread` so a
+# blocking tool doesn't freeze the event loop (see the tool-execution comment).
 # `agent_trace` detects the async-generator function and dispatches to the async
 # tracer, so tracing works the same way it does for `orchestrator`.
 @agent_trace
 async def aorchestrator(
     client: InferenceClient,
-    conversation: Conversation,
+    session: Session,
     tools: Dict[str, Tool],
     context_fn: ContextView,
     mode: AgentMode = AgentMode.SUPERVISED,
     max_iterations: Optional[int] = None,
     temperature: float = _AGENT_TEMPERATURE,
-    confirm: Optional[ConfirmCallback] = None
+    confirm: Optional[ConfirmCallback] = None,
+    agent_id: str = BASE_AGENT_ID
 ) -> AsyncIterator[Message | Event]:
     agent_tools = [tool.serialize() for tool in tools.values()]
 
@@ -188,21 +202,10 @@ async def aorchestrator(
     while it < iteration_limit and not stop_called:
         log_event(
             _logger, logging.INFO, "Agent Loop Iteration",
-            conversation_id=conversation.uuid, iteration=it
+            session_id=session.uuid, iteration=it
         )
 
-        context = context_fn(conversation.messages)
-
-        # append the whiteboard index to the last user message in every loop iteration,
-        # note: the index is not part of the "persisted" conversation, also this breaks
-        # prefix caching.
-        if WhiteboardWrite.name in tools:
-            whiteboard_tool= tools[WhiteboardWrite.name]
-            last_user_idx = find_last_user_message_index(messages=context)
-
-            log_event(_logger, logging.DEBUG, "Appending whiteboard index to message", last_user_idx={last_user_idx})
-            context[last_user_idx].message["content"] += "\n" + whiteboard_tool.index
-
+        context = build_context(messages=session.messages, context_fn=context_fn, tools=tools)
         try:
             response = await aquery(
                 client=client,
@@ -219,11 +222,13 @@ async def aorchestrator(
 
         yield Message(
             message=chat_completion_message,
-            token_count=get_token_count(chat_completion_message)
+            token_count=get_token_count(chat_completion_message),
+            model_id=client.model,
+            agent_id=agent_id
         )
 
         if not response_message.tool_calls:
-            log_event(_logger, logging.DEBUG, "no tool call in response_message", conversation_id=conversation.uuid)
+            log_event(_logger, logging.DEBUG, "no tool call in response_message", session_id=session.uuid)
             yield StopEvent(issuer="agent")
             break
 
@@ -283,8 +288,11 @@ async def aorchestrator(
                     continue
 
             try:
-                # tool execution stays synchronous
-                tool_result = tool(args)
+                # tools are synchronous and may block (ex. Terminal waits on a
+                # subprocess up to MAX_COMMAND_TIMEOUT_S); run off the event loop
+                # so a blocking tool doesn't freeze the whole loop (and with it
+                # every other conversation and the stop/confirm endpoints).
+                tool_result = await asyncio.to_thread(tool, args)
                 yield ToolResultEvent(call_id=tool_call.id, name=tool_name, args=args, result=tool_result)
             except Exception as tool_failure:
                 yield ToolErrorEvent(

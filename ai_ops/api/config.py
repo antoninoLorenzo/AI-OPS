@@ -16,10 +16,10 @@ from ai_ops.config import (
     CONFIRMATION_TIMEOUT_S
 )
 from ai_ops.core.runner import AgentConfig
-from ai_ops.core.conversation import StorageStrategy
+from ai_ops.core.storage import StorageStrategy
 from ai_ops.core.tools import DEFAULT_TOOLS
 from ai_ops.core.context_management import CONTEXT_VIEW_REGISTRY
-from ai_ops.core.tools import ToolMap
+from ai_ops.core.tools import ToolRegistry
 from ai_ops.core.tools.terminal.policy import COMMAND_POLICY_REGISTRY
 
 
@@ -83,11 +83,11 @@ def build_agent_config() -> AgentConfig:
 
     tools = []
     for tool_name in spec.tools:
-        tool_cls = ToolMap.get(tool_name)
-        if tool_cls is None:
+        spec = ToolRegistry.get(tool_name)
+        if spec is None:
             print(f"Invalid tool \"{tool_name}\"")
             sys.exit(1)
-        tools.append(tool_cls)
+        tools.append(spec.tool)
 
     if spec.context_view.kind not in CONTEXT_VIEW_REGISTRY:
         print(f"Invalid context_view \"{spec.context_view.kind}\"")

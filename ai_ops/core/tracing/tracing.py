@@ -7,16 +7,22 @@ from typing import Callable, Dict
 import urllib3
 
 from ai_ops.config import OBSERVABILITY_BACKEND_ENV
-from ai_ops.core._mlflow import amlflow_trace, mlflow_ready, mlflow_trace, setup_mlflow
+from ai_ops.core.tracing._mlflow import amlflow_trace, mlflow_ready, mlflow_trace, setup_mlflow
 from ai_ops.core.log import get_logger, log_event, logging
 
 _configured = False
 _logger = get_logger(__name__)
 
 
-def configure():
-    # TODO: should probably move from there, all it's doing is call setup_mlflow,
-    # that's startup setup stuff.
+def configure_tracing():
+    """Configure the observability backend (currently only mlflow).
+
+    This is startup setup and must be called explicitly by the entrypoint: the
+    API does it in its lifespan; programmatic core users have to call it
+    themselves (before running an agent) for tracing to be active. It is not run
+    at import time so importing `ai_ops.core` has no observability side effects.
+    Idempotent.
+    """
     global _configured
     if _configured:
         return
@@ -62,5 +68,3 @@ def agent_trace(fn: Callable) -> Callable:
         return a_wrapper
     else:
         return wrapper
-
-configure()

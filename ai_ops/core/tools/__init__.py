@@ -24,6 +24,7 @@ from ai_ops.core.tools.whiteboard import (
     WhiteboardResult,
     WhiteboardWriteRequest,
     get_whiteboard_store,
+    replay_whiteboard,
 )
 from ai_ops.core.tools.write_file import (
     WriteFile, 
@@ -45,41 +46,12 @@ from ai_ops.core.log import get_logger
 
 DEFAULT_TOOLS = [LoadSkill, ThinkTool, WhiteboardWrite, WriteFile, Terminal]
 
-_TOOL_INPUT_TYPES = {
-    LoadSkill.name: LoadSkillRequest,
-    ThinkTool.name: ThinkResult,
-    WhiteboardRead.name: WhiteboardReadRequest,
-    WhiteboardWrite.name: WhiteboardWriteRequest,
-    Terminal.name: TerminalRequest,
-    WriteFile.name: WriteFileInput,
-    StopTool.name: StopReason
-}
-
-_TOOL_OUTPUT_TYPES = {
-    LoadSkill.name: LoadSkillResult,
-    ThinkTool.name: ThinkResult,
-    WhiteboardRead.name: WhiteboardResult,
-    WhiteboardWrite.name: WhiteboardResult,
-    Terminal.name: TerminalResult,
-    WriteFile.name: WriteFileOutput,
-    StopTool.name: Noop
-}
-
-ToolMap: Dict[str, Tool] = {
-    LoadSkill.name: LoadSkill,
-    ThinkTool.name: ThinkTool,
-    WhiteboardRead.name: WhiteboardRead,
-    WhiteboardWrite.name: WhiteboardWrite,
-    WriteFile.name: WriteFile,
-    Terminal.name: Terminal
-}
 
 @dataclass
 class ToolContext:
-    conversation_id: str
+    session_id: str
     model_id: str | None = None
     is_new_conversation: bool = True
-    working_directory: str | None = None
     command_policies: Tuple[CommandAdmissionPolicy] = field(default_factory=list)
     # fucking benchmarks
     extra: Optional[Dict[str, Any]] = None
@@ -87,50 +59,66 @@ class ToolContext:
 
 ToolFactory: TypeAlias = Callable[[ToolContext | None], Tool]
 
-ToolRegistry: Dict[str, ToolFactory] = {
-    LoadSkill.name: lambda ctx: LoadSkill(model=ctx.model_id),
-    ThinkTool.name: lambda _: ThinkTool(),
-    WhiteboardRead.name: lambda ctx: WhiteboardRead(
-        whiteboard_id=ctx.conversation_id,
+
+@dataclass(frozen=True)
+class ToolSpec:
+    """Single registry entry for a tool: the class and how to build it.
+
+    The input/output models are derived from the concrete `Tool[In, Out]` base
+    (see `Tool.get_input_schema`/`get_output_schema`) so they can't drift from
+    the class definition.
+    """
+    tool: Type[Tool]
+    factory: ToolFactory
+
+    @property
+    def input_type(self) -> Type[BaseModel]:
+        return self.tool.get_input_schema()
+
+    @property
+    def output_type(self) -> Type[BaseModel]:
+        return self.tool.get_output_schema()
+
+
+ToolRegistry: Dict[str, ToolSpec] = {
+    LoadSkill.name: ToolSpec(LoadSkill, lambda ctx: LoadSkill(model=ctx.model_id)),
+    ThinkTool.name: ToolSpec(ThinkTool, lambda _: ThinkTool()),
+    WhiteboardRead.name: ToolSpec(WhiteboardRead, lambda ctx: WhiteboardRead(
+        whiteboard_id=ctx.session_id,
         new_whiteboard=ctx.is_new_conversation,
         model=ctx.model_id
-    ),
-    WhiteboardWrite.name: lambda ctx: WhiteboardWrite(
-        whiteboard_id=ctx.conversation_id,
+    )),
+    WhiteboardWrite.name: ToolSpec(WhiteboardWrite, lambda ctx: WhiteboardWrite(
+        whiteboard_id=ctx.session_id,
         new_whiteboard=ctx.is_new_conversation,
         model=ctx.model_id
-    ),
-    WriteFile.name: lambda ctx: WriteFile(
-        working_directory=Path(AI_OPS_BASE_DIR / "workspace" / ctx.conversation_id)
-    ),
-    Terminal.name: lambda ctx: Terminal(
-        conversation_id=ctx.conversation_id,
-        working_directory=Path(AI_OPS_BASE_DIR / "workspace" / ctx.conversation_id),
+    )),
+    WriteFile.name: ToolSpec(WriteFile, lambda ctx: WriteFile(
+        working_directory=Path(AI_OPS_BASE_DIR / "workspace" / ctx.session_id)
+    )),
+    Terminal.name: ToolSpec(Terminal, lambda ctx: Terminal(
+        session_id=ctx.session_id,
+        working_directory=Path(AI_OPS_BASE_DIR / "workspace" / ctx.session_id),
         policies=ctx.command_policies
-    )
+    )),
+    # StopTool is an orchestration primitive (never auto-constructed via
+    # config.tools) but is registered so its schemas resolve like any other.
+    StopTool.name: ToolSpec(StopTool, lambda _: StopTool()),
 }
 
 
-def register_tool(
-    tool: Type[Tool], 
-    args_model: Type[BaseModel], 
-    result_model: Type[BaseModel], 
-    factory: ToolFactory
-):
+def register_tool(tool: Type[Tool], factory: ToolFactory):
     global ToolRegistry
-    global _TOOL_INPUT_TYPES
-    global _TOOL_OUTPUT_TYPES
 
     get_logger(__name__).info(f"registering tool={tool.name}")
-    ToolRegistry[tool.name] = factory
-    ToolMap[tool.name] = Tool
-    _TOOL_INPUT_TYPES[tool.name] = args_model
-    _TOOL_OUTPUT_TYPES[tool.name] = result_model
+    ToolRegistry[tool.name] = ToolSpec(tool=tool, factory=factory)
 
 
 def resolve_args_type(tool_name: str) -> Type[BaseModel] | None:
-    return _TOOL_INPUT_TYPES.get(tool_name)
+    spec = ToolRegistry.get(tool_name)
+    return spec.input_type if spec is not None else None
 
 
 def resolve_result_type(tool_name: str) -> Type[BaseModel] | None:
-    return _TOOL_OUTPUT_TYPES.get(tool_name)
+    spec = ToolRegistry.get(tool_name)
+    return spec.output_type if spec is not None else None

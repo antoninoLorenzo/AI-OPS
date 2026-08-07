@@ -101,7 +101,7 @@ def test_load_prompt_from_disk(test_case, monkeypatch, mock_base_path):
 @pytest.fixture
 def setup_mlflow_test_dependencies(mock_base_path):
     import mlflow
-    from ai_ops.core._mlflow import setup_mlflow, mlflow_ready
+    from ai_ops.core.tracing._mlflow import setup_mlflow, mlflow_ready
 
     try:
         setup_mlflow()

@@ -24,7 +24,7 @@ _TERMINAL_EVALUATE_TESTS = [
     # any policy denies -> blocked
     {
         "init": {
-            "conversation_id": "1234",
+            "session_id": "1234",
             "policies": (
                 MockAdmissionPolicy(allowed=True),
                 MockAdmissionPolicy(allowed=False)
@@ -36,7 +36,7 @@ _TERMINAL_EVALUATE_TESTS = [
     # all policies allow -> not blocked
     {
         "init": {
-            "conversation_id": "1234",
+            "session_id": "1234",
             "policies": (
                 MockAdmissionPolicy(allowed=True),
                 MockAdmissionPolicy(allowed=True)
@@ -48,7 +48,7 @@ _TERMINAL_EVALUATE_TESTS = [
     # no policies -> not blocked
     {
         "init": {
-            "conversation_id": "1234",
+            "session_id": "1234",
             "policies": (),
         },
         "call": TerminalRequest(command="ls -la", session_id="bash-1234"),
@@ -70,7 +70,7 @@ def test_terminal_requires_confirmation():
 def test_terminal_not_admitted_result(tmp_path):
     terminal_tool = Terminal(
         working_directory=tmp_path,
-        conversation_id="1234",
+        session_id="1234",
         policies=(MockAdmissionPolicy(allowed=False),)
     )
     call = TerminalRequest(command="nc -lnvp 4444", session_id="bash-1234")
@@ -87,7 +87,7 @@ def test_terminal_not_admitted_result(tmp_path):
 _TERMINAL_CALL_TESTS = [
     # explicit session_id -> command executes in that session
     {
-        "init": { "conversation_id": "1234", "policies": () },
+        "init": { "session_id": "1234", "policies": () },
         "command": "ls -la",
         "call": TerminalRequest(command="ls -la", session_id="bash-1234"),
         "expected": TerminalResult(
@@ -100,7 +100,7 @@ _TERMINAL_CALL_TESTS = [
     },
     # session_id None -> command executes in a new session
     {
-        "init": { "conversation_id": "1234", "policies": () },
+        "init": { "session_id": "1234", "policies": () },
         "command": "ls -la",
         "call": TerminalRequest(command="ls -la"),
         # technically we should check whether it has a uuid session id
@@ -110,7 +110,7 @@ _TERMINAL_CALL_TESTS = [
     # job) -> the command still executes
     {
         "init": {
-            "conversation_id": "1234",
+            "session_id": "1234",
             "policies": (MockAdmissionPolicy(allowed=False),)
         },
         "command": "nc -lnvp 4444",

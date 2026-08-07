@@ -17,18 +17,20 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 
 from ai_ops.core.schema import Event, ToolCallEvent, ToolResultEvent
-from ai_ops.core.conversation import Conversation, Message
-from ai_ops.core.tracing import agent_trace, mlflow_ready
-from ai_ops.core._mlflow import MLFLOW_AGENT_TRACE_NAME
+from ai_ops.core.conversation import Message
+from ai_ops.core.storage import Session
+from ai_ops.core.tracing import agent_trace, configure_tracing
+from ai_ops.core.tracing._mlflow import mlflow_ready, MLFLOW_AGENT_TRACE_NAME
 
 load_dotenv()
+configure_tracing()
 
 # TODO: should delete the traces, however it seems like there's no way to do that from SDK
 
 # conversation doesn't need to be passed, however that way we can specify a 
 # session name to distinguish it from normal traces.
 @agent_trace
-def mock_agent_loop(conversation: Conversation, events: List[Event]):
+def mock_agent_loop(session: Session, events: List[Event]):
     for event in events:
         yield event
 
@@ -37,10 +39,10 @@ class MockModel(BaseModel):
     
 _TOOL_TRACING_TESTS = [
     {
-        "conversation": Conversation(
+        "session": Session(
             uuid=f"test_{str(uuid.uuid4())}",
             short_id=1,
-            messages=[Message(message={"role": "user", "content": "asd"})]
+            messages=[Message(agent_id="react", message={"role": "user", "content": "asd"})]
         ),
         "events": [
             ToolCallEvent(call_id="123", name="mock_tool", args=MockModel()),
@@ -53,9 +55,9 @@ _TOOL_TRACING_TESTS = [
 @pytest.mark.skipif(not mlflow_ready(), reason="MLFlow disabled, skipping test.")
 @pytest.mark.parametrize("test_case", _TOOL_TRACING_TESTS)
 def test_tool_call_tracing(test_case):
-    conv = test_case["conversation"]
+    conv = test_case["session"]
     events = test_case["events"]
-    for _ in mock_agent_loop(conversation=conv, events=events):
+    for _ in mock_agent_loop(session=conv, events=events):
         pass
 
     trace_id = mlflow.get_last_active_trace_id()
@@ -83,7 +85,7 @@ def test_tool_call_tracing(test_case):
 
 
 @agent_trace
-async def mock_async_agent_loop(conversation: Conversation, events: List[Event]):
+async def mock_async_agent_loop(session: Session, events: List[Event]):
     for event in events:
         yield event
 
@@ -91,9 +93,9 @@ async def mock_async_agent_loop(conversation: Conversation, events: List[Event])
 @pytest.mark.skipif(not mlflow_ready(), reason="MLFlow disabled, skipping test.")
 @pytest.mark.parametrize("test_case", _TOOL_TRACING_TESTS)
 async def test_async_tool_call_tracing(test_case):
-    conv = test_case["conversation"]
+    conv = test_case["session"]
     events = test_case["events"]
-    async for _ in mock_async_agent_loop(conversation=conv, events=events):
+    async for _ in mock_async_agent_loop(session=conv, events=events):
         pass
 
     trace_id = mlflow.get_last_active_trace_id()
@@ -122,14 +124,14 @@ async def test_async_tool_call_tracing(test_case):
 
 
 @agent_trace
-def llm_agent_loop(conversation: Conversation):
+def llm_agent_loop(session: Session):
     model = os.environ["AI_OPS_TESTING_MODEL"]
     api_base = os.environ.get("LLM_API_BASE")
     api_key = os.environ.get("LLM_API_KEY")
     
     response = litellm.completion(
         model=model,
-        messages=conversation.messages,
+        messages=session.messages,
         max_tokens=10,
         base_url=api_base,
         api_key=api_key
@@ -137,7 +139,7 @@ def llm_agent_loop(conversation: Conversation):
     response_message = response.choices[0].message
     print(f'\nllm_agent_loop DEBUG: {response_message}') # use -s
 
-    yield Message(
+    yield Message(agent_id="react", 
         message=cast(litellm.ChatCompletionAssistantMessage, response_message.model_dump()),
         token_count=litellm.token_counter(text=response_message.content or "")
     )
@@ -145,21 +147,21 @@ def llm_agent_loop(conversation: Conversation):
 
 _LLM_TRACING_TESTS = [
     {
-        "conversation": Conversation(
+        "session": Session(
             uuid=f"test_{str(uuid.uuid4())}",
             short_id=1,
-            messages=[Message(message={"role": "user", "content": "say hi"})]
+            messages=[Message(agent_id="react", message={"role": "user", "content": "say hi"})]
         ),
     }
 ]
 
 @pytest.mark.skipif(
-    os.environ.get("AI_OPS_TESTING_MODEL", None) is None, 
+    not mlflow_ready() or os.environ.get("AI_OPS_TESTING_MODEL", None) is None, 
     reason="Missing test model. Set AI_OPS_TESTING_MODEL env var."
 )
 @pytest.mark.parametrize("test_case", _LLM_TRACING_TESTS)
 def test_llm_call_tracing(test_case):
-    conv = test_case["conversation"]
+    conv = test_case["session"]
     
     try:
         for _ in llm_agent_loop(conv):
@@ -181,14 +183,14 @@ def test_llm_call_tracing(test_case):
 
 
 @agent_trace
-async def llm_async_agent_loop(conversation: Conversation):
+async def llm_async_agent_loop(session: Session):
     model = os.environ["AI_OPS_TESTING_MODEL"]
     api_base = os.environ.get("LLM_API_BASE")
     api_key = os.environ.get("LLM_API_KEY")
 
     response = await litellm.acompletion(
         model=model,
-        messages=conversation.messages,
+        messages=session.messages,
         max_tokens=10,
         base_url=api_base,
         api_key=api_key
@@ -196,14 +198,14 @@ async def llm_async_agent_loop(conversation: Conversation):
     response_message = response.choices[0].message
     print(f'\nllm_async_agent_loop DEBUG: {response_message}') # use -s
 
-    yield Message(
+    yield Message(agent_id="react", 
         message=cast(litellm.ChatCompletionAssistantMessage, response_message.model_dump()),
         token_count=litellm.token_counter(text=response_message.content or "")
     )
 
 
 @pytest.mark.skipif(
-    os.environ.get("AI_OPS_TESTING_MODEL", None) is None,
+    not mlflow_ready() or os.environ.get("AI_OPS_TESTING_MODEL", None) is None,
     reason="Missing test model. Set AI_OPS_TESTING_MODEL env var."
 )
 @pytest.mark.xfail(
@@ -218,7 +220,7 @@ async def llm_async_agent_loop(conversation: Conversation):
 )
 @pytest.mark.parametrize("test_case", _LLM_TRACING_TESTS)
 async def test_async_llm_call_tracing(test_case):
-    conv = test_case["conversation"]
+    conv = test_case["session"]
 
     try:
         async for _ in llm_async_agent_loop(conv):

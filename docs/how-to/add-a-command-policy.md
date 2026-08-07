@@ -12,6 +12,6 @@ from ai_ops.core.tools.terminal.policy import CommandAdmissionPolicy, CommandCon
 class AlwaysAllowPolicy(CommandAdmissionPolicy):    
 
     def __call__(self, ctx: CommandContext) -> PolicyResult:
-        print(f"{ctx.conversation_id}: evaluating command {ctx.command}")
+        print(f"{ctx.session_id}: evaluating command {ctx.command}")
         return PolicyResult(allowed=True)
 ```

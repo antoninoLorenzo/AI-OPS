@@ -1,6 +1,6 @@
 import abc
 from types import get_original_bases
-from typing import Dict, Tuple, Callable, TypeVar, get_args, get_origin
+from typing import Dict, Tuple, Type, TypeVar, get_args, get_origin
 
 from litellm import ChatCompletionMessageToolCall
 from pydantic import BaseModel, ValidationError
@@ -85,13 +85,7 @@ class Tool[ToolInputT, ToolOutputT](abc.ABC):
         )
 
     def serialize(self) -> dict:
-        base = next(
-            b for b in get_original_bases(type(self))
-            if get_origin(b) is Tool
-        )
-        input_type, _ = get_args(base)
-        
-        json_schema = input_type.model_json_schema(schema_generator=GenerateJsonSchemaTool)
+        json_schema = self.get_input_schema().model_json_schema(schema_generator=GenerateJsonSchemaTool)
         json_schema.pop("title") # even with schema generator there's still a title key at top level
         return {
             "type": "function",
@@ -101,15 +95,24 @@ class Tool[ToolInputT, ToolOutputT](abc.ABC):
                 "parameters": json_schema
             }
         }
-        
+
     @classmethod
-    def get_input_schema(cls) -> ToolInputT:
+    def _io_types(cls) -> Tuple[Type[BaseModel], Type[BaseModel]]:
+        """(input_model, output_model) read off the concrete `Tool[In, Out]` base."""
         base = next(
             b for b in get_original_bases(cls)
             if get_origin(b) is Tool
         )
-        input_type, _ = get_args(base)
-        return input_type
+        input_type, output_type = get_args(base)
+        return input_type, output_type
+
+    @classmethod
+    def get_input_schema(cls) -> Type[BaseModel]:
+        return cls._io_types()[0]
+
+    @classmethod
+    def get_output_schema(cls) -> Type[BaseModel]:
+        return cls._io_types()[1]
 
     def __hash__(self):
         return hash(self.name)

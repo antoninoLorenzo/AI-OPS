@@ -5,7 +5,7 @@ from typing import Literal
 
 from ai_ops.config import BASE_AGENT_ID
 from ai_ops.core.log import get_logger, log_event, logging
-from ai_ops.core._mlflow import mlflow_ready
+from ai_ops.core.tracing import mlflow_ready
 
 PROMPT_BASE_PATH = Path(__file__).parent / "local"
 

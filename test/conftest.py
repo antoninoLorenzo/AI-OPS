@@ -1,26 +1,27 @@
 """
 Root fixtures shared by the whole suite.
 
-Both the conversation store and the event store are module-global singletons
-that `AgentRunner` reaches for directly (not through DI). They live for the
-whole pytest process, so without a reset one test can leak a JSONL-backed store
-into the next (e.g. after the API lifespan initialises the store with the JSONL
-strategy). A JSONL `append` then raises because the on-disk conversation dir
-doesn't exist for an in-memory conversation, breaking unrelated tests.
+The session store is a module-global singleton that `AgentRunner` reaches for
+directly (not through DI). It lives for the whole pytest process, so without a
+reset one test can leak a store into the next (e.g. after the API lifespan
+initialises the store with the JSONL strategy). A JSONL `append` then raises
+because the on-disk session dir doesn't exist for an in-memory session,
+breaking unrelated tests.
 
-`_reset_global_stores` runs for every test and drops both singletons so the next
-`get_*_store()` rebuilds a clean in-memory default.
+`get_session_store` defaults to the JSONL strategy (production default), so
+resetting to `None` alone would make the next `get_session_store()` do disk i/o
+against the real base dir. Instead `_reset_global_store` pins an in-memory
+`SessionStore` for every test; tests that need a different strategy build their
+own instance or reset the singleton explicitly.
 """
 import pytest
 
-import ai_ops.core.conversation as conversation_mod
-import ai_ops.core.event_store as event_store_mod
+import ai_ops.core.storage.session as session_mod
+from ai_ops.core.storage import SessionStore, InMemorySessionStore
 
 
 @pytest.fixture(autouse=True)
-def _reset_global_stores():
-    conversation_mod._CONVERSATION_STORE = None
-    event_store_mod._EVENT_STORE = None
+def _reset_global_store():
+    session_mod._SESSION_STORE = SessionStore(store_cls=InMemorySessionStore)
     yield
-    conversation_mod._CONVERSATION_STORE = None
-    event_store_mod._EVENT_STORE = None
+    session_mod._SESSION_STORE = None

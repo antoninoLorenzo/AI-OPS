@@ -1,15 +1,3 @@
-# --- Security Notes (TODO: move to documentation)
-# 
-# The API is bound to 127.0.0.1 by default.
-#
-# The API enforces the `Host` header is correctly set to the expected host (set in the `AI_OPS_HOST` 
-# environment variable).
-# 
-# The API authenticates requests with an api key provided through `X-AI-OPS-ApiKey` header. The token 
-# is given during deployment using `AI_OPS_AUTH_TOKEN` environment variable.
-# API Key Authentication is opt-in *only* if the API is bound to localhost, otherwise it's mandatory. 
-# 
-
 # TODO: logging here should bind to the fastapi logger
 from contextlib import asynccontextmanager
 from typing import Annotated, AsyncIterable, Dict, List
@@ -25,15 +13,16 @@ from ai_ops.api.model import StartAgentRequest
 from ai_ops.core.schema import Event, UserMessageEvent, ToolConfirmationEvent
 from ai_ops.core.runner import AgentRunner, AgentConfig
 from ai_ops.core.agent import AgentMode
-from ai_ops.core.conversation import Conversation, ConversationStore
-from ai_ops.core.conversation import get_conversation_store as _core_get_conversation_store
-from ai_ops.core.event_store import EventStore
-from ai_ops.core.event_store import get_event_store as _core_get_event_store
+from ai_ops.core.storage import Session, SessionStore
+from ai_ops.core.storage import get_session_store as _core_get_session_store
 from ai_ops.core.llm import InferenceClient, ModelMetadata, ModelConfig, build_inference_client
+from ai_ops.core.tracing import configure_tracing
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    configure_tracing()
+
     settings = get_settings()
     agent_config = build_agent_config()
     inference_client = build_inference_client(config=ModelConfig(
@@ -47,10 +36,9 @@ async def lifespan(app: FastAPI):
     app.state.agent_config = agent_config
     app.state.runner_map: Dict[int, AgentRunner] = {}
     
-    # call get_conversation_store once with the intended strategy (pay init cost 
+    # call get_session_store once with the intended strategy (pay init cost
     # at startup since the JSONL strategy init does disk i/o).
-    _ = _core_get_conversation_store(strategy=settings.storage_strategy)
-    _ = _core_get_event_store(strategy=settings.storage_strategy)
+    _ = _core_get_session_store(strategy=settings.storage_strategy)
 
     yield
 
@@ -69,11 +57,8 @@ conversation_router = APIRouter(prefix="/conversation")
 async def get_inference_client(request: Request) -> InferenceClient:
     return request.app.state.inference_client
 
-async def get_conversation_store() -> ConversationStore:
-    return _core_get_conversation_store()
-
-async def get_event_store() -> EventStore:
-    return _core_get_event_store()
+async def get_store() -> SessionStore:
+    return _core_get_session_store()
 
 async def get_runner_map(request: Request) -> Dict[int, AgentRunner]:
     return request.app.state.runner_map
@@ -96,23 +81,23 @@ async def get_model(
 
 @conversation_router.post("") # POST /conversation
 async def create_conversation(
-    conversation_store: Annotated[ConversationStore, Depends(get_conversation_store)],
+    store: Annotated[SessionStore, Depends(get_store)],
     inference_client: Annotated[InferenceClient, Depends(get_inference_client)],
     runner_map: Annotated[Dict[int, AgentRunner], Depends(get_runner_map)],
     agent_config: Annotated[AgentConfig, Depends(get_agent_config)]
-) -> Conversation:
-    """Creates a conversation and initalizes the agent."""
-    conversation = conversation_store.create()
+) -> Session:
+    """Creates a session and initalizes the agent."""
+    session = store.create_session()
 
     runner = AgentRunner(
-        conversation_id=conversation.uuid,
+        session_id=session.uuid,
         client=inference_client,
         config=agent_config
     )
 
-    runner_map[conversation.short_id] = runner
+    runner_map[session.short_id] = runner
 
-    return conversation
+    return session
 
 
 # response_model=None: the return is List[Event] (an ABC, not a pydantic field),
@@ -120,29 +105,28 @@ async def create_conversation(
 @conversation_router.get("/{short_id}", response_model=None)
 async def load_conversation(
     short_id: int,
-    conversation_store: Annotated[ConversationStore, Depends(get_conversation_store)],
-    event_store: Annotated[EventStore, Depends(get_event_store)],
+    store: Annotated[SessionStore, Depends(get_store)],
     inference_client: Annotated[InferenceClient, Depends(get_inference_client)],
     runner_map: Annotated[Dict[int, AgentRunner], Depends(get_runner_map)],
     agent_config: Annotated[AgentConfig, Depends(get_agent_config)]
 ) -> List[Event]:
     try:
-        conversation = conversation_store.get_by_short_id(short_id=short_id)
+        session_id = store.get_session_uuid(short_id=short_id)
     except ValueError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
     runner = runner_map.get(short_id)
     if runner is None:
         runner = AgentRunner(
-            conversation_id=conversation.uuid,
+            session_id=session_id,
             client=inference_client,
             config=agent_config,
             is_new_conversation=False
         )
-        runner_map[conversation.short_id] = runner
+        runner_map[short_id] = runner
 
     try:
-        return event_store.get_by_conversation_uuid(conversation_id=conversation.uuid)
+        return store.get_events_by_uuid(session_id=session_id)
     except RuntimeError:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -249,15 +233,16 @@ async def confirm_tool_call(
 async def get_usage(
     short_id: int,
     inference_client: Annotated[InferenceClient, Depends(get_inference_client)],
-    conversation_store: Annotated[ConversationStore, Depends(get_conversation_store)]
+    store: Annotated[SessionStore, Depends(get_store)]
 ):
     try:
-        conversation = conversation_store.get_by_short_id(short_id=short_id)
+        session_id = store.get_session_uuid(short_id=short_id)
+        session = store.get_session_by_uuid(session_id=session_id)
     except ValueError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     total = sum((
-        message.token_count 
-        for message in conversation.messages 
+        message.token_count
+        for message in session.messages
         if message.token_count is not None
     ))
 

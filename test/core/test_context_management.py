@@ -27,8 +27,8 @@ def test_raw_context_view_deep_copy():
     context_fn = RawContextView()
 
     messages = [
-        Message(message={"role": "system", "content": "U're a good boy"}),
-        Message(message={"role": "user", "content": "Wyd u up?"})
+        Message(agent_id="react", message={"role": "system", "content": "U're a good boy"}),
+        Message(agent_id="react", message={"role": "user", "content": "Wyd u up?"})
     ]
 
     context = context_fn(messages)
@@ -43,16 +43,16 @@ _SEARCH_CHECKPOINT_TESTS = [
     {
         "name": "NoWhiteboardWrite",
         "messages": [
-            Message(message=ChatCompletionUserMessage(role="user", content="Hi")),
-            Message(message=ChatCompletionAssistantMessage(role="assistant", content="wassup"))
+            Message(agent_id="react", message=ChatCompletionUserMessage(role="user", content="Hi")),
+            Message(agent_id="react", message=ChatCompletionAssistantMessage(role="assistant", content="wassup"))
         ],
         "expected": None
     },
     {
         "name": "WhiteboardWriteNoResult",
         "messages": [
-            Message(message=ChatCompletionUserMessage(role="user", content="Hi")),
-            Message(message=ChatCompletionAssistantMessage(
+            Message(agent_id="react", message=ChatCompletionUserMessage(role="user", content="Hi")),
+            Message(agent_id="react", message=ChatCompletionAssistantMessage(
                 role="assistant", 
                 content="wassup",
                 tool_calls=[ChatCompletionAssistantToolCall(
@@ -69,8 +69,8 @@ _SEARCH_CHECKPOINT_TESTS = [
     {
         "name": "WhiteboardWriteLastMessage",
         "messages": [
-            Message(message=ChatCompletionUserMessage(role="user", content="Hi")),
-            Message(message=ChatCompletionAssistantMessage(
+            Message(agent_id="react", message=ChatCompletionUserMessage(role="user", content="Hi")),
+            Message(agent_id="react", message=ChatCompletionAssistantMessage(
                 role="assistant", 
                 content="wassup",
                 tool_calls=[ChatCompletionAssistantToolCall(
@@ -81,7 +81,7 @@ _SEARCH_CHECKPOINT_TESTS = [
                     )
                 )] 
             )),
-            Message(message=ChatCompletionToolMessage(
+            Message(agent_id="react", message=ChatCompletionToolMessage(
                 tool_call_id="123", role="tool",
                 content="this is always str"
             ))
@@ -91,8 +91,8 @@ _SEARCH_CHECKPOINT_TESTS = [
     {
         "name": "WhiteboardWriteWithMoreMessages",
         "messages": [
-            Message(message=ChatCompletionUserMessage(role="user", content="Hi")),
-            Message(message=ChatCompletionAssistantMessage(
+            Message(agent_id="react", message=ChatCompletionUserMessage(role="user", content="Hi")),
+            Message(agent_id="react", message=ChatCompletionAssistantMessage(
                 role="assistant", 
                 content="wassup",
                 tool_calls=[ChatCompletionAssistantToolCall(
@@ -103,11 +103,11 @@ _SEARCH_CHECKPOINT_TESTS = [
                     )
                 )] 
             )),
-            Message(message=ChatCompletionToolMessage(
+            Message(agent_id="react", message=ChatCompletionToolMessage(
                 tool_call_id="123", role="tool",
                 content="this is always str"
             )),
-            Message(message=ChatCompletionAssistantMessage(role="assistant", content="what's next?"))
+            Message(agent_id="react", message=ChatCompletionAssistantMessage(role="assistant", content="what's next?"))
         ],
         "expected": 2
     }
@@ -161,16 +161,16 @@ def _make_terminal_truncation_test(url: str) -> dict:
             "truncation_threshold": truncation_threshold
         },
         "messages": [
-            Message(message=ChatCompletionAssistantMessage(
+            Message(agent_id="react", message=ChatCompletionAssistantMessage(
                 role="assistant", content=None, tool_calls=[terminal_call]
             )),
-            Message(message=tool_msg, token_count=token_count),
+            Message(agent_id="react", message=tool_msg, token_count=token_count),
         ],
         "expected": [
-            Message(message=ChatCompletionAssistantMessage(
+            Message(agent_id="react", message=ChatCompletionAssistantMessage(
                 role="assistant", content=None, tool_calls=[terminal_call]
             )),
-            Message(
+            Message(agent_id="react", 
                 message=truncated_tool_msg,
                 token_count=truncated_token_count
             ),
@@ -220,14 +220,14 @@ def _make_two_terminal_truncation_test(url: str) -> dict:
             "truncation_threshold": truncation_threshold,
         },
         "messages": [
-            Message(message=terminal_calls),
-            Message(message=tool_msg_1, token_count=token_count),
-            Message(message=tool_msg_2, token_count=token_count),
+            Message(agent_id="react", message=terminal_calls),
+            Message(agent_id="react", message=tool_msg_1, token_count=token_count),
+            Message(agent_id="react", message=tool_msg_2, token_count=token_count),
         ],
         "expected": [
-            Message(message=terminal_calls),
-            Message(message=truncated_msg_1, token_count=truncated_token_count),
-            Message(message=truncated_msg_2, token_count=truncated_token_count),
+            Message(agent_id="react", message=terminal_calls),
+            Message(agent_id="react", message=truncated_msg_1, token_count=truncated_token_count),
+            Message(agent_id="react", message=truncated_msg_2, token_count=truncated_token_count),
         ],
     }
 
@@ -239,7 +239,7 @@ _APPLY_ACTIVE_WINDOW_TESTS = [
         "name": "DropThink",
         "context_view_params": { "max_window_tokens": 1024,  "max_think": 1 },
         "messages": [
-            Message(message=ChatCompletionAssistantMessage(
+            Message(agent_id="react", message=ChatCompletionAssistantMessage(
                 role="assistant", 
                 content="wassup",
                 tool_calls=[
@@ -259,17 +259,17 @@ _APPLY_ACTIVE_WINDOW_TESTS = [
                     ),
                 ] 
             )),
-            Message(message=ChatCompletionToolMessage(
+            Message(agent_id="react", message=ChatCompletionToolMessage(
                 tool_call_id="123", role="tool",
                 content="this is always str"
             )),
-            Message(message=ChatCompletionToolMessage(
+            Message(agent_id="react", message=ChatCompletionToolMessage(
                 tool_call_id="456", role="tool",
                 content="this is always str"
             )),
         ],
         "expected": [
-            Message(message=ChatCompletionAssistantMessage(
+            Message(agent_id="react", message=ChatCompletionAssistantMessage(
                 role="assistant", 
                 content="wassup",
                 tool_calls=[
@@ -282,7 +282,7 @@ _APPLY_ACTIVE_WINDOW_TESTS = [
                     ),
                 ] 
             )),
-            Message(message=ChatCompletionToolMessage(
+            Message(agent_id="react", message=ChatCompletionToolMessage(
                 tool_call_id="456", role="tool",
                 content="this is always str"
             )),
@@ -294,7 +294,7 @@ _APPLY_ACTIVE_WINDOW_TESTS = [
         "name": "DropThinkAcrossMessages",
         "context_view_params": {"max_window_tokens": 1024, "max_think": 1},
         "messages": [
-            Message(message=ChatCompletionAssistantMessage(
+            Message(agent_id="react", message=ChatCompletionAssistantMessage(
                 role="assistant",
                 content=None,
                 tool_calls=[
@@ -306,12 +306,12 @@ _APPLY_ACTIVE_WINDOW_TESTS = [
                     )
                 ]
             )),
-            Message(message=ChatCompletionToolMessage(
+            Message(agent_id="react", message=ChatCompletionToolMessage(
                 tool_call_id="aaa", role="tool",
                 content="old think result"
             )),
             # newer think within window, kept
-            Message(message=ChatCompletionAssistantMessage(
+            Message(agent_id="react", message=ChatCompletionAssistantMessage(
                 role="assistant",
                 content=None,
                 tool_calls=[
@@ -323,14 +323,14 @@ _APPLY_ACTIVE_WINDOW_TESTS = [
                     )
                 ]
             )),
-            Message(message=ChatCompletionToolMessage(
+            Message(agent_id="react", message=ChatCompletionToolMessage(
                 tool_call_id="bbb", role="tool",
                 content="new think result"
             )),
         ],
         "expected": [
             # result for "aaa" is dropped (not in output)
-            Message(message=ChatCompletionAssistantMessage(
+            Message(agent_id="react", message=ChatCompletionAssistantMessage(
                 role="assistant",
                 content=None,
                 tool_calls=[
@@ -342,7 +342,7 @@ _APPLY_ACTIVE_WINDOW_TESTS = [
                     )
                 ]
             )),
-            Message(message=ChatCompletionToolMessage(
+            Message(agent_id="react", message=ChatCompletionToolMessage(
                 tool_call_id="bbb", role="tool",
                 content="new think result"
             )),
@@ -353,7 +353,7 @@ _APPLY_ACTIVE_WINDOW_TESTS = [
         "name": "NoDropWithinWindow",
         "context_view_params": {"max_window_tokens": 1024, "max_think": 3},
         "messages": [
-            Message(message=ChatCompletionAssistantMessage(
+            Message(agent_id="react", message=ChatCompletionAssistantMessage(
                 role="assistant",
                 content=None,
                 tool_calls=[
@@ -365,11 +365,11 @@ _APPLY_ACTIVE_WINDOW_TESTS = [
                     )
                 ]
             )),
-            Message(message=ChatCompletionToolMessage(
+            Message(agent_id="react", message=ChatCompletionToolMessage(
                 tool_call_id="111", role="tool",
                 content="think result"
             )),
-            Message(message=ChatCompletionAssistantMessage(
+            Message(agent_id="react", message=ChatCompletionAssistantMessage(
                 role="assistant",
                 content=None,
                 tool_calls=[
@@ -381,13 +381,13 @@ _APPLY_ACTIVE_WINDOW_TESTS = [
                     )
                 ]
             )),
-            Message(message=ChatCompletionToolMessage(
+            Message(agent_id="react", message=ChatCompletionToolMessage(
                 tool_call_id="222", role="tool",
                 content="think result"
             )),
         ],
         "expected": [
-            Message(message=ChatCompletionAssistantMessage(
+            Message(agent_id="react", message=ChatCompletionAssistantMessage(
                 role="assistant",
                 content=None,
                 tool_calls=[
@@ -399,11 +399,11 @@ _APPLY_ACTIVE_WINDOW_TESTS = [
                     )
                 ]
             )),
-            Message(message=ChatCompletionToolMessage(
+            Message(agent_id="react", message=ChatCompletionToolMessage(
                 tool_call_id="111", role="tool",
                 content="think result"
             )),
-            Message(message=ChatCompletionAssistantMessage(
+            Message(agent_id="react", message=ChatCompletionAssistantMessage(
                 role="assistant",
                 content=None,
                 tool_calls=[
@@ -415,7 +415,7 @@ _APPLY_ACTIVE_WINDOW_TESTS = [
                     )
                 ]
             )),
-            Message(message=ChatCompletionToolMessage(
+            Message(agent_id="react", message=ChatCompletionToolMessage(
                 tool_call_id="222", role="tool",
                 content="think result"
             )),
@@ -437,7 +437,6 @@ def test_apply_active_window(test_case):
     for i, (a, e) in enumerate(zip(actual, expected)):
         ac = a.message.get("content") or ""
         ec = e.message.get("content") or ""
-        assert a.internal == e.internal, f"[{i}] internal: {a.internal} vs {e.internal}"
         assert a.message.get("role") == e.message.get("role"), f"[{i}] role mismatch"
         assert a.message.get("tool_call_id") == e.message.get("tool_call_id"), f"[{i}] tool_call_id mismatch"
         assert len(ac) == len(ec), f"[{i}] content length: actual={len(ac)} vs expected={len(ec)}"
@@ -449,8 +448,8 @@ def test_apply_active_window(test_case):
 
 def test_does_deep_copy():
     messages = [
-        Message(message={"role": "system", "content": "system prompt"}),
-        Message(message={"role": "user", "content": "user message 1"}),
+        Message(agent_id="react", message={"role": "system", "content": "system prompt"}),
+        Message(agent_id="react", message={"role": "user", "content": "user message 1"}),
     ]
     context_fn = LayeredContextView(max_window_tokens=1024)
 
@@ -467,7 +466,7 @@ _COMPACTION_TESTS = [
     {
         "name": "verifies-malformed-messages",
         "messages": [
-            Message(message=ChatCompletionUserMessage(role="user", content="Hi"))
+            Message(agent_id="react", message=ChatCompletionUserMessage(role="user", content="Hi"))
         ],
         "expected": ValueError
     },
@@ -475,10 +474,10 @@ _COMPACTION_TESTS = [
     {
         "name": "no-drop-user-messages",
         "messages": [
-            Message(message={"role": "system", "content": "system prompt"}, token_count=1),
-            Message(message={"role": "user", "content": "user message 1"}, token_count=1),
-            Message(message={"role": "user", "content": "user message 2"}, token_count=1),
-            Message(message={
+            Message(agent_id="react", message={"role": "system", "content": "system prompt"}, token_count=1),
+            Message(agent_id="react", message={"role": "user", "content": "user message 1"}, token_count=1),
+            Message(agent_id="react", message={"role": "user", "content": "user message 2"}, token_count=1),
+            Message(agent_id="react", message={
                 "role": "assistant", 
                 "content": "wassup",
                 "tool_calls": [{
@@ -494,12 +493,12 @@ _COMPACTION_TESTS = [
                     }
                 }]
             }, token_count=1),
-            Message(message={"role": "tool", "tool_call_id": "123", "content": "tool result"}, token_count=1),
+            Message(agent_id="react", message={"role": "tool", "tool_call_id": "123", "content": "tool result"}, token_count=1),
         ],
         "expected": [
-            Message(message={"role": "system", "content": "system prompt"}, token_count=1),
-            Message(message={"role": "user", "content": "user message 1"}, token_count=1),
-            Message(message={"role": "user", "content": "user message 2"}, token_count=1),
+            Message(agent_id="react", message={"role": "system", "content": "system prompt"}, token_count=1),
+            Message(agent_id="react", message={"role": "user", "content": "user message 1"}, token_count=1),
+            Message(agent_id="react", message={"role": "user", "content": "user message 2"}, token_count=1),
         ]
     }
 ]

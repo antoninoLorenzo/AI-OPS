@@ -4,9 +4,9 @@ import uuid
 from typing import Callable
 
 import urllib3
+import httpx
 
 from ai_ops.config import MLFLOW_EXPERIMENT_ENV, MLFLOW_TRACKING_URI_ENV
-from ai_ops.core.conversation import Conversation
 from ai_ops.core.llm import InferenceClient, ModelMetadata
 from ai_ops.core.log import get_logger, log_event, logging
 from ai_ops.core.schema import ToolCallEvent, ToolResultEvent
@@ -27,9 +27,25 @@ def mlflow_connect(tracking_uri: str, experiment_name: str):
     global _mlflow_ready
     import mlflow
 
+    # If mlflow is unreachable disable it, check it before `set_experiment` since the call 
+    # is blocking and either has no timeout or it's really high.
+    try:
+        insecure = os.environ.get("MLFLOW_TRACKING_INSECURE_TLS", "false").lower() == "true"
+        httpx.get(tracking_uri, timeout=5.0, verify=(not insecure))
+    except (httpx.ConnectError, httpx.ConnectTimeout) as err:
+        log_event(
+            _logger, logging.ERROR, "MLFlow: connection failed", 
+            mlflow_tracking_uri=tracking_uri, mlflow_experiment=experiment_name, error=err
+        )
+        _mlflow_ready = False
+        return
+
     mlflow.set_tracking_uri(tracking_uri)
-    # it automatically creates the experiment with `experiment_name` if it doesn't exists
     mlflow.set_experiment(experiment_name=experiment_name)
+    log_event(
+        _logger, logging.INFO, "MLFLow: established connection.",
+        mlflow_tracking_uri=tracking_uri, mlflow_experiment=experiment_name
+    )
 
 
 def setup_mlflow():
@@ -67,22 +83,27 @@ def setup_mlflow():
 def _resolve_trace_ids(args, kwargs) -> tuple[str, str]:
     """Resolve `(session_id, model_id)` from the orchestrator's call arguments.
 
-    Both `orchestrator` and `aorchestrator` receive the `conversation` and
+    Both `orchestrator` and `aorchestrator` receive the `session` and
     `client` either as keyword or positional arguments, so we look in both.
     """
-    # get conversation id from fn (orchestrator)
-    conversation: Conversation | None = kwargs.get("conversation")
-    if conversation is None:
-        conversation_arg_idx = next(
+    # imported lazily: `storage` imports `ai_ops.core.tools`, and this module is
+    # itself imported during `tools` initialization (via the prompt registry), so
+    # a top-level import would create a circular import.
+    from ai_ops.core.storage import Session
+
+    # get session id from fn (orchestrator)
+    session: Session | None = kwargs.get("session")
+    if session is None:
+        session_arg_idx = next(
             (
                 idx for idx, arg in enumerate(args)
-                if isinstance(arg, Conversation)
+                if isinstance(arg, Session)
             ), None
         )
-        session_id = args[conversation_arg_idx].uuid if conversation_arg_idx is not None \
+        session_id = args[session_arg_idx].uuid if session_arg_idx is not None \
             else f"unknown_{str(uuid.uuid4())}"
     else:
-        session_id = conversation.uuid
+        session_id = session.uuid
 
     # get model being used
     model_client: InferenceClient | None = kwargs.get("client")
