@@ -1,25 +1,23 @@
 import os
 import sys
-from typing import Literal, List
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import BaseModel, Field, SecretStr
-from pydantic_settings import BaseSettings, SettingsConfigDict, JsonConfigSettingsSource
+from pydantic_settings import BaseSettings, JsonConfigSettingsSource, SettingsConfigDict
 
 from ai_ops.config import (
     AI_OPS_BASE_DIR,
-    API_BASE_ENV_NAME, 
-    API_KEY_ENV_NAME, 
+    API_BASE_ENV_NAME,
+    API_KEY_ENV_NAME,
     API_MODEL_MAX_CONTEXT_LENGTH,
-    TEMPERATURE_ENV,
+    CONFIRMATION_TIMEOUT_S,
     DEFAULT_TEMPERATURE,
-    CONFIRMATION_TIMEOUT_S
 )
+from ai_ops.core.context_management import CONTEXT_VIEW_REGISTRY
 from ai_ops.core.runner import AgentConfig
 from ai_ops.core.storage import StorageStrategy
-from ai_ops.core.tools import DEFAULT_TOOLS
-from ai_ops.core.context_management import CONTEXT_VIEW_REGISTRY
-from ai_ops.core.tools import ToolRegistry
+from ai_ops.core.tools import DEFAULT_TOOLS, ToolRegistry
 from ai_ops.core.tools.terminal.policy import COMMAND_POLICY_REGISTRY
 
 
@@ -55,9 +53,9 @@ class CommandPolicySpec(BaseModel):
 class AgentConfigSpec(BaseSettings):
     model_config = SettingsConfigDict(json_file=AI_OPS_BASE_DIR / "agent_config.json")
 
-    tools: List[str] = Field(default=[tool_cls.name for tool_cls in DEFAULT_TOOLS])
+    tools: list[str] = Field(default=[tool_cls.name for tool_cls in DEFAULT_TOOLS])
     context_view: ContextViewSpec = ContextViewSpec()
-    command_policies: List[CommandPolicySpec] = []
+    command_policies: list[CommandPolicySpec] = []
     # in core.agent there's an `_AGENT_TEMPERATURE` taken from environmnet variables, 
     # we give precedence to the json config so it's either `DEFAULT_TEMPERATURE` or 
     # the one set in agent_config.json

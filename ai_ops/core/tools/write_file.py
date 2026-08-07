@@ -1,14 +1,13 @@
 import os
-from pathlib import Path
 from enum import StrEnum, auto
+from pathlib import Path
 from typing import Annotated
 
 from pydantic import BaseModel, Field
 
-from ai_ops.core.tools.base import Tool
-from ai_ops.core.prompt import get_prompt
 from ai_ops.core.log import get_logger, log_event, logging
-
+from ai_ops.core.prompt import get_prompt
+from ai_ops.core.tools.base import Tool
 
 _logger = get_logger(__name__)
 
@@ -94,6 +93,11 @@ class WriteFile(Tool[WriteFileInput, WriteFileOutput]):
     def __call__(self, tool_args: WriteFileInput) -> WriteFileOutput:
         path = resolve_path(self.working_directory, tool_args.path)
         if path is None:
+            log_event(
+                _logger, logging.WARNING, 
+                "WriteFile call with unauthorized path.", 
+                requested_path=str(path)
+            )
             return WriteFileOutput(error=WriteFileError.NOT_AUTHORIZED)
 
         if not path.parent.exists():
@@ -101,7 +105,7 @@ class WriteFile(Tool[WriteFileInput, WriteFileOutput]):
             
         try:
             path.write_text(tool_args.content)        
-        except OSError as os_err:
+        except OSError:
             return WriteFileOutput(error=WriteFileError.OS_ERROR)
         except Exception as err:
             return WriteFileOutput(error=str(err))

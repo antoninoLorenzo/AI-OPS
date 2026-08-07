@@ -1,18 +1,16 @@
-import re
+import enum
+import fcntl
 import os
 import pty
-import fcntl
-import struct
-import signal
+import re
 import select
-import termios
+import signal
+import struct
 import subprocess
-import logging
-import uuid
+import termios
 import time
-import enum
+import uuid
 from dataclasses import dataclass
-from typing import Tuple, Dict
 
 from ai_ops.core.log import get_logger, log_event, logging
 
@@ -25,15 +23,9 @@ def strip_ansi(s: str) -> str:
     return ANSI_RE.sub('', s)
 
 
-def _setup_subprocess(fd, ps1, working_directory):
-    # passed to Popen preexec_fn to setup the bash process, since preexec_fn takes no 
-    # args returns a closure.
+def _set_controlling_tty(fd):
     def inner():
-        os.setsid()                               # set slave as session owner
         fcntl.ioctl(fd, termios.TIOCSCTTY, 0)     # set slave as controlling terminal
-        os.environ['PS1'] = ps1
-        os.environ['PS2'] = ''
-        os.chdir(working_directory)      
     return inner
 
 # shell-reserved exit codes: https://tldp.org/LDP/abs/html/exitcodes.html
@@ -48,7 +40,7 @@ class CommandStatus(enum.Enum):
     SIGINT = 130
     KILLED = 137
 
-Status2String: Dict[CommandStatus, str] = {
+Status2String: dict[CommandStatus, str] = {
     CommandStatus.UNKNOWN: 'unknown status',
     CommandStatus.OK: "Successful termination",
     CommandStatus.ERR_GENERAL: 'unknown error',
@@ -101,7 +93,7 @@ class BashSession:
     def run(
         self, 
         command: str, 
-        timeout: float = None,
+        timeout: float | None = None,
         interactive: bool = False
     ) -> CommandOutput:
         """By default executes a command in non-interactive mode, meaning that only commands that 
@@ -152,7 +144,7 @@ class BashSession:
             
             log_event(
                 _logger, logging.DEBUG, "Captured status_code", command=f"`{command}`", 
-                raw_status=f"{repr(status_result)}", status_code=status_code
+                raw_status=f"{status_result!r}", status_code=status_code
             )
             command_output = CommandOutput(
                 output=output, 
@@ -188,11 +180,10 @@ class BashSession:
             stdin=self.slave_fd,
             stdout=self.slave_fd,
             stderr=self.slave_fd,
-            preexec_fn=_setup_subprocess(
-                fd=self.slave_fd, 
-                ps1=self.write_sentinel,
-                working_directory=self.working_directory
-            )
+            cwd=self.working_directory,
+            env={**os.environ, "PS1": self.write_sentinel, "PS2": ""},
+            start_new_session=True,
+            preexec_fn=_set_controlling_tty(fd=self.slave_fd) # noqa: PLW1509
         )
         os.close(self.slave_fd)  # owning process doesn't need the slave
 
@@ -222,7 +213,7 @@ class BashSession:
         foreground_pid = struct.unpack('i', foreground_pid_bytes)[0] # unpack returns a tuple
         os.killpg(foreground_pid, signal)
 
-    def __read(self, read_timeout: float = None) -> Tuple[str, bool]:
+    def __read(self, read_timeout: float | None = None) -> tuple[str, bool]:
         command_output = ''
         timed_out = False
         timeout = read_timeout if read_timeout else self.default_timeout

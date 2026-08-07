@@ -1,17 +1,13 @@
 import asyncio
+from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Dict, Iterator, List, Optional, Tuple, Type
+from typing import Any
 
 from ai_ops.config import BASE_AGENT_ID, CONFIRMATION_TIMEOUT_S
 from ai_ops.core.agent import _AGENT_TEMPERATURE, aorchestrator, orchestrator
 from ai_ops.core.context_management import ContextView, RawContextView
-from ai_ops.core.conversation import (
-    Message,
-    get_token_count,
-    is_valid_message_list
-)
-from ai_ops.core.storage import Session, get_session_store
-from ai_ops.core.llm import InferenceClient, ModelConfig
+from ai_ops.core.conversation import Message, get_token_count, is_valid_message_list
+from ai_ops.core.llm import InferenceClient
 from ai_ops.core.log import get_logger, log_event, logging
 from ai_ops.core.prompt import build_prompt
 from ai_ops.core.schema import (
@@ -26,16 +22,14 @@ from ai_ops.core.schema import (
     ToolResultEvent,
     UserMessageEvent,
 )
+from ai_ops.core.storage import Session, get_session_store
 from ai_ops.core.tools import (
     CommandAdmissionPolicy,
-    LoadSkill,
     Tool,
     ToolContext,
     ToolRegistry,
     WhiteboardRead,
     WhiteboardWrite,
-    get_skill_registry,
-    get_whiteboard_store,
     replay_whiteboard,
 )
 
@@ -49,16 +43,16 @@ class AgentConfig:
 
     temperature: float = _AGENT_TEMPERATURE
     
-    tools: List[Type[Tool]] = field(default_factory=list)
+    tools: list[type[Tool]] = field(default_factory=list)
     """Agent tools, classes not instances."""
 
     confirmation_timeout_s: float = CONFIRMATION_TIMEOUT_S
     """Time before the execution of tool that requires confirmation is automatically denied."""
 
-    context_fn: ContextView = RawContextView()
+    context_fn: ContextView = field(default_factory=RawContextView)
     """Context compaction strategy (ex. `LayeredContextView`). Defaults to `RawContextView`."""
 
-    command_policies: Tuple[CommandAdmissionPolicy] = field(default_factory=tuple)
+    command_policies: tuple[CommandAdmissionPolicy] = field(default_factory=tuple)
     """Only applies if `Terminal` tool is supplied."""
 
     prompt_extension: str | None = None
@@ -76,7 +70,7 @@ class AgentRunner:
         client: InferenceClient,
         config: AgentConfig,
         is_new_conversation: bool = True,
-        extra_tool_ctx: Optional[Dict[str, Any]] = None
+        extra_tool_ctx: dict[str, Any] | None = None
     ):
         self.agent_config = config
         self.session_id = session_id
@@ -121,7 +115,7 @@ class AgentRunner:
         # stop flag, non-preemptive
         self._user_stopped = False
         # pending tool confirmation keyed by tool call id
-        self._confirmations: Dict[str, asyncio.Future] = {}
+        self._confirmations: dict[str, asyncio.Future] = {}
         # list of blocked tool call ids to verify one actually exists (prevent 
         # creation of confirmation futures that will never be resolved).
         self._blocked_calls = []
@@ -141,7 +135,7 @@ class AgentRunner:
         self, 
         user_message: UserMessageEvent,
         mode: AgentMode = AgentMode.SUPERVISED,
-        max_iterations: Optional[int] = None
+        max_iterations: int | None = None
     ) -> Iterator[Event]:
         """
         :raises `ValueError`: Invalid conversation format. Expected [system, user, ...] message list.
@@ -150,7 +144,7 @@ class AgentRunner:
 
         session = self._store.get_session_by_uuid(session_id=self.session_id)
         if not is_valid_message_list(session.messages):
-            raise ValueError(f"Invalid conversation. Expected [system, user, ...] message list.")
+            raise ValueError("Invalid conversation. Expected [system, user, ...] message list.")
 
         return self.__run_impl(session=session, mode=mode, max_iterations=max_iterations)
 
@@ -158,7 +152,7 @@ class AgentRunner:
         self,
         session: Session,
         mode: AgentMode = AgentMode.SUPERVISED,
-        max_iterations: Optional[int] = None
+        max_iterations: int | None = None
     ) -> Iterator[Event]:
         total_event_count = 0
         event_stream = orchestrator(
@@ -214,19 +208,19 @@ class AgentRunner:
         self,
         user_message: UserMessageEvent,
         mode: AgentMode = AgentMode.SUPERVISED,
-        max_iterations: Optional[int] = None
+        max_iterations: int | None = None
     ) -> AsyncIterator[Event]:
         """
         :raises `RuntimeError`: Already running.
         :raises `ValueError`: Invalid conversation format. Expected [system, user, ...] message list.
         """
         if self._running:
-            raise RuntimeError(f"Already running")
+            raise RuntimeError("Already running")
 
         self._append_user_message(user_message.content)
         session = self._store.get_session_by_uuid(session_id=self.session_id)
         if not is_valid_message_list(session.messages):
-            raise ValueError(f"Invalid conversation. Expected [system, user, ...] message list.")
+            raise ValueError("Invalid conversation. Expected [system, user, ...] message list.")
 
         self._running = True
         return self.__arun_impl(session=session, mode=mode, max_iterations=max_iterations)
@@ -235,7 +229,7 @@ class AgentRunner:
         self,
         session: Session,
         mode: AgentMode = AgentMode.SUPERVISED,
-        max_iterations: Optional[int] = None
+        max_iterations: int | None = None
     ) -> AsyncIterator[Event]:
         total_event_count = 0
 
@@ -369,7 +363,7 @@ class AgentRunner:
             approved = await asyncio.wait_for(
                 future, timeout=self.agent_config.confirmation_timeout_s
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             log_event(
                 _logger, logging.WARNING, "Tool confirmation timed out",
                 session_id=self.session_id, call_id=tool_call.call_id

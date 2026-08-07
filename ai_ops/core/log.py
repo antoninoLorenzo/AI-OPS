@@ -1,7 +1,6 @@
 import logging
 import os
 import sys
-from pathlib import Path
 
 import litellm
 
@@ -33,7 +32,7 @@ def setup_logging():
             log_level = logging.INFO
 
     log_to_stdout = os.environ.get(LOG_STDOUT_ENV, "false").lower()
-    log_to_stdout = True if log_to_stdout == "true" else False
+    log_to_stdout = log_to_stdout == "true"
 
     log_format = "%(asctime)s - %(levelname)s - %(name)s - %(funcName)s:%(lineno)d - %(message)s"
 

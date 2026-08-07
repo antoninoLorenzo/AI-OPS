@@ -1,5 +1,6 @@
 from pydantic import BaseModel
-from ai_ops.core.tools.base import Tool, Noop
+
+from ai_ops.core.tools.base import Noop, Tool
 
 
 class StopReason(BaseModel):

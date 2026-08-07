@@ -1,48 +1,37 @@
-from pathlib import Path
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Dict, Tuple, Optional, Any, Type, TypeAlias, Callable
+from pathlib import Path
+from typing import Any, Optional, TypeAlias
 
 from pydantic import BaseModel
 
 from ai_ops.config import AI_OPS_BASE_DIR
-from ai_ops.core.tools.base import Tool, Noop, validate_tool_call
+from ai_ops.core.log import get_logger
+from ai_ops.core.tools.base import Noop, Tool, validate_tool_call
 from ai_ops.core.tools.load_skill.skill import (
-    LoadSkill, 
-    LoadSkillRequest, 
-    LoadSkillResult, 
-    get_skill_registry
+    LoadSkill,
+    LoadSkillRequest,
+    LoadSkillResult,
+    get_skill_registry,
 )
-from ai_ops.core.tools.think import (
-    ThinkTool, 
-    ThinkRequest, 
-    ThinkResult
+from ai_ops.core.tools.stop import StopReason, StopTool
+from ai_ops.core.tools.terminal import (
+    CommandAdmissionPolicy,
+    Terminal,
+    TerminalRequest,
+    TerminalResult,
 )
+from ai_ops.core.tools.think import ThinkRequest, ThinkResult, ThinkTool
 from ai_ops.core.tools.whiteboard import (
     WhiteboardRead,
-    WhiteboardWrite,
     WhiteboardReadRequest,
     WhiteboardResult,
+    WhiteboardWrite,
     WhiteboardWriteRequest,
     get_whiteboard_store,
     replay_whiteboard,
 )
-from ai_ops.core.tools.write_file import (
-    WriteFile, 
-    WriteFileInput, 
-    WriteFileOutput
-)
-from ai_ops.core.tools.terminal import (
-    Terminal, 
-    TerminalRequest, 
-    TerminalResult, 
-    CommandAdmissionPolicy
-)
-from ai_ops.core.tools.stop import (
-    StopTool, 
-    StopReason
-)
-from ai_ops.core.log import get_logger
-
+from ai_ops.core.tools.write_file import WriteFile, WriteFileInput, WriteFileOutput
 
 DEFAULT_TOOLS = [LoadSkill, ThinkTool, WhiteboardWrite, WriteFile, Terminal]
 
@@ -52,13 +41,13 @@ class ToolContext:
     session_id: str
     model_id: str | None = None
     is_new_conversation: bool = True
-    command_policies: Tuple[CommandAdmissionPolicy] = field(default_factory=list)
+    command_policies: tuple[CommandAdmissionPolicy] = field(default_factory=list)
     # fucking benchmarks
-    extra: Optional[Dict[str, Any]] = None
+    extra: dict[str, Any] | None = None
 
 
-ToolFactory: TypeAlias = Callable[[ToolContext | None], Tool]
-
+# ToolFactory: TypeAlias = Callable[[ToolContext | None], Tool]
+type ToolFactory = Callable[[ToolContext | None], Tool]
 
 @dataclass(frozen=True)
 class ToolSpec:
@@ -68,19 +57,19 @@ class ToolSpec:
     (see `Tool.get_input_schema`/`get_output_schema`) so they can't drift from
     the class definition.
     """
-    tool: Type[Tool]
+    tool: type[Tool]
     factory: ToolFactory
 
     @property
-    def input_type(self) -> Type[BaseModel]:
+    def input_type(self) -> type[BaseModel]:
         return self.tool.get_input_schema()
 
     @property
-    def output_type(self) -> Type[BaseModel]:
+    def output_type(self) -> type[BaseModel]:
         return self.tool.get_output_schema()
 
 
-ToolRegistry: Dict[str, ToolSpec] = {
+ToolRegistry: dict[str, ToolSpec] = {
     LoadSkill.name: ToolSpec(LoadSkill, lambda ctx: LoadSkill(model=ctx.model_id)),
     ThinkTool.name: ToolSpec(ThinkTool, lambda _: ThinkTool()),
     WhiteboardRead.name: ToolSpec(WhiteboardRead, lambda ctx: WhiteboardRead(
@@ -107,18 +96,16 @@ ToolRegistry: Dict[str, ToolSpec] = {
 }
 
 
-def register_tool(tool: Type[Tool], factory: ToolFactory):
-    global ToolRegistry
-
+def register_tool(tool: type[Tool], factory: ToolFactory):
     get_logger(__name__).info(f"registering tool={tool.name}")
     ToolRegistry[tool.name] = ToolSpec(tool=tool, factory=factory)
 
 
-def resolve_args_type(tool_name: str) -> Type[BaseModel] | None:
+def resolve_args_type(tool_name: str) -> type[BaseModel] | None:
     spec = ToolRegistry.get(tool_name)
     return spec.input_type if spec is not None else None
 
 
-def resolve_result_type(tool_name: str) -> Type[BaseModel] | None:
+def resolve_result_type(tool_name: str) -> type[BaseModel] | None:
     spec = ToolRegistry.get(tool_name)
     return spec.output_type if spec is not None else None

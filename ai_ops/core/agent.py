@@ -1,42 +1,35 @@
 # Agent Orchestrator Implementation
-import os
-import json
 import asyncio
-from typing import AsyncIterator, Dict, Iterator, Optional, List, cast
+import os
+from collections.abc import AsyncIterator, Iterator
+from typing import cast
 
-import litellm
 from litellm import (
     ChatCompletionAssistantMessage,
-    ChatCompletionSystemMessage,
-    ChatCompletionToolMessage,
-    ChatCompletionUserMessage,
-    ChatCompletionMessageToolCall
 )
-from pydantic import BaseModel
 
+from ai_ops.config import BASE_AGENT_ID, DEFAULT_TEMPERATURE, TEMPERATURE_ENV
 from ai_ops.core.context_management import ContextView
 from ai_ops.core.conversation import (
     Message,
-    is_valid_message_list,
-    find_last_user_message_index
+    find_last_user_message_index,
+    get_token_count,
 )
-from ai_ops.core.storage import Session
 from ai_ops.core.llm import InferenceClient, aquery, query
+from ai_ops.core.log import get_logger, log_event, logging
 from ai_ops.core.schema import (
     AgentMode,
     ConfirmCallback,
     Event,
     StopEvent,
     ToolCallEvent,
-    ToolResultEvent,
     ToolErrorEvent,
-    ToolErrorFailure
+    ToolErrorFailure,
+    ToolResultEvent,
 )
-from ai_ops.core.tools import Tool, WhiteboardWrite, StopTool, validate_tool_call
-from ai_ops.core.conversation import get_token_count
+from ai_ops.core.storage import Session
+from ai_ops.core.tools import StopTool, Tool, WhiteboardWrite, validate_tool_call
 from ai_ops.core.tracing import agent_trace
-from ai_ops.core.log import get_logger, log_event, logging
-from ai_ops.config import TEMPERATURE_ENV, DEFAULT_TEMPERATURE, BASE_AGENT_ID
 
 _logger = get_logger(__name__)
 
@@ -48,10 +41,10 @@ except ValueError:
 
 
 def build_context(
-    messages: List[Message],
+    messages: list[Message],
     context_fn: ContextView,
-    tools: Dict[str, Tool],
-) -> List[Message]:
+    tools: dict[str, Tool],
+) -> list[Message]:
     context = context_fn(messages)
 
     # append the whiteboard index to the last user message in every loop iteration,
@@ -76,10 +69,10 @@ def build_context(
 def orchestrator(
     client: InferenceClient,
     session: Session,
-    tools: Dict[str, Tool],
+    tools: dict[str, Tool],
     context_fn: ContextView,
     mode: AgentMode = AgentMode.SUPERVISED,
-    max_iterations: Optional[int] = None,
+    max_iterations: int | None = None,
     temperature: float = _AGENT_TEMPERATURE,
     agent_id: str = BASE_AGENT_ID
 ) -> Iterator[Message | Event]:
@@ -182,12 +175,12 @@ def orchestrator(
 async def aorchestrator(
     client: InferenceClient,
     session: Session,
-    tools: Dict[str, Tool],
+    tools: dict[str, Tool],
     context_fn: ContextView,
     mode: AgentMode = AgentMode.SUPERVISED,
-    max_iterations: Optional[int] = None,
+    max_iterations: int | None = None,
     temperature: float = _AGENT_TEMPERATURE,
-    confirm: Optional[ConfirmCallback] = None,
+    confirm: ConfirmCallback | None = None,
     agent_id: str = BASE_AGENT_ID
 ) -> AsyncIterator[Message | Event]:
     agent_tools = [tool.serialize() for tool in tools.values()]

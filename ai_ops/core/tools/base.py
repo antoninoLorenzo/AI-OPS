@@ -1,14 +1,14 @@
 import abc
 from types import get_original_bases
-from typing import Dict, Tuple, Type, TypeVar, get_args, get_origin
+from typing import TypeVar, get_args, get_origin
 
 from litellm import ChatCompletionMessageToolCall
 from pydantic import BaseModel, ValidationError
-from pydantic.json_schema import GenerateJsonSchema
 from pydantic._internal._core_utils import is_core_schema
+from pydantic.json_schema import GenerateJsonSchema
 
-ToolInputT = TypeVar("ToolInput", bound=BaseModel)
-ToolOutputT = TypeVar("ToolOutput", bound=BaseModel)
+ToolInputT = TypeVar("ToolInputT", bound=BaseModel)
+ToolOutputT = TypeVar("ToolOutputT", bound=BaseModel)
 
 
 class Noop(BaseModel): 
@@ -97,7 +97,7 @@ class Tool[ToolInputT, ToolOutputT](abc.ABC):
         }
 
     @classmethod
-    def _io_types(cls) -> Tuple[Type[BaseModel], Type[BaseModel]]:
+    def _io_types(cls) -> tuple[type[BaseModel], type[BaseModel]]:
         """(input_model, output_model) read off the concrete `Tool[In, Out]` base."""
         base = next(
             b for b in get_original_bases(cls)
@@ -107,11 +107,11 @@ class Tool[ToolInputT, ToolOutputT](abc.ABC):
         return input_type, output_type
 
     @classmethod
-    def get_input_schema(cls) -> Type[BaseModel]:
+    def get_input_schema(cls) -> type[BaseModel]:
         return cls._io_types()[0]
 
     @classmethod
-    def get_output_schema(cls) -> Type[BaseModel]:
+    def get_output_schema(cls) -> type[BaseModel]:
         return cls._io_types()[1]
 
     def __hash__(self):
@@ -119,9 +119,9 @@ class Tool[ToolInputT, ToolOutputT](abc.ABC):
         
 
 def validate_tool_call(
-    available_tools: Dict[str, Tool], 
+    available_tools: dict[str, Tool], 
     tool_call: ChatCompletionMessageToolCall
-) -> Tuple[Tool, BaseModel] | Tuple[None, str]:
+) -> tuple[Tool, BaseModel] | tuple[None, str]:
     tool_name = tool_call.function.name
     raw_args = tool_call.function.arguments
 

@@ -1,24 +1,25 @@
 import os
 import re
-import sys
 import shutil
-import subprocess
+import sys
 from pathlib import Path
-from typing import List, Optional, Annotated, Dict, Union
+from typing import Annotated
 
 import yaml
 from pydantic import BaseModel, Field
 
-from ai_ops.config import AI_OPS_BASE_DIR, SKILL_VERIFY_INSTALLED_ENV, DEFAULT_SKILL_VERIFY_INSTALLED
-from ai_ops.core.tools.base import Tool
-from ai_ops.core.prompt import get_prompt
+from ai_ops.config import (
+    AI_OPS_BASE_DIR,
+    DEFAULT_SKILL_VERIFY_INSTALLED,
+    SKILL_VERIFY_INSTALLED_ENV,
+)
 from ai_ops.core.log import get_logger, log_event, logging
-
+from ai_ops.core.prompt import get_prompt
+from ai_ops.core.tools.base import Tool
 
 BUNDLED_SKILLS = Path(__file__).parent / 'bundled'
 USER_SKILLS = AI_OPS_BASE_DIR / "user_skills"
 FRONTMATTER_REGEX = r"(?s)^---\s*\n(?P<frontmatter>.*?)\n---\s*(?P<instructions>.*)"
-_VALID_DEP_RE = re.compile(r'^[a-zA-Z0-9._-]+$')
 
 _logger = get_logger(__name__)
 
@@ -27,7 +28,7 @@ class Skill(BaseModel):
     name: str
     description: str
     content: str
-    requirements: Optional[List[str]] = None
+    requirements: list[str] | None = None
 
 
 def fetch_skill(skill_path: Path) -> Skill | None:
@@ -91,7 +92,7 @@ def fetch_skill(skill_path: Path) -> Skill | None:
 
 class SkillRegistry:
     def __init__(self):
-        self._skill_registry: Dict[str, Skill] = {}
+        self._skill_registry: dict[str, Skill] = {}
         for skill_path in BUNDLED_SKILLS.iterdir():
             skill = fetch_skill(skill_path)
             if skill:
@@ -118,7 +119,7 @@ class SkillRegistry:
             for name, skill in self._skill_registry.items()
         ])
 
-    def get_available(self) -> List[str]:
+    def get_available(self) -> list[str]:
         return self._skill_registry.keys()
     
     def get_skill(self, name: str) -> Skill | None:
@@ -161,7 +162,7 @@ class LoadSkill(Tool[LoadSkillRequest, LoadSkillResult]):
         if not skill_id in registry.get_available():
             log_event(
                 _logger, logging.WARNING,
-                f"Skill not found", skill_id=skill_id
+                "Skill not found", skill_id=skill_id
             )
             return LoadSkillResult(skill=None)
         

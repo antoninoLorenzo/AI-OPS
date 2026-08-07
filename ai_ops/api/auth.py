@@ -1,12 +1,11 @@
-import sys
 import secrets
+import sys
 from typing import Annotated
 
-from fastapi import Depends, Request, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import APIKeyHeader
 
 from ai_ops.api.config import get_settings
-
 
 API_KEY_NAME = "X-AI-OPS-ApiKey"
 api_key_header = APIKeyHeader(name=API_KEY_NAME)

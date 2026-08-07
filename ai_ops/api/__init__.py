@@ -3,8 +3,6 @@ from dotenv import load_dotenv
 from ai_ops.api.auth import setup_auth
 from ai_ops.api.config import get_settings
 
-from ai_ops.core.storage import StorageStrategy
-
 # some things in core rely on environment variables
 load_dotenv()
 

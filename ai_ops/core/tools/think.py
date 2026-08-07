@@ -4,7 +4,6 @@ from pydantic import BaseModel, Field
 
 from ai_ops.core.tools.base import Tool
 
-
 _THINK_TOOL_DESCRIPTION = """Think before every action. Use this tool to reason about \
 the current situation, evaluate what has already been done, decide what to do next, and \
 avoid repeating previous steps. 

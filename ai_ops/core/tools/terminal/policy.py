@@ -1,6 +1,5 @@
 import abc
 from enum import StrEnum
-from typing import List, Optional, Set
 
 from pydantic import BaseModel
 
@@ -18,8 +17,8 @@ class PolicyError(StrEnum):
 
 class PolicyResult(BaseModel):
     allowed: bool
-    blocked: Optional[Set[str]] = None
-    reason: Optional[str] = None
+    blocked: set[str] | None = None
+    reason: str | None = None
 
 
 class CommandAdmissionPolicy(abc.ABC):
@@ -30,14 +29,14 @@ class CommandAdmissionPolicy(abc.ABC):
 
 
 class AllowListPolicy(CommandAdmissionPolicy):
-    DEFAULT = {
+    DEFAULT = frozenset({
         # binaries are considered safe if at most they have file read 
         # here: https://gtfobins.org/#
         'ls', 'cd', 'pwd', 'cat', 'grep', 'which', 'wc', 'tree',
         'ping', 
-    }
+    })
 
-    def __init__(self, allowlist: List[str]):
+    def __init__(self, allowlist: list[str]):
         self._allowed = set(allowlist).union(AllowListPolicy.DEFAULT)
 
     def __call__(self, ctx: CommandContext) -> PolicyResult:

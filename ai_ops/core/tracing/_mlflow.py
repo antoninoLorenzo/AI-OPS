@@ -1,13 +1,13 @@
 import os
 import traceback
 import uuid
-from typing import Callable
+from collections.abc import Callable
 
-import urllib3
 import httpx
+import urllib3
 
 from ai_ops.config import MLFLOW_EXPERIMENT_ENV, MLFLOW_TRACKING_URI_ENV
-from ai_ops.core.llm import InferenceClient, ModelMetadata
+from ai_ops.core.llm import InferenceClient
 from ai_ops.core.log import get_logger, log_event, logging
 from ai_ops.core.schema import ToolCallEvent, ToolResultEvent
 
@@ -19,7 +19,6 @@ _mlflow_ready = False
 
 
 def mlflow_ready():
-    global _mlflow_ready
     return _mlflow_ready
 
 
@@ -65,7 +64,7 @@ def setup_mlflow():
         mlflow.litellm.autolog()
         _mlflow_ready = True
 
-        if os.environ.get("MLFLOW_TRACKING_INSECURE_TLS", False):
+        if os.environ.get("MLFLOW_TRACKING_INSECURE_TLS", "false").lower() == "true":
             _logger.warning(f"Disabled SSL Verification for {tracking_uri}.")
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         
@@ -101,7 +100,7 @@ def _resolve_trace_ids(args, kwargs) -> tuple[str, str]:
             ), None
         )
         session_id = args[session_arg_idx].uuid if session_arg_idx is not None \
-            else f"unknown_{str(uuid.uuid4())}"
+            else f"unknown_{uuid.uuid4()!s}"
     else:
         session_id = session.uuid
 
@@ -128,7 +127,7 @@ def mlflow_trace(fn: Callable, *args, **kwargs):
 
     session_id, model_id = _resolve_trace_ids(args, kwargs)
 
-    tool_call_spans: Dict[str, tuple] = {} # tool_call_id -> (ctx, span)
+    tool_call_spans: dict[str, tuple] = {} # tool_call_id -> (ctx, span)
     with mlflow.start_span(
         name=MLFLOW_AGENT_TRACE_NAME, 
         span_type=SpanType.AGENT,
@@ -190,7 +189,7 @@ async def amlflow_trace(fn: Callable, *args, **kwargs):
 
     session_id, model_id = _resolve_trace_ids(args, kwargs)
 
-    tool_call_spans: Dict[str, tuple] = {} # tool_call_id -> (ctx, span)
+    tool_call_spans: dict[str, tuple] = {} # tool_call_id -> (ctx, span)
     with mlflow.start_span(
         name=MLFLOW_AGENT_TRACE_NAME,
         span_type=SpanType.AGENT,

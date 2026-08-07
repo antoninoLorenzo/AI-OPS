@@ -1,21 +1,25 @@
 # TODO: logging here should bind to the fastapi logger
+from collections.abc import AsyncIterable
 from contextlib import asynccontextmanager
-from typing import Annotated, AsyncIterable, Dict, List
+from typing import Annotated
 
-from fastapi import FastAPI, APIRouter, Depends, Request, Body, HTTPException, status
+from fastapi import APIRouter, Body, Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import StreamingResponse
 
-from ai_ops.api.config import get_settings, build_agent_config
 from ai_ops.api.auth import handle_api_key
+from ai_ops.api.config import build_agent_config, get_settings
 from ai_ops.api.model import StartAgentRequest
-
-from ai_ops.core.schema import Event, UserMessageEvent, ToolConfirmationEvent
-from ai_ops.core.runner import AgentRunner, AgentConfig
-from ai_ops.core.agent import AgentMode
+from ai_ops.core.llm import (
+    InferenceClient,
+    ModelConfig,
+    ModelMetadata,
+    build_inference_client,
+)
+from ai_ops.core.runner import AgentConfig, AgentRunner
+from ai_ops.core.schema import Event, ToolConfirmationEvent, UserMessageEvent
 from ai_ops.core.storage import Session, SessionStore
 from ai_ops.core.storage import get_session_store as _core_get_session_store
-from ai_ops.core.llm import InferenceClient, ModelMetadata, ModelConfig, build_inference_client
 from ai_ops.core.tracing import configure_tracing
 
 
@@ -34,7 +38,7 @@ async def lifespan(app: FastAPI):
 
     app.state.inference_client = inference_client
     app.state.agent_config = agent_config
-    app.state.runner_map: Dict[int, AgentRunner] = {}
+    app.state.runner_map: dict[int, AgentRunner] = {}
     
     # call get_session_store once with the intended strategy (pay init cost
     # at startup since the JSONL strategy init does disk i/o).
@@ -60,7 +64,7 @@ async def get_inference_client(request: Request) -> InferenceClient:
 async def get_store() -> SessionStore:
     return _core_get_session_store()
 
-async def get_runner_map(request: Request) -> Dict[int, AgentRunner]:
+async def get_runner_map(request: Request) -> dict[int, AgentRunner]:
     return request.app.state.runner_map
 
 async def get_agent_config(request: Request) -> AgentConfig:
@@ -83,7 +87,7 @@ async def get_model(
 async def create_conversation(
     store: Annotated[SessionStore, Depends(get_store)],
     inference_client: Annotated[InferenceClient, Depends(get_inference_client)],
-    runner_map: Annotated[Dict[int, AgentRunner], Depends(get_runner_map)],
+    runner_map: Annotated[dict[int, AgentRunner], Depends(get_runner_map)],
     agent_config: Annotated[AgentConfig, Depends(get_agent_config)]
 ) -> Session:
     """Creates a session and initalizes the agent."""
@@ -107,9 +111,9 @@ async def load_conversation(
     short_id: int,
     store: Annotated[SessionStore, Depends(get_store)],
     inference_client: Annotated[InferenceClient, Depends(get_inference_client)],
-    runner_map: Annotated[Dict[int, AgentRunner], Depends(get_runner_map)],
+    runner_map: Annotated[dict[int, AgentRunner], Depends(get_runner_map)],
     agent_config: Annotated[AgentConfig, Depends(get_agent_config)]
-) -> List[Event]:
+) -> list[Event]:
     try:
         session_id = store.get_session_uuid(short_id=short_id)
     except ValueError:
@@ -135,7 +139,7 @@ async def load_conversation(
 async def start_agent(
     short_id: int,
     body: StartAgentRequest,
-    runner_map: Annotated[Dict[int, AgentRunner], Depends(get_runner_map)]
+    runner_map: Annotated[dict[int, AgentRunner], Depends(get_runner_map)]
 ) -> StreamingResponse:
     runner = runner_map.get(short_id)
     if runner is None:
@@ -163,7 +167,7 @@ async def start_agent(
 @conversation_router.post("/{short_id}/send")
 async def send_message(
     short_id: int,
-    runner_map: Annotated[Dict[int, AgentRunner], Depends(get_runner_map)],
+    runner_map: Annotated[dict[int, AgentRunner], Depends(get_runner_map)],
     content: str = Body(..., embed=True),
 ):
     runner = runner_map.get(short_id)
@@ -179,7 +183,7 @@ async def send_message(
 @conversation_router.delete("/{short_id}")
 async def delete_agent(
     short_id: int,
-    runner_map: Annotated[Dict[int, AgentRunner], Depends(get_runner_map)]
+    runner_map: Annotated[dict[int, AgentRunner], Depends(get_runner_map)]
 ):
     """Close the agent instance on CLI-exit."""
     # note: duplicated of `stop_agent`
@@ -198,7 +202,7 @@ async def delete_agent(
 @conversation_router.post("/{short_id}/stop")
 async def stop_agent(
     short_id: int,
-    runner_map: Annotated[Dict[int, AgentRunner], Depends(get_runner_map)]
+    runner_map: Annotated[dict[int, AgentRunner], Depends(get_runner_map)]
 ):
     runner = runner_map.get(short_id)
     if runner is None:
@@ -215,7 +219,7 @@ async def confirm_tool_call(
     short_id: int, 
     tool_call_id: str, 
     approved: bool,
-    runner_map: Annotated[Dict[int, AgentRunner], Depends(get_runner_map)]
+    runner_map: Annotated[dict[int, AgentRunner], Depends(get_runner_map)]
 ):
     runner = runner_map.get(short_id)
     if runner is None:
@@ -240,11 +244,11 @@ async def get_usage(
         session = store.get_session_by_uuid(session_id=session_id)
     except ValueError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    total = sum((
+    total = sum(
         message.token_count
         for message in session.messages
         if message.token_count is not None
-    ))
+    )
 
     return {
         "total_tokens": total,

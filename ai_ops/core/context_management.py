@@ -1,28 +1,24 @@
 import copy
 import itertools
-from typing import List, Tuple, Protocol, Annotated, runtime_checkable
+from typing import Annotated, Protocol, runtime_checkable
 
 from pydantic import Field
-from litellm import ChatCompletionAssistantMessage, ChatCompletionToolMessage
 
 from ai_ops.core.conversation import (
-    Message, 
-    is_tool_call, 
-    is_user_message,
-    find_tool_call_result, 
-    get_token_count,
+    Message,
     count_tokens,
-    is_valid_message_list
+    find_tool_call_result,
+    get_token_count,
+    is_tool_call,
+    is_user_message,
+    is_valid_message_list,
 )
+from ai_ops.core.log import get_logger, log_event, logging
 from ai_ops.core.tools import (
-    WhiteboardWrite, 
-    WhiteboardRead,
-    LoadSkill, 
     ThinkTool,
-    validate_tool_call
+    WhiteboardWrite,
 )
 from ai_ops.core.tools.terminal.terminal import Terminal
-from ai_ops.core.log import get_logger, log_event, logging
 
 _logger = get_logger(__name__)
 
@@ -42,13 +38,13 @@ class ContextView(Protocol):
     conversation (following OpenAI format) contained base64 encoded binary blobs.
     """
 
-    def __call__(self, messages: List[Message]) -> List[Message]:
+    def __call__(self, messages: list[Message]) -> list[Message]:
         pass
 
 
 class RawContextView(ContextView):
     """Default ContextView strategy"""
-    def __call__(self, messages: List[Message]) -> List[Message]:
+    def __call__(self, messages: list[Message]) -> list[Message]:
         return copy.deepcopy(messages)
     
 
@@ -113,7 +109,7 @@ class LayeredContextView(ContextView):
         self.file_write_name = file_write_alias if file_write_alias else ""
 
 
-    def search_checkpoint(self, messages: List[Message]) -> int | None:
+    def search_checkpoint(self, messages: list[Message]) -> int | None:
         # start by finding the index of the agent WhiteboardWrite call and 
         # the corresponding tool_call_id
         checkpoint_index, checkpoint_tool_call_id = None, None
@@ -138,7 +134,7 @@ class LayeredContextView(ContextView):
         
         return checkpoint_index
 
-    def apply_active_window(self, messages: List[Message]) -> List[Message]:
+    def apply_active_window(self, messages: list[Message]) -> list[Message]:
         # Preserved: user messages, read_whiteboard, load_skill
         # We can't assume (ToolCall, ToolResult) appear sequentially... or can we?
         # The algorithm to drop tool calls can't assume an assistant message contains only 
@@ -237,7 +233,7 @@ class LayeredContextView(ContextView):
                     for _idx, tool_call in enumerate(message_tool_calls):
                         if tool_call["id"] in think_call_ids and _drop_think_count < _drop_think_target:
                             _drop_think_mask[_idx] = False
-                        _drop_think_count += 1
+                        _drop_think_count += 1 # noqa: SIM113
                     
                     message.message["tool_calls"] = list(itertools.compress(message_tool_calls, _drop_think_mask))
                     if len(message.message["tool_calls"]) == 0 and message.message.get("content") is None:
@@ -248,7 +244,7 @@ class LayeredContextView(ContextView):
                     for think_res_idx in think_res_idxs:
                         if _drop_think_count < _drop_think_target:
                             drop_mask[think_res_idx] = False
-                        _drop_think_count += 1
+                        _drop_think_count += 1 # noqa: SIM113
                 
                 think_count += call_count
                 continue
@@ -294,7 +290,7 @@ class LayeredContextView(ContextView):
                     for _idx, tool_call in enumerate(message_tool_calls):
                         if tool_call["id"] in fw_call_idxs and _drop_fw_count < _drop_fw_target:
                             _drop_fw_mask[_idx] = False
-                        _drop_fw_count += 1
+                        _drop_fw_count += 1 # noqa: SIM113
                     
                     message.message["tool_calls"] = list(itertools.compress(message_tool_calls, _drop_fw_mask))
                     if len(message.message["tool_calls"]) == 0 and message.message.get("content") is None:
@@ -304,7 +300,7 @@ class LayeredContextView(ContextView):
                     for fw_res_idx in fw_res_idxs:
                         if _drop_fw_count < _drop_fw_target:
                             drop_mask[fw_res_idx] = False
-                        _drop_fw_count += 1
+                        _drop_fw_count += 1 # noqa: SIM113
 
                 file_write_count += call_count
                 continue
@@ -313,7 +309,7 @@ class LayeredContextView(ContextView):
         return list(itertools.compress(messages, drop_mask))
 
 
-    def __call__(self, messages: List[Message]) -> List[Message]:
+    def __call__(self, messages: list[Message]) -> list[Message]:
         if not is_valid_message_list(messages):
             raise ValueError("Malformed messages: expected [system, user, ...]")
 

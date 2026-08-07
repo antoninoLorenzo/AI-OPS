@@ -1,4 +1,4 @@
-from typing import Annotated, List, Tuple, Optional, Union
+from typing import Annotated
 
 import litellm
 from litellm import (
@@ -7,11 +7,7 @@ from litellm import (
     ChatCompletionToolMessage,
     ChatCompletionUserMessage,
 )
-from pydantic import (
-    BaseModel,
-    Discriminator,
-    Field, Tag
-)
+from pydantic import BaseModel, Discriminator, Field, Tag
 
 from ai_ops.core.log import get_logger, log_event, logging
 
@@ -19,12 +15,7 @@ _logger = get_logger(__name__)
 
 
 def get_token_count(
-    message: Union[
-        ChatCompletionSystemMessage,
-        ChatCompletionUserMessage,
-        ChatCompletionAssistantMessage,
-        ChatCompletionToolMessage
-    ]
+    message: ChatCompletionSystemMessage | ChatCompletionUserMessage | ChatCompletionAssistantMessage | ChatCompletionToolMessage
 ) -> int | None:
     """
     Estimates the token count of a single chat message.
@@ -70,12 +61,7 @@ def get_token_count(
 
 class Message(BaseModel):
     message: Annotated[
-        Union[
-            Annotated[ChatCompletionSystemMessage, Tag("system")],
-            Annotated[ChatCompletionUserMessage, Tag("user")],
-            Annotated[ChatCompletionAssistantMessage, Tag("assistant")],
-            Annotated[ChatCompletionToolMessage, Tag("tool")],
-        ],
+        Annotated[ChatCompletionSystemMessage, Tag("system")] | Annotated[ChatCompletionUserMessage, Tag("user")] | Annotated[ChatCompletionAssistantMessage, Tag("assistant")] | Annotated[ChatCompletionToolMessage, Tag("tool")],
         Discriminator(lambda v: v.get("role") if isinstance(v, dict) else None)
     ]
     """`ChatCompletionX` is just a `TypedDict` of OpenAI schemas."""
@@ -84,17 +70,17 @@ class Message(BaseModel):
     agent_id: str
     """Identifier of the agent that authored this message (see `AgentConfig.agent_id`)."""
 
-    token_count: Optional[int] = None
+    token_count: int | None = None
     """Required for context compaction."""
 
-    model_id: Optional[str] = None
+    model_id: str | None = None
     """Useful for analysis. System and user messages won't have this field."""
 
 
 
 # --- message utilities
 
-def count_tokens(messages: List[Message]) -> int:
+def count_tokens(messages: list[Message]) -> int:
     token_count = 0
     for message in messages:
         if message.token_count is None:
@@ -108,7 +94,7 @@ def is_user_message(message: Message) -> bool:
     return msg.get("role", "") == "user"
 
 
-def is_tool_call(message: Message, tool_name_key: str) -> Tuple[bool, List[str] | None]:
+def is_tool_call(message: Message, tool_name_key: str) -> tuple[bool, list[str] | None]:
     """
     Whether or not ChatCompletionAssistantMessage contains a tool call of 
     tool_name_key.
@@ -117,7 +103,7 @@ def is_tool_call(message: Message, tool_name_key: str) -> Tuple[bool, List[str] 
     :returns: (False, None) or (True, [tool_call_id, ...])
     """
     msg = message.message
-    if not msg.get("role", "") == "assistant":
+    if msg.get("role", "") != "assistant":
         return False, None
     
     tool_calls = msg.get("tool_calls")
@@ -140,7 +126,7 @@ def is_tool_call(message: Message, tool_name_key: str) -> Tuple[bool, List[str] 
     return False, None
 
 
-def find_tool_call_result(messages: List[Message], tool_call_id: str) -> int | None:
+def find_tool_call_result(messages: list[Message], tool_call_id: str) -> int | None:
     """
     :returns: index of ChatCompletionToolMessage with tool_call_id or None
     """
@@ -150,7 +136,7 @@ def find_tool_call_result(messages: List[Message], tool_call_id: str) -> int | N
         i+= 1
 
         msg = message.message
-        if not msg.get("role", "") == "tool":
+        if msg.get("role", "") != "tool":
             continue
 
         if msg.get("tool_call_id", "") == tool_call_id:
@@ -158,7 +144,7 @@ def find_tool_call_result(messages: List[Message], tool_call_id: str) -> int | N
 
     return None
 
-def find_last_user_message_index(messages: List[Message]) -> int | None:
+def find_last_user_message_index(messages: list[Message]) -> int | None:
     """
     :returns: index of last ChatCompletionUserMessage or None
     """
@@ -171,7 +157,7 @@ def find_last_user_message_index(messages: List[Message]) -> int | None:
     )
     return last_usr_idx
 
-def is_valid_message_list(messages: List[Message]) -> bool:
+def is_valid_message_list(messages: list[Message]) -> bool:
     """Ensure the message list contains at least [system, user]."""
     if len(messages) < 2:
         return False
@@ -187,4 +173,4 @@ def is_valid_message_list(messages: List[Message]) -> bool:
 class Conversation(BaseModel):
     uuid: str
     short_id: int
-    messages: List[Message] = Field(default_factory=list)
+    messages: list[Message] = Field(default_factory=list)

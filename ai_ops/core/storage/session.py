@@ -2,17 +2,15 @@ import abc
 import json
 import uuid
 from enum import StrEnum, auto
-from typing import List, Dict, Type
 
 from pydantic import BaseModel, Field, TypeAdapter, ValidationError
 
 from ai_ops.config import AI_OPS_BASE_DIR
-from ai_ops.core.schema import Event, EventType, AnyEvent
-from ai_ops.core.tools import resolve_args_type, resolve_result_type
 from ai_ops.core.conversation import Message
 from ai_ops.core.log import get_logger, log_event, logging
-from ai_ops.core.storage.json_utils import read_jsonl, append_jsonl
-
+from ai_ops.core.schema import AnyEvent, Event, EventType
+from ai_ops.core.storage.json_utils import append_jsonl, read_jsonl
+from ai_ops.core.tools import resolve_args_type, resolve_result_type
 
 _logger = get_logger(__name__)
 _event_adapter = TypeAdapter(AnyEvent)
@@ -21,8 +19,8 @@ _event_adapter = TypeAdapter(AnyEvent)
 class Session(BaseModel):
     uuid: str
     short_id: int
-    events: List[AnyEvent] = Field(default_factory=list)
-    messages: List[Message] = Field(default_factory=list)
+    events: list[AnyEvent] = Field(default_factory=list)
+    messages: list[Message] = Field(default_factory=list)
     # note: messages already carry model_id and agent_id
 
 
@@ -53,11 +51,11 @@ class AbstractSessionStore(abc.ABC):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def get_messages_by_uuid(self, session_id: str) -> List[Message]:
+    def get_messages_by_uuid(self, session_id: str) -> list[Message]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def get_events_by_uuid(self, session_id: str) -> List[Event]:
+    def get_events_by_uuid(self, session_id: str) -> list[Event]:
         raise NotImplementedError()
 
 
@@ -98,7 +96,7 @@ class JSONLSessionStore(AbstractSessionStore):
         self.index_path = self.base_dir / self.INDEX_FILE
         
         if not self.index_path.exists():
-            self.__index: Dict[int, str] = {} # short_id -> uuid
+            self.__index: dict[int, str] = {} # short_id -> uuid
             self.index_path.touch()
             with open(str(self.index_path), 'w') as fp:
                 json.dump(self.__index, fp)
@@ -112,11 +110,11 @@ class JSONLSessionStore(AbstractSessionStore):
             short_ids = sorted(self.__index)
             self.__last_short_id = short_ids[-1] if len(short_ids) else 0
 
-        self.__sessions: Dict[str, Session] = {}
+        self.__sessions: dict[str, Session] = {}
         for session_id in self.__index.values():
             self.__sessions[session_id] = self.__load_session(session_id)
     
-    def __load_messages(self, session_id: str) -> List[Message]:
+    def __load_messages(self, session_id: str) -> list[Message]:
         p = self.base_dir / session_id / self.MESSAGES_FILE
         if not p.exists():
             raise ValueError(f"No persistent session with uuid={session_id}")
@@ -128,7 +126,7 @@ class JSONLSessionStore(AbstractSessionStore):
 
         return messages
 
-    def __load_events(self, session_id: str) -> List[Event]:
+    def __load_events(self, session_id: str) -> list[Event]:
         events_path = self.base_dir / session_id / self.EVENTS_FILE
         if not events_path.exists():
             raise ValueError(f"No persistent session with uuid={session_id}")
@@ -211,12 +209,12 @@ class JSONLSessionStore(AbstractSessionStore):
 
         self.__sessions[session_id].events.append(event)
 
-    def get_messages_by_uuid(self, session_id: str) -> List[Message]:
+    def get_messages_by_uuid(self, session_id: str) -> list[Message]:
         if session_id not in self.__sessions:
             raise ValueError(f"No session with uuid={session_id}")
         return self.__load_messages(session_id)
 
-    def get_events_by_uuid(self, session_id: str) -> List[Event]:
+    def get_events_by_uuid(self, session_id: str) -> list[Event]:
         if session_id not in self.__sessions:
             raise ValueError(f"No session with uuid={session_id}")
         return self.__load_events(session_id)
@@ -224,8 +222,8 @@ class JSONLSessionStore(AbstractSessionStore):
 
 class InMemorySessionStore(AbstractSessionStore):
     def __init__(self):
-        self.__sessions: Dict[str, Session] = {}
-        self.__short_id_idx: Dict[int, str] = {} # short_id -> uuid
+        self.__sessions: dict[str, Session] = {}
+        self.__short_id_idx: dict[int, str] = {} # short_id -> uuid
         self.__last_short_id = 0
 
     def create_session(self) -> Session:
@@ -256,16 +254,16 @@ class InMemorySessionStore(AbstractSessionStore):
     def append_event(self, session_id: str, event: Event) -> None:
         self.get_session_by_uuid(session_id).events.append(event)
 
-    def get_messages_by_uuid(self, session_id: str) -> List[Message]:
+    def get_messages_by_uuid(self, session_id: str) -> list[Message]:
         return self.get_session_by_uuid(session_id).messages
 
-    def get_events_by_uuid(self, session_id: str) -> List[Event]:
+    def get_events_by_uuid(self, session_id: str) -> list[Event]:
         return self.get_session_by_uuid(session_id).events
 
 
 class SessionStore:
 
-    def __init__(self, store_cls: Type[AbstractSessionStore]):
+    def __init__(self, store_cls: type[AbstractSessionStore]):
         self._store = store_cls()
 
     def create_session(self) -> Session:
@@ -283,10 +281,10 @@ class SessionStore:
     def append_event(self, session_id: str, event: Event) -> None:
         self._store.append_event(session_id=session_id, event=event)
 
-    def get_messages_by_uuid(self, session_id: str) -> List[Message]:
+    def get_messages_by_uuid(self, session_id: str) -> list[Message]:
         return self._store.get_messages_by_uuid(session_id=session_id)
 
-    def get_events_by_uuid(self, session_id: str) -> List[Event]:
+    def get_events_by_uuid(self, session_id: str) -> list[Event]:
         return self._store.get_events_by_uuid(session_id=session_id)
 
 

@@ -1,10 +1,11 @@
-from typing import Annotated, Dict, List, Optional, Union
+from typing import Annotated
 
 from pydantic import BaseModel, Field
 
+from ai_ops.core.prompt import get_prompt
 from ai_ops.core.schema import Event, ToolCallEvent
 from ai_ops.core.tools.base import Tool
-from ai_ops.core.prompt import get_prompt
+
 
 class WhiteboardEntry(BaseModel):
     name: str
@@ -35,12 +36,12 @@ class WhiteboardWriteRequest(BaseModel):
 
 class WhiteboardResult(BaseModel):
     status: bool
-    result: Union[str, WhiteboardEntry]
+    result: str | WhiteboardEntry
 
 
 class WhiteboardStore:
     def __init__(self):
-        self.__store: Dict[str, Dict[str, WhiteboardEntry]] = {}
+        self.__store: dict[str, dict[str, WhiteboardEntry]] = {}
 
     def new_whiteboard(self, whiteboard_id: str):
         self.__store[whiteboard_id] = {}
@@ -125,7 +126,7 @@ class WhiteboardRead(Tool[WhiteboardReadRequest, WhiteboardResult]):
 
 
     @property
-    def index(self) -> Optional[str]:
+    def index(self) -> str | None:
         store = get_whiteboard_store()
         return store.get_index(whiteboard_id=self.whiteboard_id)
 
@@ -176,12 +177,12 @@ class WhiteboardWrite(Tool[WhiteboardWriteRequest, WhiteboardResult]):
         return f"ERROR: {whiteboard_result.result}"
 
     @property
-    def index(self) -> Optional[str]:
+    def index(self) -> str | None:
         store = get_whiteboard_store()
         return store.get_index(whiteboard_id=self.whiteboard_id)
 
 
-def replay_whiteboard(whiteboard_id: str, events: List[Event]) -> None:
+def replay_whiteboard(whiteboard_id: str, events: list[Event]) -> None:
     """Reconstruct a whiteboard's state from a resumed session's events.
 
     :param whiteboard_id: Corresponds to `session_id`

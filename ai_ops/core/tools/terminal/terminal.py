@@ -1,16 +1,14 @@
 import uuid
-import logging
 from pathlib import Path
-from typing import Dict, Tuple, Optional, Annotated
+from typing import Annotated
 
 from pydantic import BaseModel, Field
 
-from ai_ops.core.tools.base import Tool
-from ai_ops.core.prompt import get_prompt
-from ai_ops.core.tools.terminal.bash import BashSession, CommandStatus, Status2String
-from ai_ops.core.tools.terminal.policy import CommandContext, CommandAdmissionPolicy
 from ai_ops.core.log import get_logger, log_event, logging
-
+from ai_ops.core.prompt import get_prompt
+from ai_ops.core.tools.base import Tool
+from ai_ops.core.tools.terminal.bash import BashSession, CommandStatus, Status2String
+from ai_ops.core.tools.terminal.policy import CommandAdmissionPolicy, CommandContext
 
 _logger = get_logger(__name__)
 MAX_COMMAND_TIMEOUT_S = 300.0
@@ -21,15 +19,15 @@ class TerminalRequest(BaseModel):
         Field(description="The bash command to execute.")
     ]
     session_id: Annotated[
-        Optional[str],
+        str | None,
         Field(description="Session ID to reuse an existing terminal session. Omit to create a new session.")
     ] = None
     interactive: Annotated[
-        Optional[bool],
+        bool | None,
         Field(description="Set to true for interactive commands. Status will not be captured for interactive commands.")
     ] = False
     timeout: Annotated[
-        Optional[float],
+        float | None,
         Field(description=(
             "Maximum seconds to wait for the command to complete. Defaults to the session default if omitted. "
             F"The value is clamped to {MAX_COMMAND_TIMEOUT_S}s."
@@ -41,8 +39,8 @@ class TerminalResult(BaseModel):
     session_id: str
     command: str
     allowed: bool
-    output: Optional[str] = None
-    status: Optional[CommandStatus] = None
+    output: str | None = None
+    status: CommandStatus | None = None
     timed_out: bool = False
 
 
@@ -55,14 +53,14 @@ class Terminal(Tool[TerminalRequest, TerminalResult]):
         self,
         session_id: str,
         working_directory: Path,
-        policies: Tuple[CommandAdmissionPolicy]
+        policies: tuple[CommandAdmissionPolicy]
     ):
         self.session_id = session_id # => tied to conversation
         self.working_directory = working_directory
         if not self.working_directory.exists():
             self.working_directory.mkdir(parents=True, exist_ok=True)
-        self.__sessions: Dict[str, BashSession] = {}
-        self.__policies: Tuple[CommandAdmissionPolicy] = policies
+        self.__sessions: dict[str, BashSession] = {}
+        self.__policies: tuple[CommandAdmissionPolicy] = policies
 
     def evaluate(self, tool_args: TerminalRequest) -> bool:
         """

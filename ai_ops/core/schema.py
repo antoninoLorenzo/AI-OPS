@@ -2,8 +2,9 @@
 # at all. It kind of seems like I did an attempt at avoiding OpenAI format and build 
 # my own.
 import abc
+from collections.abc import Awaitable, Callable
 from enum import StrEnum, auto
-from typing import Annotated, Awaitable, Callable, List, Type, Literal, Optional, Type, Union
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, SerializeAsAny
 
@@ -84,9 +85,9 @@ class ToolResultEvent(Event, BaseModel):
 class StopEvent(Event, BaseModel):
     kind: Literal[EventType.STOP] = EventType.STOP
     issuer: Literal['agent', 'user']
-    reason: Optional[str] = None
+    reason: str | None = None
     max_iteration: bool = False
-    error: Optional[str] = None # fatal error
+    error: str | None = None # fatal error
 
 
 class ToolErrorFailure(StrEnum):
@@ -105,16 +106,7 @@ class ToolErrorEvent(Event, BaseModel):
 # Discriminated union of every concrete event, keyed by `kind` for deserialization
 # of a streamed/persisted event back into its concrete type.
 AnyEvent = Annotated[
-    Union[
-        UserMessageEvent,
-        TextEvent,
-        ReasoningEvent,
-        ToolCallEvent,
-        ToolConfirmationEvent,
-        ToolResultEvent,
-        StopEvent,
-        ToolErrorEvent,
-    ],
+    UserMessageEvent | TextEvent | ReasoningEvent | ToolCallEvent | ToolConfirmationEvent | ToolResultEvent | StopEvent | ToolErrorEvent,
     Field(discriminator="kind"),
 ]
 

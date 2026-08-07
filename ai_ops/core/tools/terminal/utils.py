@@ -1,14 +1,12 @@
-from typing import Set
 
 import bashlex
 
 from ai_ops.core.log import get_logger, log_event, logging
 
-
 _logger = get_logger(__name__)
 
 
-def extract_executables(command: str) -> Set[str]:
+def extract_executables(command: str) -> set[str]:
     # TODO: fix `sudo` edge case, it's either `sudo [command]` and the fn returns
     # {sudo, command, ...} or `sudo [params]` and it returns {sudo, ...}, however 
     # I can't find any clean way to handle this since we have no way to discriminate 
@@ -42,12 +40,9 @@ def extract_executables(command: str) -> Set[str]:
                     
         elif node.kind == 'compound':
             stack.extend(node.list)
-        elif node.kind == 'commandsubstitution':
-            stack.append(node.command)
-        elif node.kind == 'processsubstitution':
+        elif node.kind == 'commandsubstitution' or node.kind == 'processsubstitution':
             stack.append(node.command)
         elif hasattr(node, 'parts'):
-            for child in node.parts:
-                stack.append(child)
+            stack.extend(node.parts)
 
     return set(executables)
