@@ -19,6 +19,10 @@ from ai_ops.core.runner import AgentConfig
 from ai_ops.core.storage import StorageStrategy
 from ai_ops.core.tools import DEFAULT_TOOLS, ToolRegistry
 from ai_ops.core.tools.terminal.policy import COMMAND_POLICY_REGISTRY
+from ai_ops.core.log import get_logger, log_event, logging
+
+
+_logger = get_logger(__name__)
 
 
 class APISettings(BaseSettings):
@@ -77,32 +81,42 @@ class AgentConfigSpec(BaseSettings):
 
 
 def build_agent_config() -> AgentConfig:
-    spec = AgentConfigSpec()
+    agent_spec = AgentConfigSpec()
+    log_event(_logger, logging.DEBUG, "Loaded AgentConfigSpec", agent_spec=agent_spec)
 
     tools = []
-    for tool_name in spec.tools:
-        spec = ToolRegistry.get(tool_name)
-        if spec is None:
+    for tool_name in agent_spec.tools:
+        tool_spec = ToolRegistry.get(tool_name)
+        if tool_spec is None:
             print(f"Invalid tool \"{tool_name}\"")
             sys.exit(1)
-        tools.append(spec.tool)
+        tools.append(tool_spec.tool)
 
-    if spec.context_view.kind not in CONTEXT_VIEW_REGISTRY:
-        print(f"Invalid context_view \"{spec.context_view.kind}\"")
+    if agent_spec.context_view.kind not in CONTEXT_VIEW_REGISTRY:
+        print(f"Invalid context_view \"{agent_spec.context_view.kind}\"")
         sys.exit(1)
     
-    for policy in spec.command_policies:
+    for policy in agent_spec.command_policies:
         if policy.kind not in COMMAND_POLICY_REGISTRY:
             print(f"Invalid policy \"{policy.kind}\"")
             sys.exit(1)
 
+    log_event(
+        _logger, logging.INFO, "Agent Configuration Loaded",
+        tools=", ".join([tool.name for tool in tools]),
+        context_view=agent_spec.context_view.kind,
+        command_policies=", ".join([policy.kind for polict in agent_spec.command_policies]),
+        temperature=agent_spec.temperature,
+        confirmation_timeout_s=agent_spec.confirmation_timeout_s
+    )
+
     return AgentConfig(
         tools=tools,
-        context_fn=CONTEXT_VIEW_REGISTRY[spec.context_view.kind](**spec.context_view.params),
+        context_fn=CONTEXT_VIEW_REGISTRY[agent_spec.context_view.kind](**agent_spec.context_view.params),
         command_policies=tuple(
-            COMMAND_POLICY_REGISTRY[policy.kind](**policy.params) for policy in spec.command_policies
+            COMMAND_POLICY_REGISTRY[policy.kind](**policy.params) for policy in agent_spec.command_policies
         ),
-        temperature=spec.temperature,
-        prompt_extension=spec.prompt_extension,
-        confirmation_timeout_s=spec.confirmation_timeout_s
+        temperature=agent_spec.temperature,
+        prompt_extension=agent_spec.prompt_extension,
+        confirmation_timeout_s=agent_spec.confirmation_timeout_s
     )

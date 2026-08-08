@@ -61,6 +61,10 @@ def get_prompt(
     >>> # get the load_skill tool description tuned towards gemma-4
     >>> get_prompt("load_skill", kind="tool", model="gemma-4-31B-it")
     """
+    log_event(
+        _logger, logging.INFO, "Loading Prompt",
+        name=name, kind=kind, version=version, mlflow_ready=mlflow_ready()
+    )
     if mlflow_ready():
         return load_prompt_from_mlflow(
             name=name, kind=kind, 

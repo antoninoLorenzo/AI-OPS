@@ -21,6 +21,10 @@ from ai_ops.core.schema import Event, ToolConfirmationEvent, UserMessageEvent
 from ai_ops.core.storage import Session, SessionStore
 from ai_ops.core.storage import get_session_store as _core_get_session_store
 from ai_ops.core.tracing import configure_tracing
+from ai_ops.core.log import get_logger, log_event, logging
+
+
+_logger = get_logger(__name__)
 
 
 @asynccontextmanager
@@ -28,13 +32,25 @@ async def lifespan(app: FastAPI):
     configure_tracing()
 
     settings = get_settings()
+    log_event(
+        _logger, logging.INFO, "Loaded API Settings",
+        host=settings.host,
+        storage_strategy=settings.storage_strategy,
+        model=settings.model,
+        llm_provider_base=settings.llm_provider_base
+    )
+
     agent_config = build_agent_config()
+    
     inference_client = build_inference_client(config=ModelConfig(
         model=settings.model,
         api_base=settings.llm_provider_base,
         api_key=settings.llm_provider_key
     ))
     # TODO: impl. startup client check 
+    log_event(
+        _logger, logging.DEBUG, "Done build_inference_client"
+    )
 
     app.state.inference_client = inference_client
     app.state.agent_config = agent_config
@@ -51,7 +67,8 @@ assert handle_api_key is not None, "Impl. error: `ai_ops.api.setup_auth` not cal
 
 app = FastAPI(
     lifespan=lifespan, 
-    dependencies=[Depends(handle_api_key)]
+    dependencies=[Depends(handle_api_key)],
+    docs_url=None, redoc_url=None, openapi_url=None
 )
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=[get_settings().host])
 

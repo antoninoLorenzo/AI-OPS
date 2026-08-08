@@ -23,7 +23,6 @@ def mlflow_ready():
 
 
 def mlflow_connect(tracking_uri: str, experiment_name: str):
-    global _mlflow_ready
     import mlflow
 
     # If mlflow is unreachable disable it, check it before `set_experiment` since the call 
@@ -36,8 +35,7 @@ def mlflow_connect(tracking_uri: str, experiment_name: str):
             _logger, logging.ERROR, "MLFlow: connection failed", 
             mlflow_tracking_uri=tracking_uri, mlflow_experiment=experiment_name, error=err
         )
-        _mlflow_ready = False
-        return
+        return False
 
     mlflow.set_tracking_uri(tracking_uri)
     mlflow.set_experiment(experiment_name=experiment_name)
@@ -45,6 +43,7 @@ def mlflow_connect(tracking_uri: str, experiment_name: str):
         _logger, logging.INFO, "MLFLow: established connection.",
         mlflow_tracking_uri=tracking_uri, mlflow_experiment=experiment_name
     )
+    return True
 
 
 def setup_mlflow():
@@ -60,7 +59,10 @@ def setup_mlflow():
             tracking_uri=tracking_uri, experiment_name=experiment
         )
         
-        mlflow_connect(tracking_uri=tracking_uri, experiment_name=experiment)
+        connected = mlflow_connect(tracking_uri=tracking_uri, experiment_name=experiment)
+        if not connected:
+            return 
+            
         mlflow.litellm.autolog()
         _mlflow_ready = True
 
