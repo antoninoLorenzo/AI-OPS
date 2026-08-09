@@ -7,7 +7,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        python3 python3-pip python3-venv ca-certificates \
+        python3 python3-pip python3-venv python3-dev ca-certificates build-essential gfortran \
         # general utils
         git wget curl file unzip jq openssl \
         # network 
