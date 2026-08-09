@@ -28,10 +28,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     
-      - if: always()
+      - if: always() && steps.gitleaks.outputs.exit-code != 0
         uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: ${{ steps.gitleaks.outputs.report }}
+          sarif_file: results.sarif
+          category: gitleaks
 
   ai-ops-tests:
     runs-on: ubuntu-latest

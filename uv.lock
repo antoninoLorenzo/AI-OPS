@@ -30,7 +30,6 @@ bench = [
     { name = "autopenbench" },
 ]
 dev = [
-    { name = "autopenbench" },
     { name = "fastapi", extra = ["standard"] },
     { name = "httpx" },
     { name = "isort" },
@@ -77,7 +76,6 @@ api = [
 ]
 bench = [{ name = "autopenbench", editable = "benchmark/auto_pen_bench/auto-pen-bench" }]
 dev = [
-    { name = "autopenbench", editable = "benchmark/auto_pen_bench/auto-pen-bench" },
     { name = "fastapi", extras = ["standard"] },
     { name = "httpx" },
     { name = "isort" },
@@ -97,7 +95,6 @@ dev = [
     { name = "streamlit", specifier = ">=1.40" },
     { name = "tokenizers" },
     { name = "tqdm", specifier = "~=4.66.4" },
-    { name = "transformers" },
     { name = "transformers", specifier = ">=5.5.3" },
     { name = "uvicorn" },
 ]

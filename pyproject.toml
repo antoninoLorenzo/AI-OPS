@@ -22,7 +22,6 @@ api = [
 ]
 dev = [
     { include-group = "api" },
-    { include-group = "bench" },
     { include-group = "docs" },
     "pytest>=9.0.2",
     "pytest-asyncio",
