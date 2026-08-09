@@ -148,12 +148,12 @@ class LoadSkillResult(BaseModel):
 
 class LoadSkill(Tool[LoadSkillRequest, LoadSkillResult]):
     name = "load_skill"
+    _prompt_template = get_prompt(name="load_skill", kind="tool")
     description = None
 
     def __init__(self, model: str | None = None):
         registry = get_skill_registry()
-        self.description = get_prompt(name=LoadSkill.name, kind="tool", model=model)
-        self.description = self.description.format(skill_index=registry.get_index())
+        self.description = self._prompt_template.format(skill_index=registry.get_index())
 
     def __call__(self, skill_request: LoadSkillRequest) -> LoadSkillResult:
         registry = get_skill_registry()

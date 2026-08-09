@@ -10,6 +10,7 @@ from fastapi.responses import StreamingResponse
 from ai_ops.api.auth import handle_api_key
 from ai_ops.api.config import build_agent_config, get_settings
 from ai_ops.api.model import StartAgentRequest
+from ai_ops.api.profile import register_profile
 from ai_ops.core.llm import (
     InferenceClient,
     ModelConfig,
@@ -274,3 +275,4 @@ async def get_usage(
 
 
 app.include_router(conversation_router)
+register_profile(app)

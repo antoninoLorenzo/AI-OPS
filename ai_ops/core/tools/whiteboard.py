@@ -88,7 +88,7 @@ def get_whiteboard_store() -> WhiteboardStore:
 
 class WhiteboardRead(Tool[WhiteboardReadRequest, WhiteboardResult]):
     name = 'read_whiteboard'
-    description = None
+    description = get_prompt(name="read_whiteboard", kind="tool")
 
     def __init__(
         self, 
@@ -96,7 +96,6 @@ class WhiteboardRead(Tool[WhiteboardReadRequest, WhiteboardResult]):
         new_whiteboard: bool = True,
         model: str | None = None
     ):
-        self.description = get_prompt(name=WhiteboardRead.name, kind="tool", model=model)
         self.whiteboard_id = whiteboard_id
         store = get_whiteboard_store()
         if new_whiteboard:
@@ -133,7 +132,7 @@ class WhiteboardRead(Tool[WhiteboardReadRequest, WhiteboardResult]):
 
 class WhiteboardWrite(Tool[WhiteboardWriteRequest, WhiteboardResult]):
     name = 'write_whiteboard'
-    description = None
+    description = get_prompt(name="write_whiteboard", kind="tool")
 
     def __init__(
         self, 
@@ -141,7 +140,6 @@ class WhiteboardWrite(Tool[WhiteboardWriteRequest, WhiteboardResult]):
         new_whiteboard: bool = True, 
         model: str | None = None
     ):
-        self.description = get_prompt(name=WhiteboardWrite.name, kind="tool", model=model)
         self.whiteboard_id = whiteboard_id
         store = get_whiteboard_store()
         if new_whiteboard:

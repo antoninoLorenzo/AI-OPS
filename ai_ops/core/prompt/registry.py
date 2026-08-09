@@ -1,3 +1,4 @@
+import functools
 import json
 import re
 from pathlib import Path
@@ -30,7 +31,8 @@ def build_prompt(
         system_prompt += prompt_extension
     
     return system_prompt
-    
+
+@functools.lru_cache() 
 def get_prompt(
     name: str, 
     kind: Literal["agent", "tool", "example"] = "agent",

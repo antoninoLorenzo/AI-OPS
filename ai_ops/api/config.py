@@ -29,6 +29,7 @@ class APISettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_prefix="AI_OPS_", extra="ignore")
 
     host: str = Field(default="127.0.0.1")
+    port: int = Field(default=8000)
     auth_token: SecretStr | None = Field(default=None)
     storage_strategy: StorageStrategy | None = Field(default=StorageStrategy.JSONL)
 
@@ -37,6 +38,9 @@ class APISettings(BaseSettings):
     model: str = Field(description="Fully Qualified Model ID.")
     llm_provider_base: str | None = Field(validation_alias=API_BASE_ENV_NAME)
     llm_provider_key: SecretStr | None = Field(validation_alias=API_KEY_ENV_NAME)
+
+    # additional development flags
+    debug: bool = Field(default=False)
     
 
 @lru_cache
