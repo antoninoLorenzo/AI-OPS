@@ -6,10 +6,10 @@ requires-python = ">=3.12"
 
 dependencies = [
     "bashlex>=0.18",
-    "litellm>=1.49.7",
+    "litellm>=1.84.0",
     "litellm[mlflow]",
     "mlflow>=3.11.1",
-    "pydantic>=2.11",
+    "pydantic>=2.13",
     "python-dotenv>=1.2.2",
 ]
 
@@ -20,15 +20,10 @@ api = [
     "httpx",
     "pydantic-settings"
 ]
-cli = [
-    "rich>=13.9.4",
-    "prompt-toolkit",
-    "requests>=2.33.0",
-]
 dev = [
     { include-group = "api" },
-    { include-group = "cli" },
     { include-group = "bench" },
+    { include-group = "docs" },
     "pytest>=9.0.2",
     "pytest-asyncio",
     "pytest-cov",
@@ -40,10 +35,17 @@ dev = [
     "seaborn~=0.13.2",
     "tqdm~=4.66.4",
     "transformers>=5.5.3",
-    "streamlit>=1.40"
+    "streamlit>=1.40",
+    "tokenizers",
+    "ruff>=0.16.2",
+    "pyinstrument"
 ]
 bench = [
     "autopenbench"
+]
+docs = [
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.5",
 ]
 
 [tool.pytest.ini_options]
@@ -60,6 +62,12 @@ exclude = [
 
 [tool.uv.sources]
 autopenbench = { path = "benchmark/auto_pen_bench/auto-pen-bench", editable = true }
+
+[tool.ruff.lint]
+ignore = ["BLE001"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/__init__.py" = ["F401"]
 
 [tool.setuptools.packages.find]
 include = ["ai_ops*"]

@@ -1,7 +1,7 @@
 import uvicorn
+
 from ai_ops.api.api import app
 from ai_ops.api.config import get_settings
-
 
 if __name__ == "__main__":
     settings = get_settings()

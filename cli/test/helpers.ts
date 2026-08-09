@@ -2,6 +2,15 @@
 // so fixed sleeps get starved under load; poll for the expected condition
 // instead of guessing a delay.
 
+// Strips ANSI escape codes (colors, styles, cursor moves) from a rendered
+// frame. Ink emits these whenever the environment reports color support (an
+// interactive TTY or CI), so plain-text assertions must strip them first to
+// stay stable across environments.
+// eslint-disable-next-line no-control-regex
+export function stripAnsi(s: string): string {
+  return s.replace(/\x1B\[[0-9;]*m/g, '');
+}
+
 export async function waitFor(
   predicate: () => boolean,
   { timeout = 2000, step = 10 }: { timeout?: number; step?: number } = {},
@@ -18,7 +27,7 @@ export async function waitFor(
 
 // Waits until the rendered frame matches a pattern.
 export async function waitForFrame(getFrame: () => string | undefined, pattern: RegExp): Promise<void> {
-  await waitFor(() => pattern.test(getFrame() ?? ''));
+  await waitFor(() => pattern.test(stripAnsi(getFrame() ?? '')));
 }
 
 // Writes a key repeatedly until `predicate` holds. Ink registers a component's

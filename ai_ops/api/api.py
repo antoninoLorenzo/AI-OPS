@@ -17,13 +17,12 @@ from ai_ops.core.llm import (
     ModelMetadata,
     build_inference_client,
 )
+from ai_ops.core.log import get_logger, log_event, logging
 from ai_ops.core.runner import AgentConfig, AgentRunner
 from ai_ops.core.schema import Event, ToolConfirmationEvent, UserMessageEvent
 from ai_ops.core.storage import Session, SessionStore
 from ai_ops.core.storage import get_session_store as _core_get_session_store
 from ai_ops.core.tracing import configure_tracing
-from ai_ops.core.log import get_logger, log_event, logging
-
 
 _logger = get_logger(__name__)
 
@@ -71,7 +70,7 @@ app = FastAPI(
     dependencies=[Depends(handle_api_key)],
     docs_url=None, redoc_url=None, openapi_url=None
 )
-app.add_middleware(TrustedHostMiddleware, allowed_hosts=[get_settings().host])
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=get_settings().allowed_hosts)
 
 conversation_router = APIRouter(prefix="/conversation")
 

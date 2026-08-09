@@ -72,6 +72,10 @@ class AgentRunner:
         is_new_conversation: bool = True,
         extra_tool_ctx: dict[str, Any] | None = None
     ):
+        log_event(
+            _logger, logging.DEBUG, "Initalizing AgentRunner", 
+            session_id=session_id, is_new_conversation=is_new_conversation
+        )
         self.agent_config = config
         self.session_id = session_id
         self.client = client
@@ -84,6 +88,11 @@ class AgentRunner:
                 model=client.model,
                 prompt_extension=config.prompt_extension
             )
+            log_event(
+                _logger, logging.DEBUG, "Done building system_prompt", 
+                agent_id=config.agent_id, model=client.model
+            )
+
             system_prompt_message = {"role": "system", "content": system_prompt}
             system_prompt_tokens = get_token_count(system_prompt_message)
             self._store.append_message(
@@ -96,6 +105,7 @@ class AgentRunner:
                 whiteboard_id=self.session_id,
                 events=self._store.get_events_by_uuid(session_id=self.session_id)
             )
+            log_event(_logger, logging.DEBUG, "Done replaying whiteboard", session_id=self.session_id)
 
         ctx = ToolContext(
             session_id=session_id, 
@@ -109,6 +119,7 @@ class AgentRunner:
             for tool in config.tools
             if (spec := ToolRegistry.get(tool.name)) is not None
         }
+        log_event(_logger, logging.DEBUG, "Done loading tools")
 
         # guards run from being invoked when it already was
         self._running = False

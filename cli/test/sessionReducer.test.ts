@@ -7,6 +7,7 @@ import {
   isRunning,
   canSubmitPrompt,
   activeConfirmation,
+  settledCount,
   type SessionState,
   type Action,
   type Block,
@@ -46,9 +47,9 @@ function tools(state: SessionState): ToolBlock[] {
   return state.blocks.filter((b): b is ToolBlock => b.type === 'tool');
 }
 
-// --- header / model / usage -------------------------------------------------
+// --- status bar / model / usage -------------------------------------------------
 
-test('SET_MODEL and SET_SESSION populate header fields', () => {
+test('SET_MODEL and SET_SESSION populate status bar fields', () => {
   const s = run(initialState('unsupervised'),
     { type: 'SET_MODEL', model: { provider: 'openai', modelId: 'gpt-4o', maxContextLength: 8192 } },
     { type: 'SET_SESSION', shortId: 3, mode: 'unsupervised' },
@@ -506,4 +507,39 @@ test('a full run: prompt -> reasoning -> tool -> result -> text -> stop', () => 
   assert.deepEqual(kinds, ['user', 'reasoning', 'tool', 'text']);
   assert.equal(s.pendingToolCalls, 0);
   assert.equal(canSubmitPrompt(s), true);
+});
+
+// --- settled / live split ---------------------------------------------------
+
+test('settledCount excludes the block still accumulating text', () => {
+  let s = initialState();
+  s = run(s, { type: 'SUBMIT_PROMPT', content: 'hi' }, { type: 'STREAM_START' });
+  s = run(s, ev(text('partial', true, false)));
+  assert.equal(settledCount(s), 1, 'the open text block is still live');
+
+  s = run(s, ev(text('', true, true)));
+  assert.equal(settledCount(s), 2, 'a finalized text block is settled');
+});
+
+test('settledCount excludes a tool call awaiting confirmation', () => {
+  let s = initialState();
+  s = run(s, { type: 'STREAM_START' });
+  s = run(s, ev(toolCall('c1', 'terminal', { command: 'rm -rf /' }, true)));
+  assert.equal(settledCount(s), 0);
+});
+
+test('settledCount is a prefix: a settled block behind a pending one stays live', () => {
+  let s = initialState();
+  s = run(s, { type: 'STREAM_START' });
+  s = run(s, ev(toolCall('c1', 'terminal', { command: 'slow' })));
+  s = run(s, ev(toolCall('c2', 'terminal', { command: 'fast' })));
+  s = run(s, ev(toolResult('c2', 'terminal', { session_id: 's', command: 'fast', allowed: true, status: 0, output: 'ok' })));
+
+  // c2 is final, but c1 ahead of it is not, so nothing may be written yet:
+  // static output is ordered and append-only.
+  assert.equal(s.blocks.length, 2);
+  assert.equal(settledCount(s), 0);
+
+  s = run(s, ev(toolResult('c1', 'terminal', { session_id: 's', command: 'slow', allowed: true, status: 0, output: 'ok' })));
+  assert.equal(settledCount(s), 2, 'both settle once the blocker resolves');
 });

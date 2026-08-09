@@ -72,7 +72,7 @@ export async function runStartup(
     }
   }
 
-  // 3. Fetch model metadata for the header.
+  // 3. Fetch model metadata for the status bar.
   let model: ModelInfo;
   try {
     const metadata = await client.getModel();

@@ -36,14 +36,14 @@ class MyTool(Tool[MyInput, MyOutput]):
         return f"Result: {tool_result.result}"
 
 
-register_tool(MyTool, MyInput, MyOutput, lambda _: MyTool())
+register_tool(MyTool, lambda _: MyTool())
 
 AgentConfig(tools=[MyTool, ...])
 ```
 
 ## Tool State
 
-`register_tool` takes a `lambda` rather than the class itself so `AgentRunner` can initialize tools without knowing each one's constructor signature. If your tool needs configuration or shared state, receive it through `ToolContext`:
+`register_tool(tool_class, factory)` takes the class plus a factory `lambda`, not an instance, so `AgentRunner` can build the tool without knowing its constructor signature. The input/output models are read from the `Tool[In, Out]` base, so you don't pass them to `register_tool` separately. If your tool needs configuration or shared state, receive it through `ToolContext`:
 
 `ai_ops.core.tools.__init__`
 ```python
@@ -52,9 +52,9 @@ class ToolContext:
     session_id: str
     model_id: str | None = None
     is_new_conversation: bool = True
-    working_directory: str | None = None
-    command_policies: Tuple[CommandAdmissionPolicy] = field(default_factory=list)
-    extra: Optional[Dict[str, Any]] = None  # anything that doesn't deserve a first-class field
+    command_policies: tuple[CommandAdmissionPolicy] = field(default_factory=list)
+    # anything that doesn't deserve a first-class field
+    extra: dict[str, Any] | None = None
 ```
 
 ```python
@@ -90,7 +90,7 @@ class MyTool(Tool[MyInput, MyOutput]):
 
 
 register_tool(
-    MyTool, MyInput, MyOutput,
+    MyTool,
     lambda ctx: MyTool(session_id=ctx.session_id, multiplier=ctx.extra["multiplier"]),
 )
 
@@ -141,7 +141,7 @@ class MyTool(Tool[MyInput, MyOutput]):
         return f"Result: {tool_result.result}"
 
 
-register_tool(MyTool, MyInput, MyOutput, lambda _: MyTool())
+register_tool(MyTool, lambda _: MyTool())
 
 AgentConfig(tools=[MyTool, ...])
 ```

@@ -15,8 +15,12 @@ benchmark
 cli
 docs
 prompt_optimization
+data_analysis
+docker
+site
 static
 test
+mkdocs.yml
 
 LICENSE
 CONTRIBUTE.md

@@ -37,9 +37,14 @@ test('parseFlags maps known flags to config source', () => {
   });
 });
 
-test('parseFlags ignores unknown flags and returns only provided keys', () => {
-  const source = parseFlags(['--base-url', 'http://x', '--unknown', 'v']);
+test('parseFlags returns only the provided known keys', () => {
+  const source = parseFlags(['--base-url', 'http://x']);
   assert.deepEqual(source, { baseUrl: 'http://x' });
+});
+
+test('parseFlags rejects an unknown flag with a ConfigError', () => {
+  // A typo (e.g. --reload for --resume) must fail loudly, not be dropped.
+  assert.throws(() => parseFlags(['--base-url', 'http://x', '--reload', '8']), ConfigError);
 });
 
 test('readConfigFile returns empty object when file is missing', () => {

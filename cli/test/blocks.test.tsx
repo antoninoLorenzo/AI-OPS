@@ -12,9 +12,10 @@ import { ReasoningBlock } from '../src/blocks/ReasoningBlock.tsx';
 import { TextBlock } from '../src/blocks/TextBlock.tsx';
 import { ToolBlockView } from '../src/blocks/ToolBlockView.tsx';
 import type { ToolBlock, TextBlock as TextBlockData } from '../src/state/sessionReducer.ts';
+import { stripAnsi } from './helpers.ts';
 
 function frame(node: React.ReactElement): string {
-  return render(node).lastFrame() ?? '';
+  return stripAnsi(render(node).lastFrame() ?? '');
 }
 
 function tool(overrides: Partial<ToolBlock>): ToolBlock {

@@ -32,7 +32,7 @@ def build_prompt(
     
     return system_prompt
 
-@functools.lru_cache() 
+@functools.lru_cache 
 def get_prompt(
     name: str, 
     kind: Literal["agent", "tool", "example"] = "agent",

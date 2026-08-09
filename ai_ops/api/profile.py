@@ -1,11 +1,10 @@
-from typing import Callable
+from collections.abc import Callable
 
 from fastapi import FastAPI, Request
 
-from ai_ops.config import AI_OPS_BASE_DIR
 from ai_ops.api.config import get_settings
+from ai_ops.config import AI_OPS_BASE_DIR
 from ai_ops.core.log import get_logger, log_event, logging
-
 
 _logger = get_logger(__name__)
 
@@ -17,7 +16,7 @@ def register_profile(app: FastAPI):
         return
 
     try:
-        import pyinstrument
+        import pyinstrument  # noqa: F401
     except ImportError:
         log_event(_logger, logging.DEBUG, "Install `pyinstrument` to profile api.")
         return
@@ -39,7 +38,7 @@ def register_profile(app: FastAPI):
 
         renderer = HTMLRenderer()
         rq_path = request.url.path.replace('/', '-')
-        with open(f"{str(profile_dir)}/profile-{rq_path}.html", "w") as out:
+        with open(f"{profile_dir!s}/profile-{rq_path}.html", "w") as out: # noqa: ASYNC230
             out.write(profiler.output(renderer=renderer))
         
         return response

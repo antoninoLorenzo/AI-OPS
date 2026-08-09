@@ -1,11 +1,18 @@
+prompt_optimization/
 prompt_optimization/data/tmp
+data_analysis/
+
 .coverage
+.ruff_cache
 htmlcov/*
 cli/node_modules
 
 # IDEs
 .idea/
 .code/
+
+.github/act/
+static/ai-ops-coverage.json
 
 # Environments
 .env
@@ -17,6 +24,7 @@ env.bak/
 venv.bak/
 .pytest_cache/
 .coverage
+.secrets
 
 # logs
 logs/
@@ -77,3 +85,5 @@ __pypackages__/
 
 # Node (old)
 frontend/node_modules
+# MkDocs build output
+site/

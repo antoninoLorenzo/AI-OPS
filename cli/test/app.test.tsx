@@ -81,7 +81,7 @@ async function submit(
   stdin.write('\r');
 }
 
-test('renders the header from model metadata on startup', async () => {
+test('renders the status bar from model metadata on startup', async () => {
   const { client } = makeFake([]);
   const { lastFrame } = render(<App client={client} model={MODEL} shortId={2} mode="supervised" />);
   await waitForFrame(lastFrame, /gpt-4o \(openai\)/);
@@ -109,7 +109,7 @@ test('submitting a prompt starts the agent and renders the streamed transcript',
   assert.match(f, /enumerate the host/);
   assert.match(f, /\$ nmap host/);
   assert.match(f, /80\/tcp open/);
-  // Usage refreshed after tool_result and stop; header reflects the new total.
+  // Usage refreshed after tool_result and stop; the status bar reflects the new total.
   assert.ok(calls.usage >= 1);
   assert.match(f, /4\.2k\/8k/);
 });
@@ -185,7 +185,7 @@ test('resuming renders the historical transcript and prior token usage', async (
   const f = lastFrame() ?? '';
   assert.match(f, /earlier answer/);
   assert.match(f, /#42/);
-  assert.match(f, /777\/8k/); // resumed usage reflected in the header
+  assert.match(f, /777\/8k/); // resumed usage reflected in the status bar
 });
 
 test('a prompt submitted while running is sent, not started again', async () => {

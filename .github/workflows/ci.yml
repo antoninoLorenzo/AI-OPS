@@ -1,0 +1,153 @@
+name: "CI"
+
+on: [push, pull_request]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  secret-scan:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        id: gitleaks
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+      - if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: ${{ steps.gitleaks.outputs.report }}
+
+  ai-ops-tests:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+
+    steps:
+      - uses: actions/checkout@v6 
+      
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      
+      - name: Setup Dependencies
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --group api --dev --frozen
+
+      - name: Run test suite
+        run: |
+          source .venv/bin/activate
+          python -m pytest --cov=ai_ops --cov-report=json:static/ai-ops-coverage.json test/
+          pct=$(python static/gen_coverage_percent.py)
+          echo "PCT=$pct" >> "$GITHUB_ENV"
+
+      - name: Publish coverage badge
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: schneegans/dynamic-badges-action@28b0fa8bdeb46170ac397105ece0c1fe58f68910
+        with:
+          auth: ${{ secrets.GIST_COVERAGE_TOKEN }}
+          gistID: 5c765b19faeae31f45f4b6b13e8c1f1c
+          filename: coverage.json
+          label: coverage
+          message: ${{ env.PCT }}%
+          valColorRange: ${{ env.PCT }}
+          minColorRange: 0
+          maxColorRange: 100
+
+  cli-tests:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: cli
+    
+    strategy:
+      matrix:
+        node-version: ["22"]
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+          cache-dependency-path: cli/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Run test suite
+        run: npm test
+
+  ai-ops-linting:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Setup Dependencies
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --group dev --frozen
+
+      - name: Run Ruff
+        run: |
+          source .venv/bin/activate
+          ruff check ai_ops/
+  
+  cli-linting:
+    name: Run Oxlint (TS7 support)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+      
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: cli/package-lock.json
+      
+      - name: Install dependencies
+        run: npm ci
+        working-directory: cli
+
+      - name: Run Oxlint
+        run: npx oxlint src
+        working-directory: cli

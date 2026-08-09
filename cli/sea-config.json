@@ -1,0 +1,6 @@
+{
+    "main": "dist/cli.sea.js",
+    "mainFormat": "module",
+    "output": "dist/ai-ops-cli",
+    "disableExperimentalSEAWarning": true
+}

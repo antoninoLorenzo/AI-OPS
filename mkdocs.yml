@@ -1,0 +1,70 @@
+site_name: AI-OPS
+site_description: LLM-assisted penetration-testing agent. Bring your own LLM, run the API, drive it from the CLI.
+repo_url: https://github.com/antoninoLorenzo/AI-OPS
+repo_name: antoninoLorenzo/AI-OPS
+docs_dir: docs
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  favicon: img/favicon.ico
+  locale: en
+  logo: img/logo_black.svg
+  icon:
+    repo: fontawesome/brands/github
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.instant
+    - content.code.copy
+    - search.suggest
+    - search.highlight
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate  
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+extra_css:
+  - style/extra.css
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.inlinehilite
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+
+plugins:
+  - search
+
+nav:
+  - Home: index.md
+  - Deploy and operate:
+      - Getting Started: getting-started.md
+      - Run the API Server: how-to/run-the-api-server.md
+      - Use the CLI: how-to/use-the-cli.md
+      - Model Selection: model_selection.md
+      - Configuration: configuration.md
+      - Command Policies: command-policy.md
+  - Extend:
+      - Add a Tool: how-to/add-a-tool.md
+      - Add a Skill: how-to/add-a-skill.md
+      - Add a Command Policy: how-to/add-a-command-policy.md
+      - Run the Agent Programmatically: how-to/run-the-agent-programmatically.md
+  - Reference:
+      - API Reference: reference/api.md
+      - Built-in Tools: reference/tools.md
+      - Context Management: reference/context-management.md
+      - Storage Layout: reference/storage.md
+      - Bundled Skills: reference/skills.md

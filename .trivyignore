@@ -1,0 +1,74 @@
+# GitPython: transitive dep of mlflow, used only to read local commit metadata on your own repo path. 
+# MLflow's tracing path (mlflow/tracing/utils/environment.py) explicitly excludes GitRunContext via resolve_tags(ignore=[GitRunContext]).
+# Confirmed 2026-08-08
+GHSA-2f96-g7mh-g2hx
+GHSA-3f7w-8rr8-f37f
+GHSA-3rp5-jjmw-4wv2
+GHSA-4gmw-gg2m-w46p
+GHSA-6p8h-3wgx-97gf
+GHSA-94p4-4cq8-9g67
+GHSA-956x-8gvw-wg5v
+GHSA-9rj7-rf2p-w77r
+GHSA-fjr4-x663-mwxc
+GHSA-hmq2-w58f-27jc
+GHSA-jm78-9fvv-mhgr
+GHSA-r9mr-m37c-5fr3
+GHSA-rwj8-pgh3-r573
+GHSA-v396-v7q4-x2qj
+GHSA-wvpp-8hx9-p66j
+GHSA-539m-9xh6-q6rr
+GHSA-hh9p-6wh2-4mfc
+GHSA-p538-c434-8v24
+
+# aiohttp/urllib3/httpx
+CVE-2026-69244
+CVE-2026-50269
+CVE-2026-54275
+CVE-2026-54279
+CVE-2026-54280
+CVE-2026-34993
+CVE-2026-47265
+CVE-2026-54273
+CVE-2026-54274
+CVE-2026-54276
+CVE-2026-54277
+CVE-2026-54278
+CVE-2026-59881
+CVE-2026-69243
+CVE-2026-44431
+CVE-2026-44432
+
+# transitive, no direct usage in ai_ops/.
+CVE-2026-69247
+CVE-2026-69249
+GHSA-537c-gmf6-5ccf
+CVE-2026-69248
+
+# starlette/python-multipart: no UploadFile/Form/StaticFiles usage in ai_ops/api/ (routes are JSON-only)
+CVE-2026-48818
+CVE-2026-54283
+CVE-2026-48710
+CVE-2026-48817
+CVE-2026-54282
+CVE-2026-53539
+CVE-2026-53537
+CVE-2026-53538
+CVE-2026-53540
+
+# pillow/pyasn1: transitive, no PIL/pyasn1 imports in ai_ops/.
+CVE-2026-54058
+CVE-2026-54059
+CVE-2026-54060
+CVE-2026-55379
+CVE-2026-55380
+CVE-2026-59197
+CVE-2026-59199
+CVE-2026-59200
+CVE-2026-59204
+CVE-2026-59205
+CVE-2026-55798
+CVE-2026-59198
+CVE-2026-59203
+CVE-2026-59884
+CVE-2026-59885
+CVE-2026-59886

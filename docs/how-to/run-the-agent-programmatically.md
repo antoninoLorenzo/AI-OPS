@@ -40,17 +40,19 @@ agent = AgentRunner(
     config=AgentConfig(
         tools=DEFAULT_TOOLS,
         context_fn=LayeredContextView(max_window_tokens=32768),
-        working_directory="/tmp/ai_ops/",
         command_policies=(AllowListPolicy(allowlist=["nmap", "ffuf", "..."]),),
         temperature=0.4,             # default is AI_OPS_AGENT_TEMPERATURE / 0.4
         prompt_extension=None,       # optional string appended to the system prompt
         confirmation_timeout_s=300,  # default; a pending call is denied on timeout
+        agent_id="react",            # default; selects the prompt/orchestrator variant
     ),
     is_new_conversation=True,        # default; writes the system prompt as the first message
     extra_tool_ctx=None,             # optional dict passed to ToolContext.extra
 )
 ```
 > `is_new_conversation=False` skips writing the system prompt (used to resume a conversation).
+
+> File-writing and terminal tools operate in a per-session workspace under the base directory (`~/.local/share/ai_ops/workspace/<session_id>/`), created automatically.
 
 **Consume the Event Stream**
 

@@ -15,3 +15,7 @@ class AlwaysAllowPolicy(CommandAdmissionPolicy):
         print(f"{ctx.session_id}: evaluating command {ctx.command}")
         return PolicyResult(allowed=True)
 ```
+
+For how policies fit into the agent's execution (supervised confirmation vs.
+unsupervised blocking) and the built-in allow-list, see
+[Command Policies](../command-policy.md).

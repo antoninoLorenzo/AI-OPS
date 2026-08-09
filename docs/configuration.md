@@ -1,5 +1,9 @@
 # AI-OPS Configuration
 
+This is the full settings reference. For a guided setup see
+[Getting Started](getting-started.md), and for choosing a model see
+[Model Selection](model_selection.md).
+
 ## API
 
 The AI-OPS API is configured through the following environment variables:
@@ -7,17 +11,24 @@ The AI-OPS API is configured through the following environment variables:
 | Variable | Type | Default | Required |
 |---|---|---|---|
 | `AI_OPS_HOST` | string | `127.0.0.1` | No | 
+| `AI_OPS_PORT` | int | 8000 | No | 
 | `AI_OPS_AUTH_TOKEN` | string (secret) | - | No for localhost, Yes otherwise. |
 | `AI_OPS_STORAGE_STRATEGY` | enum | `JSONL` | No | 
 | `AI_OPS_MODEL` | string | - | Yes | 
 | `LLM_API_BASE` | string | - | No | 
 | `LLM_API_KEY` | string (secret) | - | No |
 
+`AI_OPS_MODEL`, `LLM_API_BASE`, and `LLM_API_KEY` are covered in depth in
+[Model Selection](model_selection.md). For launching the server and the auth
+rules see [Run the API Server](how-to/run-the-api-server.md), and for the full
+HTTP surface see the [API Reference](reference/api.md#configuration).
 
 ## CLI
 
 The default CLI configuration is loaded from `~/.config/ai_ops/cli.json` if the file exists, however the flags have precedence over the file.
 > Note: a missing file is not an error; a malformed file, or one that fails schema validation, is startup-fatal.
+
+See [Use the CLI](how-to/use-the-cli.md) for what each flag does in practice.
 
 ### Flags 
 
@@ -55,6 +66,12 @@ To configure the AI-OPS agent you can add `~/.local/share/ai_ops/agent_config.js
 | `prompt_extension` | string \| null | `null` |
 | `confirmation_timeout_s` | float | `300.0` |
 
+`tools` names come from [Built-in Tools](reference/tools.md), or your own via
+[Add a Tool](how-to/add-a-tool.md). `context_view` is described in
+[Context Management](reference/context-management.md), and `command_policies` in
+[Command Policies](command-policy.md). When running in a container, mount this
+file as shown in
+[Run the API Server](how-to/run-the-api-server.md#supplying-config-and-skills).
 
 ### Core Settings
 
@@ -71,4 +88,7 @@ To configure the AI-OPS agent you can add `~/.local/share/ai_ops/agent_config.js
 | `AI_OPS_LOG_FILE` | string (filename) | - | Created under `~/.local/share/ai_ops/` |
 | `AI_OPS_LOG_STDOUT` | bool | - | `"true"` / `"false"` |
 | `SKILL_VERIFY_INSTALLED` | bool | `false` | If `true`, checks each skill's `requirements` against `PATH` at startup and exits on any miss |
+
+The base directory that holds logs, sessions, the workspace, and skills is
+described in [Storage Layout](reference/storage.md).
 

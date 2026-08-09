@@ -20,7 +20,6 @@ You *can* use AI, but here's a couple of nice guidelines if you do so:
 LLMs ain't cheap, so even developing an AI Agent requires you to manage token consumption. The obvious trick here is avoiding as much as possible LLM calls in development, however at some point you'll have to make api calls. AI-OPS is trying to target medium sized LLMs (ex. Gemma4 31B) and there's effort in context compaction so even 16k could do the job. 
 
 That said, if you are blessed with enough hardware to get medium-sized at >30tok/s (under that you'll suffer the wrath of linear algebra) you may still be interested in knowing what low-hanging fruits are around. I personally still have to spend a cent on llm inference, this is thanks to the two following platforms:
-* [Lightning AI](https://lightning.ai/docs/overview/getting-started): you can register and *once they accept you* you get 15 free credits per month that you can use on their Models API (cheaper) or to deploy your own vLLM (what I use) instances (not so cheap). One issue I encountered with their Models API is that sometimes they'll permission-deny requests, the error is not explicit however I think it happens because some pentesting requests get flagged by whatever filtering they have behind the scenes.  
 * [Modal](https://modal.com/docs): you register and *once you connect a payment method* you get 30$ worth of credits, note that by default the budget is set to 42.5$ (let's call that a tax on not paying attention) but you can lower it to 30$. It offers serverless GPUs and if you're familiar with Docker containers you'll understand their Images api.
 
 </details>
@@ -75,3 +74,33 @@ _TEST_PARAMS = [
 def test_foo(test_case):
     assert foo(**test_case["input"]) == test_case["expected"]
 ```
+
+---
+
+### Documentation
+
+The docs live in `docs/` (plain markdown) and are built with [MkDocs](https://www.mkdocs.org/) + [Material](https://squidfunk.github.io/mkdocs-material/). The build tools are in the `docs` dependency group, install them with:
+
+```bash
+uv sync --group docs
+```
+
+**Preview** (live-reloads as you edit) at http://127.0.0.1:8000:
+
+```bash
+uv run --group docs mkdocs serve
+```
+
+**Build**, the same strict build CI runs (fails on any broken link or nav entry):
+
+```bash
+uv run --group docs mkdocs build --strict
+```
+
+A few notes:
+
+* Run through `uv run --group docs` (or a venv with the group synced). A bare `mkdocs` may resolve to a system install without the Material theme and fail with `Unrecognised theme name: 'material'`.
+* Page order and the sidebar come from the `nav:` block in `mkdocs.yml`. When you add a page under `docs/`, add it to `nav:` too.
+* `site/` is generated output and is gitignored, don't commit it. `mkdocs.yml` and everything under `docs/` are tracked.
+* The `Docs` GitHub Action validates the build on every docs change. Publishing to GitHub Pages via `mkdocs gh-deploy` is available but left commented out in `.github/workflows/docs.yml`.
+

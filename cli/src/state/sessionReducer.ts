@@ -588,3 +588,35 @@ export function activeConfirmation(state: SessionState): string | null {
 export function canSubmitPrompt(state: SessionState): boolean {
   return state.inputMode !== 'confirmation' && !state.enqueuedMessage;
 }
+
+// Can a later action still change this block? Only three kinds can: the open
+// text and reasoning blocks (still accumulating chunks) and a tool block that
+// has not received its result or error yet. User, stop and error blocks are
+// final the moment they are created.
+function isMutable(block: Block, state: SessionState): boolean {
+  switch (block.type) {
+    case 'text':
+      return block.id === state.openTextId;
+    case 'reasoning':
+      return block.id === state.openReasoningId;
+    case 'tool':
+      return block.status === 'pending' || block.status === 'awaiting-confirmation';
+    default:
+      return false;
+  }
+}
+
+// How many leading blocks are settled, i.e. safe to hand to <Static>, which
+// writes each item to the terminal once and can never rewrite it.
+//
+// This is deliberately a prefix count rather than a filter: static output is
+// append-only and ordered, so a settled block that sits *after* a still-mutable
+// one has to stay live, or it would be printed above a block that has not been
+// printed yet. In practice only the tail is ever mutable, so the prefix covers
+// almost everything.
+export function settledCount(state: SessionState): number {
+  for (let i = 0; i < state.blocks.length; i++) {
+    if (isMutable(state.blocks[i], state)) return i;
+  }
+  return state.blocks.length;
+}

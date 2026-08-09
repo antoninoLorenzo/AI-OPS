@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import React from 'react';
 import { render } from 'ink-testing-library';
 
-import { Header, humanizeTokens } from '../src/components/Header.tsx';
+import { StatusBar, humanizeTokens } from '../src/components/StatusBar.tsx';
 
 function frame(node: React.ReactElement): string {
   return render(node).lastFrame() ?? '';
@@ -19,9 +19,9 @@ test('humanizeTokens formats magnitudes', () => {
   assert.equal(humanizeTokens(2_000_000), '2M');
 });
 
-test('header shows model, provider, mode, short id and usage', () => {
+test('status bar shows model, provider, mode, short id and usage', () => {
   const f = frame(
-    <Header
+    <StatusBar
       model={{ provider: 'openai', modelId: 'gpt-4o', maxContextLength: 8000 }}
       mode="supervised"
       shortId={3}
@@ -32,11 +32,12 @@ test('header shows model, provider, mode, short id and usage', () => {
   assert.match(f, /SUPERVISED/);
   assert.match(f, /#3/);
   assert.match(f, /1\.2k\/8k/);
+  assert.match(f, /ctrl\+r reasoning/); // key hints live in the bar, not a separate line
 });
 
-test('header shows 0/max before the agent starts', () => {
+test('status bar shows 0/max before the agent starts', () => {
   const f = frame(
-    <Header
+    <StatusBar
       model={{ provider: 'openai', modelId: 'gpt-4o', maxContextLength: 8000 }}
       mode="unsupervised"
       shortId={1}
@@ -47,9 +48,9 @@ test('header shows 0/max before the agent starts', () => {
   assert.match(f, /0\/8k/);
 });
 
-test('header shows total/? when max context length is unknown', () => {
+test('status bar shows total/? when max context length is unknown', () => {
   const f = frame(
-    <Header
+    <StatusBar
       model={{ provider: 'vllm', modelId: 'local', maxContextLength: null }}
       mode="supervised"
       shortId={2}
@@ -59,7 +60,24 @@ test('header shows total/? when max context length is unknown', () => {
   assert.match(f, /500\/\?/);
 });
 
-test('header shows a placeholder before model metadata is loaded', () => {
-  const f = frame(<Header model={null} mode="supervised" shortId={null} totalTokens={0} />);
+test('status bar shows a placeholder before model metadata is loaded', () => {
+  const f = frame(<StatusBar model={null} mode="supervised" shortId={null} totalTokens={0} />);
   assert.match(f, /…/);
+});
+
+test('status bar shows a running indicator only while the agent works', () => {
+  const props = {
+    model: { provider: 'openai', modelId: 'gpt-4o', maxContextLength: 8000 },
+    mode: 'supervised' as const,
+    shortId: 1,
+    totalTokens: 0,
+  };
+  const running = frame(<StatusBar {...props} running />);
+  assert.match(running, /running/);
+  assert.match(running, /[/\\|-]/, 'a spinner frame is drawn');
+
+  // Idle is the default: no indicator, and the bar keeps its usual contents.
+  const idle = frame(<StatusBar {...props} />);
+  assert.doesNotMatch(idle, /running/);
+  assert.match(idle, /gpt-4o \(openai\)/);
 });

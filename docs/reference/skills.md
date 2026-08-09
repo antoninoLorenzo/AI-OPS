@@ -14,3 +14,5 @@ The following skills ship with AI-OPS (`ai_ops/core/tools/load_skill/bundled/`).
 | `linux-privilege-escalation` | Local privilege escalation |
 | `source-code-analysis` | Static review for vulnerabilities |
 | `bruteforce` | Credential and hash brute-forcing |
+| `vulnerability-search` | Finding known vulnerabilities (CVEs) for identified software |
+| `vulnerability-exploitation` | Exploiting identified vulnerabilities |

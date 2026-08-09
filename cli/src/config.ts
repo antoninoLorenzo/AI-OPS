@@ -39,17 +39,26 @@ export class ConfigError extends Error {
 // Isolated so the parsing library can be swapped without touching the schema,
 // the merge logic, or any consumer of AppConfig.
 export function parseFlags(argv: string[]): ConfigSource {
-  const { values } = parseArgs({
-    args: argv,
-    options: {
-      'base-url': { type: 'string' },
-      'api-key': { type: 'string' },
-      mode: { type: 'string' },
-      resume: { type: 'string' },
-    },
-    strict: false,
-    allowPositionals: true,
-  });
+  // strict: an unknown or malformed flag (a typo like --reload) is fatal rather
+  // than silently dropped, which would otherwise fall through to default
+  // behavior (e.g. creating a new conversation instead of resuming). parseArgs
+  // throws a plain Error; rethrow as ConfigError so cli.tsx exits cleanly.
+  let values;
+  try {
+    ({ values } = parseArgs({
+      args: argv,
+      options: {
+        'base-url': { type: 'string' },
+        'api-key': { type: 'string' },
+        mode: { type: 'string' },
+        resume: { type: 'string' },
+      },
+      strict: true,
+      allowPositionals: true,
+    }));
+  } catch (err) {
+    throw new ConfigError(`Invalid command-line flags: ${(err as Error).message}`);
+  }
 
   const source: ConfigSource = {};
   if (typeof values['base-url'] === 'string') source.baseUrl = values['base-url'];
