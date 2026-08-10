@@ -127,8 +127,14 @@ def orchestrator(
             tool_name = tool_call.function.name
             
             if tool_name == StopTool.name:
+                # TODO: `break` skips any sibling tool_calls positioned after stop
+                # in this same assistant message, leaving them unanswered. Out of
+                # scope here; the common case is stop emitted on its own.
                 reason = StopTool.get_input_schema().model_validate_json(tool_call.function.arguments)
-                yield StopEvent(issuer="agent", reason=reason.reason)
+                # carry the stop tool_call id so the runner can persist the
+                # synthetic tool result that answers it (keeps the trajectory
+                # resumable, see AgentRunner._stop_to_message).
+                yield StopEvent(issuer="agent", reason=reason.reason, call_id=tool_call.id)
                 stop_called = True
                 break
             
@@ -235,8 +241,14 @@ async def aorchestrator(
             tool_name = tool_call.function.name
 
             if tool_name == StopTool.name:
+                # TODO: `break` skips any sibling tool_calls positioned after stop
+                # in this same assistant message, leaving them unanswered. Out of
+                # scope here; the common case is stop emitted on its own.
                 reason = StopTool.get_input_schema().model_validate_json(tool_call.function.arguments)
-                yield StopEvent(issuer="agent", reason=reason.reason)
+                # carry the stop tool_call id so the runner can persist the
+                # synthetic tool result that answers it (keeps the trajectory
+                # resumable, see AgentRunner._stop_to_message).
+                yield StopEvent(issuer="agent", reason=reason.reason, call_id=tool_call.id)
                 stop_called = True
                 break
 

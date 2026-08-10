@@ -25,6 +25,7 @@ from ai_ops.core.agent import aorchestrator, orchestrator
 
 from test.core.mocks.llm import InferenceClient, MockChatCompletion, mock_aquery, mock_model, mock_query
 from test.core.mocks.tool import MockTool, MockConfirmTool, MockIn, MockOut, NOT_ADMITTED_VAL
+from ai_ops.core.tools import StopReason, StopTool
 
 
 _message_list = [
@@ -155,6 +156,41 @@ def _tool_call_response(tool_name: str, args_json: str, call_id: str = "call_1")
         )],
         usage=Usage(prompt_tokens=4, completion_tokens=4, total_tokens=8)
     )
+
+
+def _stop_tool_parameters():
+    return {
+        "client": InferenceClient(
+            metadata=mock_model,
+            client=MockChatCompletion(_tool_call_response(
+                StopTool.name,
+                StopReason(reason="objective reached").model_dump_json(),
+                call_id="stop1",
+            ))
+        ),
+        "session": Session(uuid="1234", short_id="1234", messages=list(_message_list)),
+        "tools": {MockTool.name: MockTool()},
+        "context_fn": RawContextView(),
+    }
+
+
+def test_orchestrator_stop_tool_carries_call_id(monkeypatch):
+    # the stop tool is an orchestration primitive; the StopEvent must carry the
+    # stop tool_call id so the runner can answer it with a synthetic tool result.
+    monkeypatch.setattr(target=ai_ops.core.tracing, name="mlflow_ready", value=lambda: False)
+    monkeypatch.setattr(target=ai_ops.core.agent, name="query", value=mock_query)
+
+    stop_events = [e for e in orchestrator(**_stop_tool_parameters()) if isinstance(e, StopEvent)]
+    assert stop_events == [StopEvent(issuer="agent", reason="objective reached", call_id="stop1")]
+
+
+async def test_aorchestrator_stop_tool_carries_call_id(monkeypatch):
+    monkeypatch.setattr(target=ai_ops.core.tracing, name="mlflow_ready", value=lambda: False)
+    monkeypatch.setattr(target=ai_ops.core.agent, name="aquery", value=mock_aquery)
+
+    events = await _collect_events(aorchestrator(**_stop_tool_parameters()))
+    stop_events = [e for e in events if isinstance(e, StopEvent)]
+    assert stop_events == [StopEvent(issuer="agent", reason="objective reached", call_id="stop1")]
 
 
 async def _collect_events(event_stream):

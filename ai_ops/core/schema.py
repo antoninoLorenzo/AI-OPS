@@ -88,6 +88,7 @@ class StopEvent(Event, BaseModel):
     reason: str | None = None
     max_iteration: bool = False
     error: str | None = None # fatal error
+    call_id: str | None = None # tool_call_id when the stop was issued via the stop tool
 
 
 class ToolErrorFailure(StrEnum):

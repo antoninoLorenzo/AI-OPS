@@ -25,6 +25,8 @@ from ai_ops.core.schema import (
 from ai_ops.core.storage import Session, get_session_store
 from ai_ops.core.tools import (
     CommandAdmissionPolicy,
+    Noop,
+    StopTool,
     Tool,
     ToolContext,
     ToolRegistry,
@@ -203,7 +205,16 @@ class AgentRunner:
                     session_id=self.session_id,
                     message=self._tool_error_to_message(event)
                 )
-            elif isinstance(event, (ToolCallEvent, StopEvent)):
+            elif isinstance(event, StopEvent):
+                yield event
+                # a stop issued via the stop tool leaves an unanswered tool_call;
+                # persist the synthetic result so the trajectory stays resumable.
+                if event.call_id is not None:
+                    self._store.append_message(
+                        session_id=self.session_id,
+                        message=self._stop_to_message(event.call_id)
+                    )
+            elif isinstance(event, ToolCallEvent):
                 yield event
 
             if self._user_stopped:
@@ -305,6 +316,15 @@ class AgentRunner:
                     self._pending_tool_calls -= 1
                 elif isinstance(event, StopEvent):
                     yield event
+                    # a stop issued via the stop tool leaves an unanswered
+                    # tool_call; persist the synthetic result so the trajectory
+                    # stays resumable, and settle its pending-call accounting.
+                    if event.call_id is not None:
+                        self._store.append_message(
+                            session_id=self.session_id,
+                            message=self._stop_to_message(event.call_id)
+                        )
+                        self._pending_tool_calls -= 1
                     self._store.append_event(session_id=self.session_id, event=event)
 
                 if self._user_stopped:
@@ -406,6 +426,23 @@ class AgentRunner:
         self._store.append_event(
             session_id=self.session_id,
             event=UserMessageEvent(content=content)
+        )
+
+    def _stop_to_message(self, call_id: str) -> Message:
+        # The stop tool is an orchestration primitive that never yields a real
+        # tool result, so the assistant message carrying its tool_call would be
+        # left unanswered (breaking the tool_calls/tool contract on resume). We
+        # persist the synthetic empty result the tool schema describes.
+        tool_message = {
+            "role": "tool",
+            "tool_call_id": call_id,
+            "content": StopTool.format_result(Noop()),
+        }
+        return Message(
+            message=tool_message,
+            token_count=0,
+            model_id=self.client.model,
+            agent_id=self.agent_config.agent_id
         )
 
     def _tool_result_to_message(self, event: ToolResultEvent) -> Message:

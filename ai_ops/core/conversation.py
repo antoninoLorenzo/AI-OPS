@@ -47,9 +47,9 @@ def get_token_count(
             _logger, logging.WARNING, "Unexpected empty text", 
             message_type=type(text) if text is not None else None
         )
-        return None
+        return 0
     
-    count = None
+    count = 0
     try:
         # note: gpt-3.5-turbo is just a tokenizer hint, it will pick up 
         # tiktoken with cl100k_base under the hood.

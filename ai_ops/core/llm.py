@@ -194,8 +194,8 @@ def get_model_capabilities(provider: str, model_id: str, allow_requests: bool = 
         return {
             "supported_openai_params": model_info.get("supported_openai_params", []),
             "max_input_tokens": model_info.get("max_input_tokens", -1),
-            "supports_reasoning": model_info.get("supports_reasoning", False),
-            "supports_native_structured_output": model_info.get("supports_native_structured_output", False),
+            "supports_reasoning": bool(model_info.get("supports_reasoning")),
+            "supports_native_structured_output": bool(model_info.get("supports_native_structured_output")),
         }
     except Exception:
         if not allow_requests:
@@ -249,9 +249,11 @@ def get_model_metadata(config: ModelConfig, allow_requests: bool = True) -> Mode
         supported_params = model_info.get("supported_openai_params", [])
         metadata['tool_use'] = 'tools' in supported_params
         metadata['response_format'] = 'response_format' in supported_params
-        metadata['reasoning'] = model_info.get('supports_reasoning', False)
-        metadata['structured_output'] = model_info.get('supports_native_structured_output', False)
-        metadata['max_context_length'] = model_info.get("max_input_tokens")
+        metadata['reasoning'] = bool(model_info.get('supports_reasoning'))
+        metadata['structured_output'] = bool(model_info.get('supports_native_structured_output'))
+        ctx = model_info.get("max_input_tokens")
+        if ctx is not None:
+            metadata['max_context_length'] = ctx
 
     # allow specifying model max context length (ex vLLM)
     env_value = os.environ.get(API_MODEL_MAX_CONTEXT_LENGTH)

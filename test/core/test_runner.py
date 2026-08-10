@@ -29,6 +29,7 @@ from ai_ops.core.conversation import (
     get_token_count
 )
 from ai_ops.core.storage import get_session_store
+from ai_ops.core.tools import StopReason, StopTool
 
 from test.core.mocks.agent import mock_aorchestrator, mock_orchestrator
 from test.core.mocks.llm import mock_inference_client, mock_model
@@ -820,3 +821,122 @@ async def test_agent_runner_arun(test_case, monkeypatch, register_mock_tool):
 
     for expected, persisted in zip(expected_messages, conv.messages[1:]):
         assert persisted == expected
+
+
+# --- stop-tool result persistence / resume path ------------------------------
+# The stop tool is an orchestration primitive: the orchestrator ends the loop on
+# it without ever emitting a real tool result. Historically that left the last
+# assistant message with an unanswered `tool_calls`, so resuming the session
+# (appending a new user message) produced an invalid list that providers reject
+# with "an assistant message with 'tool_calls' must be followed by tool messages".
+# The runner now persists a synthetic empty stop result so the trajectory stays
+# resumable.
+
+
+def assert_valid_tool_pairing(messages: list[Message]) -> None:
+    """Both directions of the tool-call/result contract must hold:
+      * every `role == "tool"` message is preceded by an assistant message that
+        owns its `tool_call_id` (no orphaned results);
+      * every assistant `tool_call` is answered by a following `role == "tool"`
+        message (no dangling calls).
+    """
+    seen_call_ids: set[str] = set()
+    for i, message in enumerate(messages):
+        msg = message.message
+        role = msg.get("role", "")
+        if role == "assistant":
+            for tool_call in (msg.get("tool_calls") or []):
+                call_id = tool_call.get("id")
+                if call_id:
+                    seen_call_ids.add(call_id)
+        elif role == "tool":
+            call_id = msg.get("tool_call_id", "")
+            assert call_id in seen_call_ids, (
+                f"[{i}] orphaned tool result: tool_call_id={call_id!r} has no "
+                f"preceding assistant tool_call"
+            )
+
+    answered_call_ids = {
+        message.message.get("tool_call_id")
+        for message in messages
+        if message.message.get("role", "") == "tool"
+    }
+    for i, message in enumerate(messages):
+        if message.message.get("role", "") != "assistant":
+            continue
+        for tool_call in (message.message.get("tool_calls") or []):
+            call_id = tool_call.get("id")
+            assert call_id in answered_call_ids, (
+                f"[{i}] dangling tool_call: id={call_id!r} has no following "
+                f"tool result"
+            )
+
+
+def _stop_call_message(call_id: str) -> Message:
+    return Message(agent_id="react", message=ChatCompletionAssistantMessage(
+        role="assistant",
+        content="done",
+        tool_calls=[
+            ChatCompletionAssistantToolCall(
+                type="function",
+                id=call_id,
+                function=ChatCompletionToolCallFunctionChunk(
+                    name=StopTool.name,
+                    arguments=StopReason(reason="done").model_dump_json(),
+                ),
+            )
+        ],
+    ), model_id=_MODEL_ID)
+
+
+def test_agent_runner_resume_after_stop_persists_stop_result(monkeypatch, register_mock_tool):
+    store = get_session_store()
+    conv = store.create_session()
+
+    # first run: the assistant calls `stop`; the orchestrator ends the loop with a
+    # StopEvent that carries the stop call id (as the real orchestrator now does).
+    first_events = [
+        _stop_call_message("stop1"),
+        StopEvent(issuer="agent", reason="done", call_id="stop1"),
+    ]
+    monkeypatch.setattr(
+        target=ai_ops.core.runner,
+        name="orchestrator",
+        value=functools.partial(mock_orchestrator, mock_events=first_events),
+    )
+    agent = AgentRunner(
+        session_id=conv.uuid,
+        client=mock_inference_client,
+        config=AgentConfig(tools=[MockTool]),
+    )
+    for _ in agent.run(user_message=UserMessageEvent(content="start")):
+        pass
+
+    conv = store.get_session_by_uuid(conv.uuid)
+    # the stop call must be answered by a synthetic empty tool result
+    tail = conv.messages[-1]
+    assert tail.message["role"] == "tool"
+    assert tail.message["tool_call_id"] == "stop1"
+    assert tail.message["content"] == ""
+    assert_valid_tool_pairing(conv.messages)
+
+    # resume: a new runner on the same session appends a new user message and runs.
+    monkeypatch.setattr(
+        target=ai_ops.core.runner,
+        name="orchestrator",
+        value=functools.partial(mock_orchestrator, mock_events=[StopEvent(issuer="agent")]),
+    )
+    resumed = AgentRunner(
+        session_id=conv.uuid,
+        client=mock_inference_client,
+        config=AgentConfig(tools=[MockTool]),
+        is_new_conversation=False,
+    )
+    for _ in resumed.run(user_message=UserMessageEvent(content="follow up")):
+        pass
+
+    conv = store.get_session_by_uuid(conv.uuid)
+    # the new user message must not sit right after a dangling assistant tool_call
+    assert_valid_tool_pairing(conv.messages)
+    roles = [m.message["role"] for m in conv.messages]
+    assert roles == ["system", "user", "assistant", "tool", "user"]

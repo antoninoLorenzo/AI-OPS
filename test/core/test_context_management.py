@@ -515,3 +515,151 @@ def test_layered_context_compaction(test_case):
     else:
         with pytest.raises(expected):
             _ = context_fn(messages=messages)
+
+
+# --- tool-call/result pairing invariant
+
+def assert_valid_tool_pairing(messages: list[Message]) -> None:
+    """Every `role == "tool"` message must be preceded by an assistant message
+    (the nearest one owning it) whose `tool_calls` contain its `tool_call_id`.
+
+    This mirrors the OpenAI/DeepSeek contract: "Messages with role 'tool' must
+    be a response to a preceding message with 'tool_calls'".
+    """
+    seen_tool_call_ids: set[str] = set()
+    for i, message in enumerate(messages):
+        msg = message.message
+        role = msg.get("role", "")
+
+        if role == "assistant":
+            for tool_call in (msg.get("tool_calls") or []):
+                call_id = tool_call.get("id")
+                if call_id:
+                    seen_tool_call_ids.add(call_id)
+
+        elif role == "tool":
+            call_id = msg.get("tool_call_id", "")
+            assert call_id in seen_tool_call_ids, (
+                f"[{i}] orphaned tool result: tool_call_id={call_id!r} has no "
+                f"preceding assistant message with a matching tool_call"
+            )
+
+
+def _wb_call(call_id: str) -> ChatCompletionAssistantToolCall:
+    return ChatCompletionAssistantToolCall(
+        id=call_id, type="function",
+        function=ChatCompletionToolCallFunctionChunk(
+            name=WhiteboardWrite.name,
+            arguments=WhiteboardWriteRequest(
+                name="asd", description="asd", content="asd"
+            ).model_dump_json()
+        )
+    )
+
+
+def _terminal_call(call_id: str) -> ChatCompletionAssistantToolCall:
+    return ChatCompletionAssistantToolCall(
+        id=call_id, type="function",
+        function=ChatCompletionToolCallFunctionChunk(
+            name=Terminal.name, arguments="{}"
+        )
+    )
+
+
+_CHECKPOINT_PAIRING_TESTS = [
+    # (a) whiteboard checkpoint alone in its assistant message: existing
+    #     behavior must be unchanged (cut right after the whiteboard result).
+    {
+        "name": "checkpoint-alone",
+        "messages": [
+            Message(agent_id="react", message={"role": "system", "content": "system prompt"}, token_count=1),
+            Message(agent_id="react", message={"role": "user", "content": "user message"}, token_count=1),
+            Message(agent_id="react", message=ChatCompletionAssistantMessage(
+                role="assistant", content="wassup", tool_calls=[_wb_call("wb1")]
+            ), token_count=1),
+            Message(agent_id="react", message=ChatCompletionToolMessage(
+                tool_call_id="wb1", role="tool", content="wb result"
+            ), token_count=1),
+            Message(agent_id="react", message=ChatCompletionAssistantMessage(
+                role="assistant", content="what's next?"
+            ), token_count=1),
+        ],
+        "expected_tail_contents": ["what's next?"],
+    },
+    # (b) THE CRASH CASE: checkpoint shares an assistant message with a sibling
+    #     terminal call, results ordered [whiteboard_result, terminal_result].
+    {
+        "name": "checkpoint-parallel-sibling",
+        "messages": [
+            Message(agent_id="react", message={"role": "system", "content": "system prompt"}, token_count=1),
+            Message(agent_id="react", message={"role": "user", "content": "user message"}, token_count=1),
+            Message(agent_id="react", message=ChatCompletionAssistantMessage(
+                role="assistant", content="wassup",
+                tool_calls=[_wb_call("wb1"), _terminal_call("t1")]
+            ), token_count=1),
+            Message(agent_id="react", message=ChatCompletionToolMessage(
+                tool_call_id="wb1", role="tool", content="wb result"
+            ), token_count=1),
+            Message(agent_id="react", message=ChatCompletionToolMessage(
+                tool_call_id="t1", role="tool", content="terminal result"
+            ), token_count=1),
+            Message(agent_id="react", message=ChatCompletionAssistantMessage(
+                role="assistant", content="what's next?"
+            ), token_count=1),
+        ],
+        "expected_tail_contents": ["what's next?"],
+    },
+    # (c) no checkpoint present: else branch, everything after user retained.
+    {
+        "name": "checkpoint-absent",
+        "messages": [
+            Message(agent_id="react", message={"role": "system", "content": "system prompt"}, token_count=1),
+            Message(agent_id="react", message={"role": "user", "content": "user message"}, token_count=1),
+            Message(agent_id="react", message=ChatCompletionAssistantMessage(
+                role="assistant", content="hi there"
+            ), token_count=1),
+        ],
+        "expected_tail_contents": ["hi there"],
+    },
+    # (d) sibling terminal result missing/None: must not crash, must not orphan.
+    {
+        "name": "checkpoint-parallel-sibling-missing-result",
+        "messages": [
+            Message(agent_id="react", message={"role": "system", "content": "system prompt"}, token_count=1),
+            Message(agent_id="react", message={"role": "user", "content": "user message"}, token_count=1),
+            Message(agent_id="react", message=ChatCompletionAssistantMessage(
+                role="assistant", content="wassup",
+                tool_calls=[_wb_call("wb1"), _terminal_call("t1")]
+            ), token_count=1),
+            Message(agent_id="react", message=ChatCompletionToolMessage(
+                tool_call_id="wb1", role="tool", content="wb result"
+            ), token_count=1),
+            # t1 result intentionally absent
+            Message(agent_id="react", message=ChatCompletionAssistantMessage(
+                role="assistant", content="what's next?"
+            ), token_count=1),
+        ],
+        "expected_tail_contents": ["what's next?"],
+    },
+]
+
+
+@pytest.mark.parametrize("test_case", _CHECKPOINT_PAIRING_TESTS, ids=lambda tc: tc["name"])
+def test_checkpoint_cut_preserves_tool_pairing(test_case):
+    context_fn = LayeredContextView(max_window_tokens=1024)
+    result = context_fn(messages=test_case["messages"])
+
+    # the whole point: no orphaned tool results survive the checkpoint cut
+    assert_valid_tool_pairing(result)
+
+    # system + user always retained
+    assert result[0].message.get("role") == "system"
+    assert result[1].message.get("role") == "user"
+
+    # what remains after the checkpoint is exactly what we expect
+    tail_contents = [
+        m.message.get("content")
+        for m in result
+        if m.message.get("role") == "assistant"
+    ]
+    assert tail_contents == test_case["expected_tail_contents"]

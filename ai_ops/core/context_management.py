@@ -134,6 +134,27 @@ class LayeredContextView(ContextView):
         
         return checkpoint_index
 
+    def _find_parent_assistant(
+        self, messages: list[Message], tool_result_idx: int
+    ) -> int | None:
+        """Given the index of a `role: "tool"` message, walk backwards to the
+        assistant message whose `tool_calls` own its `tool_call_id`.
+
+        :returns: index of the parent assistant message or None.
+        """
+        tool_call_id = messages[tool_result_idx].message.get("tool_call_id")
+        if not tool_call_id:
+            return None
+
+        for idx in range(tool_result_idx - 1, -1, -1):
+            msg = messages[idx].message
+            if msg.get("role", "") != "assistant":
+                continue
+            for tool_call in (msg.get("tool_calls") or []):
+                if tool_call.get("id") == tool_call_id:
+                    return idx
+        return None
+
     def apply_active_window(self, messages: list[Message]) -> list[Message]:
         # Preserved: user messages, read_whiteboard, load_skill
         # We can't assume (ToolCall, ToolResult) appear sequentially... or can we?
@@ -322,12 +343,34 @@ class LayeredContextView(ContextView):
         
         checkpoint = self.search_checkpoint(_messages)
         if checkpoint is not None:
-            # don't drop user messages before checkpoint
+            # The checkpoint is the whiteboard *result* index, but the assistant
+            # message that owns the whiteboard call may have emitted sibling tool
+            # calls (parallel calls). Cutting at checkpoint+1 would orphan a
+            # sibling result whose parent assistant message is compacted away.
+            # So make the boundary group-aware: drop the parent assistant message
+            # and ALL its results as a unit, cutting after the last sibling result.
+            parent_idx = self._find_parent_assistant(_messages, checkpoint)
+            if parent_idx is None:
+                # defensive: no owning assistant found, fall back to prior behavior
+                boundary, cut = checkpoint, checkpoint + 1
+            else:
+                sibling_result_idxs = [
+                    find_tool_call_result(messages=_messages, tool_call_id=call["id"])
+                    for call in (_messages[parent_idx].message.get("tool_calls") or [])
+                    if call.get("id")
+                ]
+                # keep only resolved results; a missing sibling result (None) can't
+                # be orphaned since it isn't in the list.
+                resolved = [idx for idx in sibling_result_idxs if idx is not None]
+                boundary = parent_idx
+                cut = (max(resolved) if resolved else checkpoint) + 1
+
+            # don't drop user messages before the checkpoint group
             user_messages = [
-                message for message in _messages[2:checkpoint] if is_user_message(message)
+                message for message in _messages[2:boundary] if is_user_message(message)
             ]
             context.extend(user_messages)
-            context.extend(_messages[checkpoint+1:])
+            context.extend(_messages[cut:])
         else:
             context.extend(_messages[2:])
 
