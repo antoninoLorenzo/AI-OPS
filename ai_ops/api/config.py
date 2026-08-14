@@ -1,7 +1,5 @@
-import os
 import sys
 from functools import lru_cache
-from typing import Literal
 
 from pydantic import BaseModel, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, JsonConfigSettingsSource, SettingsConfigDict
@@ -10,11 +8,10 @@ from ai_ops.config import (
     AI_OPS_BASE_DIR,
     API_BASE_ENV_NAME,
     API_KEY_ENV_NAME,
-    API_MODEL_MAX_CONTEXT_LENGTH,
     CONFIRMATION_TIMEOUT_S,
     DEFAULT_TEMPERATURE,
 )
-from ai_ops.core.context_management import CONTEXT_VIEW_REGISTRY
+from ai_ops.core.context_management import ContextTransformType
 from ai_ops.core.log import get_logger, log_event, logging
 from ai_ops.core.runner import AgentConfig
 from ai_ops.core.storage import StorageStrategy
@@ -55,11 +52,6 @@ def get_settings() -> APISettings:
     return APISettings()
 
 
-class ContextViewSpec(BaseModel):
-    kind: Literal["raw", "layered"] = "layered"
-    params: dict = Field(default_factory=lambda: {"max_window_tokens": int(os.environ.get(API_MODEL_MAX_CONTEXT_LENGTH, "8192"))})
-
-
 class CommandPolicySpec(BaseModel):
     kind: str
     params: dict = {}
@@ -69,7 +61,9 @@ class AgentConfigSpec(BaseSettings):
     model_config = SettingsConfigDict(json_file=AI_OPS_BASE_DIR / "agent_config.json")
 
     tools: list[str] = Field(default=[tool_cls.name for tool_cls in DEFAULT_TOOLS])
-    context_view: ContextViewSpec = ContextViewSpec()
+    context_transforms: list[ContextTransformType] = Field(
+        default_factory=lambda: [ContextTransformType.CHECKPOINT]
+    )
     command_policies: list[CommandPolicySpec] = []
     # in core.agent there's an `_AGENT_TEMPERATURE` taken from environmnet variables, 
     # we give precedence to the json config so it's either `DEFAULT_TEMPERATURE` or 
@@ -103,10 +97,6 @@ def build_agent_config() -> AgentConfig:
             sys.exit(1)
         tools.append(tool_spec.tool)
 
-    if agent_spec.context_view.kind not in CONTEXT_VIEW_REGISTRY:
-        print(f"Invalid context_view \"{agent_spec.context_view.kind}\"")
-        sys.exit(1)
-    
     for policy in agent_spec.command_policies:
         if policy.kind not in COMMAND_POLICY_REGISTRY:
             print(f"Invalid policy \"{policy.kind}\"")
@@ -115,15 +105,15 @@ def build_agent_config() -> AgentConfig:
     log_event(
         _logger, logging.INFO, "Agent Configuration Loaded",
         tools=", ".join([tool.name for tool in tools]),
-        context_view=agent_spec.context_view.kind,
-        command_policies=", ".join([policy.kind for polict in agent_spec.command_policies]),
+        context_transforms=", ".join(agent_spec.context_transforms),
+        command_policies=", ".join([policy.kind for policy in agent_spec.command_policies]),
         temperature=agent_spec.temperature,
         confirmation_timeout_s=agent_spec.confirmation_timeout_s
     )
 
     return AgentConfig(
         tools=tools,
-        context_fn=CONTEXT_VIEW_REGISTRY[agent_spec.context_view.kind](**agent_spec.context_view.params),
+        context_transforms=tuple(agent_spec.context_transforms),
         command_policies=tuple(
             COMMAND_POLICY_REGISTRY[policy.kind](**policy.params) for policy in agent_spec.command_policies
         ),

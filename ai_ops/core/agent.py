@@ -9,12 +9,8 @@ from litellm import (
 )
 
 from ai_ops.config import BASE_AGENT_ID, DEFAULT_TEMPERATURE, TEMPERATURE_ENV
-from ai_ops.core.context_management import ContextView
-from ai_ops.core.conversation import (
-    Message,
-    find_last_user_message_index,
-    get_token_count,
-)
+from ai_ops.core.context_management import ContextTransform, build_context
+from ai_ops.core.conversation import Message, get_token_count
 from ai_ops.core.llm import InferenceClient, aquery, query
 from ai_ops.core.log import get_logger, log_event, logging
 from ai_ops.core.schema import (
@@ -28,7 +24,7 @@ from ai_ops.core.schema import (
     ToolResultEvent,
 )
 from ai_ops.core.storage import Session
-from ai_ops.core.tools import StopTool, Tool, WhiteboardWrite, validate_tool_call
+from ai_ops.core.tools import StopTool, Tool, validate_tool_call
 from ai_ops.core.tracing import agent_trace
 
 _logger = get_logger(__name__)
@@ -38,26 +34,6 @@ try:
     _AGENT_TEMPERATURE = float(os.environ.get(TEMPERATURE_ENV, str(DEFAULT_TEMPERATURE)))
 except ValueError:
     _AGENT_TEMPERATURE = DEFAULT_TEMPERATURE
-
-
-def build_context(
-    messages: list[Message],
-    context_fn: ContextView,
-    tools: dict[str, Tool],
-) -> list[Message]:
-    context = context_fn(messages)
-
-    # append the whiteboard index to the last user message in every loop iteration,
-    # note: the index is not part of the "persisted" conversation, also this breaks 
-    # prefix caching.
-    if WhiteboardWrite.name in tools:
-        whiteboard_tool = tools[WhiteboardWrite.name]
-        last_user_idx = find_last_user_message_index(messages=context)
-        context[last_user_idx].message["content"] += "\n" + whiteboard_tool.index
-
-        log_event(_logger, logging.DEBUG, "Appended whiteboard index to message", last_user_idx={last_user_idx})
-
-    return context
 
 
 # The orchestrator implements the agent logic, currently that's just ReAct loop.
@@ -70,7 +46,7 @@ def orchestrator(
     client: InferenceClient,
     session: Session,
     tools: dict[str, Tool],
-    context_fn: ContextView,
+    context_transforms: list[ContextTransform] | None = None,
     mode: AgentMode = AgentMode.SUPERVISED,
     max_iterations: int | None = None,
     temperature: float = _AGENT_TEMPERATURE,
@@ -91,7 +67,7 @@ def orchestrator(
             session_id=session.uuid, iteration=it
         )
 
-        context = build_context(messages=session.messages, context_fn=context_fn, tools=tools)
+        context = build_context(messages=session.messages, context_transforms=context_transforms)
         try:
             response = query(
                 client=client, 
@@ -182,7 +158,7 @@ async def aorchestrator(
     client: InferenceClient,
     session: Session,
     tools: dict[str, Tool],
-    context_fn: ContextView,
+    context_transforms: list[ContextTransform] | None = None,
     mode: AgentMode = AgentMode.SUPERVISED,
     max_iterations: int | None = None,
     temperature: float = _AGENT_TEMPERATURE,
@@ -204,7 +180,7 @@ async def aorchestrator(
             session_id=session.uuid, iteration=it
         )
 
-        context = build_context(messages=session.messages, context_fn=context_fn, tools=tools)
+        context = build_context(messages=session.messages, context_transforms=context_transforms)
         try:
             response = await aquery(
                 client=client,

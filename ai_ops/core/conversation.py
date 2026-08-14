@@ -157,15 +157,85 @@ def find_last_user_message_index(messages: list[Message]) -> int | None:
     )
     return last_usr_idx
 
-def is_valid_message_list(messages: list[Message]) -> bool:
-    """Ensure the message list contains at least [system, user]."""
+
+def find_parent_assistant_index(messages: list[Message], tool_result_idx: int)-> int | None:
+    """
+    Walk backwards to find the assistant message owning the tool result with `tool_result_idx`.
+
+    :returns: index of the parent assistant message or None.
+    """
+    if tool_result_idx >= len(messages):
+        return None
+    
+    tool_call_id = messages[tool_result_idx].message.get("tool_call_id")
+    if not tool_call_id:
+        return None
+
+    for idx in range(tool_result_idx - 1, -1, -1):
+        msg = messages[idx].message
+        if msg["role"] != "assistant":
+            continue
+
+        for tool_call in msg.get("tool_calls", []):
+            if tool_call.get("id", "") == tool_call_id:
+                return idx
+    
+    return None
+    
+
+def is_valid_context(messages: list[Message]) -> tuple[bool, str | None]:
+    """
+    Verify a message list follows Chat Completion and application invariants.
+
+    Application requires at least one system and one user message.
+    > Chat Completions allows >=1 of type sys|usr|assistant.
+
+    Chat Completion verified invariants:
+    * Backward Paring : each tool message follows a preceding assistant message with tool_calls.
+    * Dangling Calls  : right after an assistant message with N tool_calls there should be N tool 
+                        messages corresponding to each tool_call_id.
+
+    :returns: (True, None) -> valid; (False, str) -> invalid 
+    """
     if len(messages) < 2:
-        return False
+        return False, "At least [sys, usr]"
 
-    has_system = messages[0].message.get("role", "") == "system"
-    has_user = find_last_user_message_index(messages=messages) is not None
+    if not (
+        messages[0].message["role"] == "system" 
+        and messages[1].message["role"] == "user"
+    ):
+        return False, "At least [sys, usr]"
 
-    return has_system and has_user
+    tool_call_set = set()
+    for rev_idx, message in enumerate(reversed(messages[2:])):
+        msg = message.message
+        msg_idx = len(messages) - rev_idx
+        role = msg["role"]
+
+        if role == "tool":
+            tool_call_set.add(msg.get("tool_call_id"))
+            continue
+        
+        if role == "assistant":
+            tool_calls = msg.get("tool_calls", []) # tool_calls is reference!
+            if len(tool_calls) != len(tool_call_set):
+                return False, f"Assistant message at {msg_idx} has {len(tool_calls)} tool calls found {len(tool_call_set)} tool results"
+            
+            for tool_call in tool_calls:
+                tc_id = tool_call.get("id", "")
+                if tc_id not in tool_call_set:
+                    return False, f"Assistant message at {msg_idx} has tool call {tc_id} not found in tool_call_set"
+                tool_call_set.remove(tc_id)
+            
+            if len(tool_call_set) > 0:
+                return False, f"Tool message(s) with no backward pair: {tool_call_set}"
+
+            continue
+
+        if len(tool_call_set) > 0:
+            return False, f"Found {role} message in between assistant and tool calls"
+            
+    return True, None
 
 
 # --- conversation

@@ -174,6 +174,9 @@ class WhiteboardWrite(Tool[WhiteboardWriteRequest, WhiteboardResult]):
             return f"{whiteboard_result.result}"
         return f"ERROR: {whiteboard_result.result}"
 
+    def post_compaction_state(self) -> str | None:
+        return self.index
+
     @property
     def index(self) -> str | None:
         store = get_whiteboard_store()

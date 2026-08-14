@@ -10,14 +10,149 @@ from litellm import (
 from ai_ops.core.conversation import (
     is_tool_call,
     find_tool_call_result,
+    is_valid_context,
     Message
 )
 from test.core.mocks.tool import MockTool
+from test.core.utils import _system_message, _user_message, _tool_message
 
 
-def _user_message(text: str) -> Message:
-    return Message(agent_id="react", message=ChatCompletionUserMessage(role="user", content=text))
+_IS_VALID_CONTEXT_TESTS = [
+    {
+        "name": "ValidMessageList",
+        "messages": [
+            _system_message("sys"),
+            _user_message("usr"),
+            Message(agent_id="react", message={
+                "role": "assistant",
+                "content": "Hi",
+                "tool_calls": [
+                    {
+                        "id": "tc0",
+                        "type": "function",
+                        "function": {"name": "tool", "arguments": "{}"},
+                    },
+                    {
+                        "id": "tc1",
+                        "type": "function",
+                        "function": {"name": "tool", "arguments": "{}"},
+                    }
+                ]
+            }),
+            # out-of-order allowed
+            _tool_message("tc1"),
+            _tool_message("tc0")
+        ],
+        "expected": (True, None)
+    },
+    {
+        "name": "ToolCallsWithNoResults",
+        "messages": [
+            _system_message("Hi"),
+            _user_message("Hi"),
+            Message(agent_id="react", message={
+                "role": "assistant",
+                "content": "Hi",
+                "tool_calls": [
+                    {
+                        "id": "0",
+                        "type": "function",
+                        "function": {"name": "tool", "arguments": "{}"},
+                    },
+                    {
+                        "id": "2",
+                        "type": "function",
+                        "function": {"name": "tool", "arguments": "{}"},
+                    }
+                ]
+            })
+        ],
+        "expected": (False, "")
+    },
+    {
+        "name": "ToolCallsNotMatchingIds",
+        "messages": [
+            _system_message("Hi"),
+            _user_message("Hi"),
+            Message(agent_id="react", message={
+                "role": "assistant",
+                "content": "Hi",
+                "tool_calls": [
+                    {
+                        "id": "tc0",
+                        "type": "function",
+                        "function": {"name": "tool", "arguments": "{}"},
+                    },
+                    {
+                        "id": "tc1",
+                        "type": "function",
+                        "function": {"name": "tool", "arguments": "{}"},
+                    }
+                ]
+            }),
+            _tool_message("tc2"),
+            _tool_message("tc0")
+        ],
+        "expected": (False, "")
+    },
+    {
+        "name": "MessageBetweenToolResults",
+        "messages": [
+            _system_message("sys"),
+            _user_message("usr"),
+            Message(agent_id="role", message={
+                "role": "assistant",
+                "content": "Hi",
+                "tool_calls": [
+                    {
+                        "id": "tc0",
+                        "type": "function",
+                        "function": {"name": "tool", "arguments": "{}"},
+                    },
+                    {
+                        "id": "tc1",
+                        "type": "function",
+                        "function": {"name": "tool", "arguments": "{}"},
+                    }
+                ]
+            }),
+            _tool_message("tc1"),
+            _user_message("usr got there"),
+            _tool_message("tc0")
+        ],
+        "expected": (False, "")
+    },
+    {
+        "name": "MissingToolResult",
+        "messages": [
+            _system_message("sys"),
+            _user_message("usr"),
+            Message(agent_id="react", message={
+                "role": "assistant",
+                "content": "Hi",
+                "tool_calls": [
+                    {
+                        "id": "tc0",
+                        "type": "function",
+                        "function": {"name": "tool", "arguments": "{}"},
+                    },
+                    {
+                        "id": "tc1",
+                        "type": "function",
+                        "function": {"name": "tool", "arguments": "{}"},
+                    }
+                ]
+            }),
+            _tool_message("tc1")
+        ],
+        "expected": (False, "")
+    }
+]
 
+@pytest.mark.parametrize("test_case", _IS_VALID_CONTEXT_TESTS, ids=lambda tc: tc["name"])
+def test_is_valid_context(test_case):
+    valid, err = is_valid_context(test_case["messages"])
+    assert valid == test_case["expected"][0]
 
 _IS_TOOL_CALL_TESTS = [
     # not assistant message

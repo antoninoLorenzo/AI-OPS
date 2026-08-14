@@ -20,7 +20,6 @@ from ai_ops.core.schema import (
 )
 from ai_ops.core.conversation import Message
 from ai_ops.core.storage import Session
-from ai_ops.core.context_management import RawContextView
 from ai_ops.core.agent import aorchestrator, orchestrator
 
 from test.core.mocks.llm import InferenceClient, MockChatCompletion, mock_aquery, mock_model, mock_query
@@ -44,7 +43,6 @@ _AGENT_LOOP_TESTS = [
             ),
             "session": Session(uuid="1234", short_id="1234", messages=_message_list),
             "tools": {MockTool.name : MockTool()},
-            "context_fn": RawContextView()
         },
         "expected": [StopEvent(issuer="agent", error="whatever")]
     },
@@ -64,7 +62,6 @@ _AGENT_LOOP_TESTS = [
             ),
             "session": Session(uuid="1234", short_id="1234", messages=_message_list),
             "tools": {MockTool.name : MockTool()},
-            "context_fn": RawContextView()
         },
         "expected": [
             Message(agent_id="react", 
@@ -170,7 +167,6 @@ def _stop_tool_parameters():
         ),
         "session": Session(uuid="1234", short_id="1234", messages=list(_message_list)),
         "tools": {MockTool.name: MockTool()},
-        "context_fn": RawContextView(),
     }
 
 
@@ -219,7 +215,6 @@ def _run_confirm_case(monkeypatch, mode, confirm, call_id="call_1", val=5):
         client=client,
         session=Session(uuid="1234", short_id="1234", messages=_CONFIRM_MESSAGE_LIST),
         tools={MockConfirmTool.name: MockConfirmTool()},
-        context_fn=RawContextView(),
         mode=mode,
         max_iterations=1,
         confirm=confirm

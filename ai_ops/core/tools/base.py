@@ -51,10 +51,19 @@ class Tool[ToolInputT, ToolOutputT](abc.ABC):
     """
     name: str
     description: str
-    # Whether calls to this tool are subject to the confirmation path. Tools that
-    # leave this `False` always execute directly (the default `evaluate` never
-    # blocks). Tools that need admission set it `True` and override `evaluate`.
+    
     requires_confirmation: bool = False
+    """
+    Whether calls to this tool are subject to the confirmation path.
+    Tools that need evaluation set this to `True` and override `evaluate` and `not_admitted_result`.
+    """
+
+    allow_compaction: bool = True
+    """
+    Whether a context management policy can drop the [call, result] pair from the conversation.
+    Tools that carry state can implement `post_compaction_state` to make the compaction strategy 
+    replace the [call, result] pair with a user message that contains state.
+    """
 
     @abc.abstractmethod
     def __call__(self, tool_args: ToolInputT) -> ToolOutputT:
@@ -72,17 +81,22 @@ class Tool[ToolInputT, ToolOutputT](abc.ABC):
         return self.requires_confirmation
 
     def not_admitted_result(self, tool_args: ToolInputT) -> ToolOutputT:
-        """Result reported for a call that was not executed (blocked by
-        `evaluate`, denied by the user, or a confirmation timeout).
-
-        It flows through the normal tool-result path so the model receives a
-        tool message and the conversation stays well-formed. Tools that set
-        `requires_confirmation` must override this.
+        """
+        When confirmation evaluation has negative outcome (i.e tool call not all allowed) 
+        this is the tool result the agent sees.
         """
         raise NotImplementedError(
             f"{self.name} sets requires_confirmation but does not implement "
             "not_admitted_result"
         )
+
+    def post_compaction_state(self) -> str | None:
+        """
+        :returns: None if no state has to be carried, a string otherwise.
+        """
+        return None
+
+    # --- serialization utilities for all tools 
 
     def serialize(self) -> dict:
         json_schema = self.get_input_schema().model_json_schema(schema_generator=GenerateJsonSchemaTool)

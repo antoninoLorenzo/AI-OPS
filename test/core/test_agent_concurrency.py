@@ -25,7 +25,6 @@ import ai_ops.core.agent
 import ai_ops.core.tracing
 from ai_ops.core.agent import aorchestrator
 from ai_ops.core.conversation import Message
-from ai_ops.core.context_management import RawContextView
 from ai_ops.core.llm import InferenceClient
 from ai_ops.core.schema import AgentMode
 from ai_ops.core.storage import Session
@@ -143,7 +142,6 @@ async def test_blocking_tool_does_not_freeze_event_loop(monkeypatch):
             client=client,
             session=session,
             tools={SlowTool.name: slow},
-            context_fn=RawContextView(),
             mode=AgentMode.UNSUPERVISED,
             max_iterations=3,
         )

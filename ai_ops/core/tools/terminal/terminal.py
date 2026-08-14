@@ -128,6 +128,12 @@ class Terminal(Tool[TerminalRequest, TerminalResult]):
             f"Status: {status}\n"
             f"Output:\n{output}"
         )
+
+    def post_compaction_state(self) -> str | None:
+        active_sessions = list(self.__sessions.keys())
+        if len(active_sessions) == 0:
+            return None
+        return "Active Terminal Sessions: [" + ", ".join(active_sessions) + "]"
     
     def __del__(self):
         for shell in self.__sessions.values():

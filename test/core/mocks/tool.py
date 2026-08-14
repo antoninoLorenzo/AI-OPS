@@ -47,6 +47,33 @@ class MockConfirmTool(Tool[MockIn, MockOut]):
     def format_result(tool_result: MockOut) -> str:
         return str(tool_result.val)
 
+class MockSkipCompactionTool(Tool[MockIn, MockOut]):
+    name = "skip_compaction"
+    allow_compaction = False
+
+    def __call__(self, tool_args: MockIn) -> MockOut:
+        return MockOut(val=tool_args.val)
+
+    @staticmethod
+    def format_result(tool_result: MockOut) -> str:
+        return str(tool_result.val)
+
+
+class MockPreserveStateTool(Tool[MockIn, MockOut]):
+    name = "preserve_state"
+    expected_state = "State preserved"
+
+    def __call__(self, tool_args: MockIn) -> MockOut:
+        return MockOut(val=tool_args.val)
+
+    @staticmethod
+    def format_result(tool_result: MockOut) -> str:
+        return str(tool_result.val)
+
+    def post_compaction_state(self):
+        return self.expected_state
+
+
 @pytest.fixture
 def register_mock_tool():
     register_tool(MockTool, lambda _: MockTool())
@@ -59,4 +86,17 @@ def register_mock_confirm_tool():
     register_tool(MockConfirmTool, lambda _: MockConfirmTool())
     yield
     ToolRegistry.pop(MockConfirmTool.name)
-    
+
+
+@pytest.fixture
+def register_mock_skip_compaction_tool():
+    register_tool(MockSkipCompactionTool, lambda _: MockSkipCompactionTool())
+    yield
+    ToolRegistry.pop(MockSkipCompactionTool.name)
+
+
+@pytest.fixture
+def register_mock_carry_state_tool():
+    register_tool(MockPreserveStateTool, lambda _: MockPreserveStateTool())
+    yield
+    ToolRegistry.pop(MockPreserveStateTool.name)

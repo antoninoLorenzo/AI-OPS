@@ -5,8 +5,11 @@ from typing import Any
 
 from ai_ops.config import BASE_AGENT_ID, CONFIRMATION_TIMEOUT_S
 from ai_ops.core.agent import _AGENT_TEMPERATURE, aorchestrator, orchestrator
-from ai_ops.core.context_management import ContextView, RawContextView
-from ai_ops.core.conversation import Message, get_token_count, is_valid_message_list
+from ai_ops.core.context_management import (
+    ContextTransformRegistry,
+    ContextTransformType,
+)
+from ai_ops.core.conversation import Message, get_token_count, is_valid_context
 from ai_ops.core.llm import InferenceClient
 from ai_ops.core.log import get_logger, log_event, logging
 from ai_ops.core.prompt import build_prompt
@@ -51,8 +54,8 @@ class AgentConfig:
     confirmation_timeout_s: float = CONFIRMATION_TIMEOUT_S
     """Time before the execution of tool that requires confirmation is automatically denied."""
 
-    context_fn: ContextView = field(default_factory=RawContextView)
-    """Context compaction strategy (ex. `LayeredContextView`). Defaults to `RawContextView`."""
+    context_transforms: tuple[ContextTransformType] = field(default_factory=tuple)
+    """Transformations applied to agent context at each turn."""
 
     command_policies: tuple[CommandAdmissionPolicy] = field(default_factory=tuple)
     """Only applies if `Terminal` tool is supplied."""
@@ -81,7 +84,6 @@ class AgentRunner:
         self.agent_config = config
         self.session_id = session_id
         self.client = client
-        self.context_fn = config.context_fn
         self._store = get_session_store()
 
         if is_new_conversation:
@@ -123,6 +125,11 @@ class AgentRunner:
         }
         log_event(_logger, logging.DEBUG, "Done loading tools")
 
+        self._context_transforms = [
+            ContextTransformRegistry[transform_type](tools=self.tools.values()) 
+            for transform_type in config.context_transforms
+        ]
+
         # guards run from being invoked when it already was
         self._running = False
         # stop flag, non-preemptive
@@ -156,8 +163,9 @@ class AgentRunner:
         self._append_user_message(user_message.content)
 
         session = self._store.get_session_by_uuid(session_id=self.session_id)
-        if not is_valid_message_list(session.messages):
-            raise ValueError("Invalid conversation. Expected [system, user, ...] message list.")
+        valid, err = is_valid_context(session.messages)
+        if not valid:
+            raise ValueError(f"Invalid conversation. {err}")
 
         return self.__run_impl(session=session, mode=mode, max_iterations=max_iterations)
 
@@ -172,7 +180,7 @@ class AgentRunner:
             client=self.client,
             session=session,
             tools=self.tools,
-            context_fn=self.context_fn,
+            context_transforms=self._context_transforms,
             mode=mode,
             max_iterations=max_iterations,
             temperature=self.agent_config.temperature,
@@ -241,8 +249,9 @@ class AgentRunner:
 
         self._append_user_message(user_message.content)
         session = self._store.get_session_by_uuid(session_id=self.session_id)
-        if not is_valid_message_list(session.messages):
-            raise ValueError("Invalid conversation. Expected [system, user, ...] message list.")
+        valid, err = is_valid_context(session.messages)
+        if not valid:
+            raise ValueError(f"Invalid conversation. {err}")
 
         self._running = True
         return self.__arun_impl(session=session, mode=mode, max_iterations=max_iterations)
@@ -261,7 +270,7 @@ class AgentRunner:
                 client=self.client,
                 session=session,
                 tools=self.tools,
-                context_fn=self.context_fn,
+                context_transforms=self._context_transforms,
                 mode=mode,
                 max_iterations=max_iterations,
                 temperature=self.agent_config.temperature,
