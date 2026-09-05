@@ -217,7 +217,7 @@ def is_valid_context(messages: list[Message]) -> tuple[bool, str | None]:
             continue
         
         if role == "assistant":
-            tool_calls = msg.get("tool_calls", []) # tool_calls is reference!
+            tool_calls = msg.get("tool_calls") or [] # None when serialized as "tool_calls": null
             if len(tool_calls) != len(tool_call_set):
                 return False, f"Assistant message at {msg_idx} has {len(tool_calls)} tool calls found {len(tool_call_set)} tool results"
             
