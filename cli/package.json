@@ -15,7 +15,7 @@
     "bundle:sea": "node scripts/build-sea.mjs"
   },
   "devDependencies": {
-    "@types/node": "^26.1.2",
+    "@types/node": "^26.4.0",
     "@types/react": "^19.0.0",
     "ink-testing-library": "^4.0.0",
     "oxlint": "^1.80.0",
