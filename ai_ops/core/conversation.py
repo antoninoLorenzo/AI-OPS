@@ -234,7 +234,11 @@ def is_valid_context(messages: list[Message]) -> tuple[bool, str | None]:
 
         if len(tool_call_set) > 0:
             return False, f"Found {role} message in between assistant and tool calls"
-            
+
+    # tool results remaining here never met an owning assistant (dangling at front)
+    if len(tool_call_set) > 0:
+        return False, f"Tool message(s) with no backward pair: {tool_call_set}"
+
     return True, None
 
 

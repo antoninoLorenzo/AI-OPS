@@ -146,6 +146,28 @@ _IS_VALID_CONTEXT_TESTS = [
             _tool_message("tc1")
         ],
         "expected": (False, "")
+    },
+    {
+        "name": "DanglingToolResultsAtStart",
+        "messages": [
+            _system_message("sys"),
+            _user_message("usr"),
+            _tool_message("tc0"),
+            _tool_message("tc1"),
+            Message(agent_id="react", message={
+                "role": "assistant",
+                "content": "Hi",
+                "tool_calls": [
+                    {
+                        "id": "tc2",
+                        "type": "function",
+                        "function": {"name": "tool", "arguments": "{}"},
+                    }
+                ]
+            }),
+            _tool_message("tc2")
+        ],
+        "expected": (False, "")
     }
 ]
 

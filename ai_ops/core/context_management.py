@@ -66,6 +66,67 @@ def build_context(
     return context
 
 
+class SlidingWindow(ContextTransform):
+    def __init__(self, max_context_length: int):
+        self.max_context_length = max_context_length
+        self._max_input = int(max_context_length * 0.8)
+        # print(f"max_input={self._max_input}")
+
+    def __call__(self, messages: list[Message]) -> list[Message]:
+        context_length = sum([
+            message.token_count if message.token_count is not None \
+                else get_token_count(message.message)
+            for message in messages
+        ])
+
+        if context_length <= self._max_input:
+            return messages
+        
+        _messages = copy.deepcopy(messages)
+        delta = context_length - self._max_input
+        
+        # here count token consumption of (assistant, tool_calls) blocks (turns)
+        # until we reach delta (how much we have to cut)
+        s = 0       # sum of token counts up to idx
+        idx = 0     # cut idx
+        while idx < len(_messages):
+            message = _messages[idx]
+            msg = message.message
+
+            if msg["role"] == "assistant":
+                s += message.token_count
+                
+                tool_calls = msg.get("tool_calls") or []
+                # note: the next len(tool_calls) messages are guaranteed to have 
+                # role tool by chat completions format
+                for i in range(idx + 1, idx + 1 + len(tool_calls)):
+                    s += _messages[i].token_count
+                
+                # print(f"DEBUG: assistant_idx={idx}; sum={s}; len(tool_calls)={len(tool_calls)}")
+                idx += len(tool_calls) + 1
+
+                if s >= delta:
+                    break
+
+                continue
+
+            idx += 1 
+
+        context = []
+        for i, message in enumerate(_messages):
+            msg = message.message
+            if msg["role"] in ("system", "user"):
+                context.append(message)
+            
+            if i < idx:
+                continue
+
+            if msg["role"] in ("assistant", "tool"):
+                context.append(message)
+
+        return context
+
+
 class CheckpointCompaction(ContextTransform):
     """
     Uses a `write_whiteboard` tool call as a checkpoint, everything before 
