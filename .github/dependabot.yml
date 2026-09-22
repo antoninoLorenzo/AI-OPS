@@ -8,7 +8,7 @@ updates:
   - package-ecosystem: "npm"
     directory: "/cli"
     schedule:
-      interval: "weekly"
+      interval: "monthly" # fucking js
 
   - package-ecosystem: "docker"
     directory: "/docker"
