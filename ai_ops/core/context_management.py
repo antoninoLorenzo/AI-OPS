@@ -4,7 +4,6 @@ from typing import Protocol, runtime_checkable
 
 from ai_ops.core.conversation import (
     Message,
-    count_tokens,
     find_tool_call_result,
     get_token_count,
     is_tool_call,
@@ -21,6 +20,9 @@ _logger = get_logger(__name__)
 
 class ContextTransformType(StrEnum):
     CHECKPOINT = "checkpoint"
+
+
+DEFAULT_CONTEXT_TRANSFORMS = [ContextTransformType.CHECKPOINT]
 
 
 @runtime_checkable
@@ -73,11 +75,7 @@ class SlidingWindow(ContextTransform):
         # print(f"max_input={self._max_input}")
 
     def __call__(self, messages: list[Message]) -> list[Message]:
-        context_length = sum([
-            message.token_count if message.token_count is not None \
-                else get_token_count(message.message)
-            for message in messages
-        ])
+        context_length = sum([message.token_count for message in messages])
 
         if context_length <= self._max_input:
             return messages
@@ -172,7 +170,7 @@ class CheckpointCompaction(ContextTransform):
     def __call__(self, messages: list[Message]) -> list[Message]:
         agent_id = messages[0].agent_id
         model_id = messages[0].model_id
-        token_before = count_tokens(messages=messages)
+        token_before = sum([message.token_count for message in messages])
 
         _messages = copy.deepcopy(messages)
         checkpoint_idx = self.search_checkpoint(_messages)
@@ -244,7 +242,7 @@ class CheckpointCompaction(ContextTransform):
                 model_id=model_id
             ))
 
-        token_after = count_tokens(messages=context)
+        token_after = sum([message.token_count for message in context])
         log_event(
             _logger, logging.INFO, "Applied CheckpointCompaction",
             token_before=token_before, token_after=token_after

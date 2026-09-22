@@ -1,4 +1,7 @@
+import os
+from collections.abc import Callable
 from pathlib import Path
+from typing import TypeVar
 
 # --- Environment Variables
 
@@ -12,7 +15,8 @@ won't start. Defaults to False."""
 DEFAULT_SKILL_VERIFY_INSTALLED = False
 
 TEMPERATURE_ENV = "AI_OPS_AGENT_TEMPERATURE"
-DEFAULT_TEMPERATURE = 0.4
+DEFAULT_TEMPERATURE = 0.0
+DEFAULT_MAX_CONTEXT_LENGTH = "32768"
 
 CONFIRMATION_TIMEOUT_S = 300.0
 """
@@ -61,6 +65,16 @@ def build_environment() -> Path:
     (base / "sessions").mkdir(exist_ok=True)
 
     return base
+
+T = TypeVar("T")
+
+def env_or_default(env_name: str, default_value: T, cast_type: Callable[[str], T]) -> T: # noqa: UP047
+    v = os.environ.get(env_name, str(default_value))
+
+    if cast_type is bool:
+        return v.lower() == "true"
+
+    return cast_type(v)
 
 AI_OPS_BASE_DIR = build_environment()
     

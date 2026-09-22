@@ -1,5 +1,4 @@
 # Interface to LiteLLM
-import os
 import re
 from dataclasses import dataclass
 from functools import lru_cache
@@ -11,9 +10,15 @@ from litellm.exceptions import (
     APIError,
     RateLimitError,
 )
-from pydantic import BaseModel, ConfigDict, SecretStr
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
-from ai_ops.config import API_MODEL_MAX_CONTEXT_LENGTH
+from ai_ops.config import (
+    API_MODEL_MAX_CONTEXT_LENGTH,
+    DEFAULT_MAX_CONTEXT_LENGTH,
+    DEFAULT_TEMPERATURE,
+    TEMPERATURE_ENV,
+    env_or_default,
+)
 from ai_ops.core.log import get_logger, log_event, logging
 
 _logger = get_logger(__name__)
@@ -34,30 +39,39 @@ class ModelConfig(BaseModel):
 
     model: str
     """Fully-qualified Model ID (ex. `provider/model_id`, `huggingface/namespace/repo`)."""
+    
     api_base: str | None = None
     """API endpoint for the LLM Provider."""
+
     api_key: SecretStr | None = None
     """API key for the LLM Provider."""
+ 
+    temperature: float = Field(
+        default_factory=lambda: env_or_default(TEMPERATURE_ENV, DEFAULT_TEMPERATURE, float)
+    )
 
-
-class ModelMetadata(BaseModel):
-    provider: str
-    model_id: str
-    max_context_length: int | None = None
-    tool_use: bool
-    reasoning: bool
-    response_format: bool   # JSON not guaranteed
-    structured_output: bool # JSON guaranteed
+    max_context_length: int = Field(
+        default_factory=lambda: env_or_default(API_MODEL_MAX_CONTEXT_LENGTH, DEFAULT_MAX_CONTEXT_LENGTH, int)
+    )
+    """Maximum context length supported by LLM/API."""
 
 
 @dataclass
 class InferenceClient:
-    metadata: ModelMetadata
+    config: ModelConfig
     client: ChatCompletion
 
     @property
-    def model(self) -> str:
-        return self.metadata.model_id
+    def model_id(self) -> str:
+        # this exists because litellm Router wants only the model_id on completion
+        _, model_name = parse_model_string(self.config.model)
+        return model_name
+
+    @property
+    def model_provider(self) -> str:
+         # this exists because litellm Router wants only the model_id on completion
+        model_provider, _ = parse_model_string(self.config.model)
+        return model_provider
 
 
 async def aquery(
@@ -70,15 +84,16 @@ async def aquery(
     :param tools: Serialized tool list.
     :raises `RuntimeError`: Fatal unrecoverable error.
     """
-    log_event(_logger, logging.DEBUG, "Starting async query", model=client.model)
+    log_event(_logger, logging.DEBUG, "Starting async query", model=client.model_id)
     try:
         response = await client.client.acompletion(
-            model=client.model,
+            model=client.model_id,
             messages=messages,
             tools=tools,
+            temperature=client.config.temperature,
             **kwargs
         )
-        log_event(_logger, logging.DEBUG, "Completed async query", model=client.model)
+        log_event(_logger, logging.DEBUG, "Completed async query", model=client.model_id)
     except RateLimitError as rate_limit:
         raise RuntimeError(f"Maximum retry limit reached: {rate_limit}")
     except APIError as fatal:
@@ -94,15 +109,6 @@ async def aquery(
     return response
 
 
-# query is a wrapper around litellm that does it's best to ensure what the orchestrator 
-# requests is satisfied. 
-# It gets an InferenceClient, in practice this is made up by litellm.Router, which gives
-# some fault-tolerance guarantees (such as rate-limit retries) and a list of models that 
-# are inthe same capability group (i.e either all or none support the same functionality,
-# ex. structured output).
-# So rate-limit handling is done by litellm, query does json schema enforcement (NOT 
-# parameter validation) and fallback context trimming.
-# https://docs.litellm.ai/docs/exception_mapping
 def query(
     client: InferenceClient,
     messages: list,
@@ -114,14 +120,15 @@ def query(
     :param tools: Serialized tool list.
     :raises `RuntimeError`: Fatal unrecoverable error.
     """
-    log_event(_logger, logging.INFO, "Starting query", model=client.model)
+    log_event(_logger, logging.INFO, "Starting query", model=client.model_id)
 
     try:
         response = client.client.completion(
-            model=client.model,
+            model=client.model_id,
             messages=messages,
             stream=stream,
             tools=tools,
+            temperature=client.config.temperature,
             **kwargs
         )
     except RateLimitError as rate_limit:
@@ -139,6 +146,7 @@ def query(
     return response
 
 
+@lru_cache(maxsize=3)
 def parse_model_string(model: str) -> tuple[str, str]:
     """
     Takes in input the fully qualified model id and returns the provider and 
@@ -170,109 +178,7 @@ def parse_model_string(model: str) -> tuple[str, str]:
         raise ValueError(f"Invalid model identifier {model}")
 
 
-@lru_cache(maxsize=1)
-def fetch_models_info(model: str):
-    import json
-
-    import requests
-    response = requests.get(url="https://openrouter.ai/api/v1/models", timeout=5)
-    try:
-        return json.loads(response.content).get("data", [])
-    except Exception:
-        return []
-
-
-def get_model_capabilities(provider: str, model_id: str, allow_requests: bool = True) -> list[str]:
-    """
-    Gets the list of supported parameters for the model.
-    """
-    # If litellm doesn't support the provider we use the OpenRouter API, however 
-    # it still doesn't address all edge-cases. 
-    # One is vLLM (/v1/models ???)
-    try:
-        model_info = litellm.get_model_info(model=f"{provider}/{model_id}")
-        return {
-            "supported_openai_params": model_info.get("supported_openai_params", []),
-            "max_input_tokens": model_info.get("max_input_tokens", -1),
-            "supports_reasoning": bool(model_info.get("supports_reasoning")),
-            "supports_native_structured_output": bool(model_info.get("supports_native_structured_output")),
-        }
-    except Exception:
-        if not allow_requests:
-            return []
-
-        available_models = fetch_models_info(model=model_id)
-        if not available_models:
-            return []
-
-        model_info = list(
-            filter(
-                lambda info: model_id.lower() in info.get("id", "").lower(),
-                available_models
-            )
-        )
-        if not model_info:
-            return []
-        model_info = model_info[0]
-
-        # conform to litellm naming
-        model_info["supported_openai_params"] = model_info.pop("supported_parameters")
-        model_info["max_input_tokens"] = model_info.pop("context_length")
-        return model_info
-
-
-def get_model_metadata(config: ModelConfig, allow_requests: bool = True) -> ModelMetadata:
-    """
-    Creates `ModelMetadata` from `ModelConfig`.
-    
-    :raises ValueError: `ModelConfig.model` is an invalid identifier.
-    """
-    metadata = {
-        "provider": "",
-        "model_id": "",
-        "max_context_length": None,
-        "tool_use": False,
-        "reasoning": False,
-        "response_format": False,
-        "structured_output": False,
-        "native_token_counting": False
-    } 
-
-    metadata['provider'], metadata['model_id'] = parse_model_string(config.model)
-    model_info = get_model_capabilities(
-        provider=metadata["provider"], 
-        model_id=metadata["model_id"],
-        allow_requests=allow_requests
-    )
-
-    if model_info:
-        supported_params = model_info.get("supported_openai_params", [])
-        metadata['tool_use'] = 'tools' in supported_params
-        metadata['response_format'] = 'response_format' in supported_params
-        metadata['reasoning'] = bool(model_info.get('supports_reasoning'))
-        metadata['structured_output'] = bool(model_info.get('supports_native_structured_output'))
-        ctx = model_info.get("max_input_tokens")
-        if ctx is not None:
-            metadata['max_context_length'] = ctx
-
-    # allow specifying model max context length (ex vLLM)
-    env_value = os.environ.get(API_MODEL_MAX_CONTEXT_LENGTH)
-    if env_value is not None:
-        metadata['max_context_length'] = int(env_value)
-    if metadata['max_context_length'] is not None and metadata['max_context_length'] <= 0:
-        metadata['max_context_length'] = None
-
-    log_event(
-        _logger, logging.INFO, "Done loading ModelMetadata", 
-        model=config.model, **metadata
-    )
-
-    return ModelMetadata(**metadata)
-
-
-# Inference clients are cached by `ModelConfig`: building one does network I/O
-# (`get_model_metadata`), so repeated resolutions of the same config reuse the
-# client. This is also the seam for multi-model runs (see `get_inference_client`).
+# Inference clients cached by `ModelConfig`
 _INFERENCE_CLIENTS: dict[ModelConfig, InferenceClient] = {}
 
 
@@ -281,10 +187,9 @@ def build_inference_client(config: ModelConfig) -> InferenceClient:
     if cached is not None:
         return cached
 
-    model_metadata = get_model_metadata(config)
-
+    model_provider, model_name = parse_model_string(config.model)
     litellm_params = {
-        "model": f"{model_metadata.provider}/{model_metadata.model_id}"
+        "model": f"{model_provider}/{model_name}"
     }
 
     if config.api_base:
@@ -294,7 +199,7 @@ def build_inference_client(config: ModelConfig) -> InferenceClient:
 
     model_list = [
         {
-            "model_name": model_metadata.model_id,
+            "model_name": model_name,
             "litellm_params": litellm_params
         }
     ]
@@ -318,31 +223,18 @@ def build_inference_client(config: ModelConfig) -> InferenceClient:
         )
     )
 
-    client = InferenceClient(metadata=model_metadata, client=router)
+    client = InferenceClient(config=config, client=router)
     _INFERENCE_CLIENTS[config] = client
     return client
 
 
 def get_inference_client(config: ModelConfig) -> InferenceClient:
-    """Resolve (and cache) the `InferenceClient` for a `ModelConfig`.
-
-    Forward-looking seam for multi-model runs: today a single client is built at
-    startup, but keying by config lets a future multi-agent setup resolve a
-    distinct client per agent/model through one accessor without rebuilding on
-    every lookup. Mostly unused for now.
-    """
+    """Resolve (and cache) the `InferenceClient` for a `ModelConfig`."""
     return build_inference_client(config)
 
 
 def check_inference_client(client: InferenceClient) -> None:
-    """Startup sanity check: issue a minimal completion to verify the model is
-    reachable and the credentials are valid.
-
-    Not wired into the API on purpose; call it explicitly wherever a fail-fast
-    startup check is wanted (ex. a CLI or a deployment healthcheck).
-
-    :raises RuntimeError: the client could not complete a trivial request.
-    """
+    """Startup sanity check, raise if err."""
     query(
         client=client,
         messages=[{"role": "user", "content": "ping"}],

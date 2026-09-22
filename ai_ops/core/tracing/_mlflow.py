@@ -118,7 +118,7 @@ def _resolve_trace_ids(args, kwargs) -> tuple[str, str]:
         model_id = args[model_client_arg_idx].model if model_client_arg_idx is not None \
             else "unknown"
     else:
-        model_id = model_client.model
+        model_id = model_client.config.model
 
     return session_id, model_id
 

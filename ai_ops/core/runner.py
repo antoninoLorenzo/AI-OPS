@@ -1,16 +1,25 @@
 import asyncio
+import os
 from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
-from ai_ops.config import BASE_AGENT_ID, CONFIRMATION_TIMEOUT_S
-from ai_ops.core.agent import _AGENT_TEMPERATURE, aorchestrator, orchestrator
+from pydantic import BaseModel, Field
+
+from ai_ops.config import (
+    BASE_AGENT_ID, 
+    CONFIRMATION_TIMEOUT_S, 
+    API_MODEL_MAX_CONTEXT_LENGTH, 
+    DEFAULT_MAX_CONTEXT_LENGTH
+)
+from ai_ops.core.agent import aorchestrator, orchestrator
 from ai_ops.core.context_management import (
+    DEFAULT_CONTEXT_TRANSFORMS,
     ContextTransformRegistry,
     ContextTransformType,
 )
 from ai_ops.core.conversation import Message, get_token_count, is_valid_context
-from ai_ops.core.llm import InferenceClient
+from ai_ops.core.llm import ModelConfig, InferenceClient
 from ai_ops.core.log import get_logger, log_event, logging
 from ai_ops.core.prompt import build_prompt
 from ai_ops.core.schema import (
@@ -27,6 +36,7 @@ from ai_ops.core.schema import (
 )
 from ai_ops.core.storage import Session, get_session_store
 from ai_ops.core.tools import (
+    DEFAULT_TOOLS,
     CommandAdmissionPolicy,
     Noop,
     StopTool,
@@ -37,6 +47,8 @@ from ai_ops.core.tools import (
     WhiteboardWrite,
     replay_whiteboard,
 )
+from ai_ops.core.tools.terminal.policy import COMMAND_POLICY_REGISTRY
+
 
 _logger = get_logger(__name__)
 
@@ -46,8 +58,6 @@ class AgentConfig:
     agent_id: str = BASE_AGENT_ID
     """Agent identifier. Has to be a valid prompt id in the registry (see `ai_ops.core.prompt`)."""
 
-    temperature: float = _AGENT_TEMPERATURE
-    
     tools: list[type[Tool]] = field(default_factory=list)
     """Agent tools, classes not instances."""
 
@@ -64,6 +74,59 @@ class AgentConfig:
     """Optional instructions appended to the system prompt (useful for benchmarks)."""
 
 
+class AgentSpec(BaseModel):
+    """User-facing configuration for an AI-OPS agent."""
+
+    tools: list[str] = Field(default=[tool.name for tool in DEFAULT_TOOLS])
+
+    command_admission_policies: dict[str, dict] = Field(default_factory=dict)
+
+    confirmation_timeout_s: float = Field(default=CONFIRMATION_TIMEOUT_S)
+
+    context_transforms: list[str] = Field(default=[str(ctx_fn) for ctx_fn in DEFAULT_CONTEXT_TRANSFORMS])
+    
+    prompt_extension: str | None = None
+
+    # note: for now agent_id is not exposed 
+    def build_config(self) -> AgentConfig:
+        """
+        Builds AgentConfig from the user specification.
+        :raises ValueError: 
+        """
+        tools = []
+        for tool_name in self.tools:
+            tool_spec = ToolRegistry.get(tool_name)
+            if tool_spec is None:
+               raise ValueError(f"Tool \"{tool_name}\" is not registered (see ai_ops.core.tools.register_tool).")
+            tools.append(tool_spec.tool)
+
+        admission_policies = []
+        for policy_name, policy_params in self.command_admission_policies.items():
+            policy_cls = COMMAND_POLICY_REGISTRY.get(policy_name)
+            if policy_cls is None:
+                raise ValueError(f"Policy \"{policy_name}\" doesn't exist")
+
+            try:
+                admission_policies.append(policy_cls(**policy_params))
+            except Exception as err:
+                raise ValueError(f"Invalid parameters for \"{policy_name}\": {err}")
+
+        context_transforms = []    
+        for ctx_fn_name in self.context_transforms:
+            try:
+                context_transforms.append(ContextTransformType(ctx_fn_name))
+            except ValueError:
+                raise ValueError(f"ContextTransform \"{ctx_fn_name}\" is not available (see ai_ops.core.context_management.ContextTransformType)")
+        
+        return AgentConfig(
+            tools=tools,
+            confirmation_timeout_s=self.confirmation_timeout_s,
+            command_policies=admission_policies,
+            context_transforms=context_transforms,
+            prompt_extension=self.prompt_extension
+        )
+
+  
 class AgentRunner:
     """
     `AgentRunner` separates the client from the orchestrator implementation.
@@ -89,12 +152,12 @@ class AgentRunner:
         if is_new_conversation:
             system_prompt = build_prompt(
                 agent_id=config.agent_id,
-                model=client.model,
+                model=client.model_id,
                 prompt_extension=config.prompt_extension
             )
             log_event(
                 _logger, logging.DEBUG, "Done building system_prompt", 
-                agent_id=config.agent_id, model=client.model
+                agent_id=config.agent_id, model=client.model_id
             )
 
             system_prompt_message = {"role": "system", "content": system_prompt}
@@ -113,7 +176,7 @@ class AgentRunner:
 
         ctx = ToolContext(
             session_id=session_id, 
-            model_id=client.model,
+            model_id=client.model_id,
             is_new_conversation=is_new_conversation,
             command_policies=config.command_policies,
             extra=extra_tool_ctx
@@ -183,7 +246,6 @@ class AgentRunner:
             context_transforms=self._context_transforms,
             mode=mode,
             max_iterations=max_iterations,
-            temperature=self.agent_config.temperature,
             agent_id=self.agent_config.agent_id
         )
         
@@ -273,7 +335,6 @@ class AgentRunner:
                 context_transforms=self._context_transforms,
                 mode=mode,
                 max_iterations=max_iterations,
-                temperature=self.agent_config.temperature,
                 confirm=self._confirm,
                 agent_id=self.agent_config.agent_id
             )
@@ -450,7 +511,7 @@ class AgentRunner:
         return Message(
             message=tool_message,
             token_count=0,
-            model_id=self.client.model,
+            model_id=self.client.config.model,
             agent_id=self.agent_config.agent_id
         )
 
@@ -466,7 +527,7 @@ class AgentRunner:
         return Message(
             message=tool_message,
             token_count=get_token_count(tool_message),
-            model_id=self.client.model,
+            model_id=self.client.config.model,
             agent_id=self.agent_config.agent_id
         )
         
@@ -480,6 +541,6 @@ class AgentRunner:
         return Message(
             message=tool_message,
             token_count=get_token_count(tool_message),
-            model_id=self.client.model,
+            model_id=self.client.config.model,
             agent_id=self.agent_config.agent_id
         )

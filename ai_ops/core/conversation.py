@@ -14,9 +14,27 @@ from ai_ops.core.log import get_logger, log_event, logging
 _logger = get_logger(__name__)
 
 
+def extract_message_text(
+    message: ChatCompletionSystemMessage | ChatCompletionUserMessage | ChatCompletionAssistantMessage | ChatCompletionToolMessage
+) -> str | None:
+    text = message.get("content")
+    tool_calls = message.get("tool_calls")
+
+    if tool_calls:
+        args_text = " ".join(
+            tc.get("function", {}).get("arguments", "")
+            if isinstance(tc, dict)
+            else tc.function.arguments
+            for tc in tool_calls
+        )
+        text = (text or "") + args_text
+
+    return text
+
+
 def get_token_count(
     message: ChatCompletionSystemMessage | ChatCompletionUserMessage | ChatCompletionAssistantMessage | ChatCompletionToolMessage
-) -> int | None:
+) -> int:
     """
     Estimates the token count of a single chat message.
 
@@ -30,19 +48,8 @@ def get_token_count(
     for most models, it supports huggingface tokenizers, however dyanmically 
     initializing one based on configs would be a pain in the ass.
     """
-    text = message.get("content")
-    tool_calls = message.get("tool_calls")
-
-    if tool_calls:
-        args_text = " ".join(
-            tc.get("function", {}).get("arguments", "")
-            if isinstance(tc, dict)
-            else tc.function.arguments
-            for tc in tool_calls
-        )
-        text = (text or "") + args_text
-
-    if not text:
+    text = extract_message_text(message)
+    if text is None:
         log_event(
             _logger, logging.WARNING, "Unexpected empty text", 
             message_type=type(text) if text is not None else None
@@ -70,7 +77,7 @@ class Message(BaseModel):
     agent_id: str
     """Identifier of the agent that authored this message (see `AgentConfig.agent_id`)."""
 
-    token_count: int | None = None
+    token_count: int = 0
     """Required for context compaction."""
 
     model_id: str | None = None
@@ -79,15 +86,6 @@ class Message(BaseModel):
 
 
 # --- message utilities
-
-def count_tokens(messages: list[Message]) -> int:
-    token_count = 0
-    for message in messages:
-        if message.token_count is None:
-            message.token_count = get_token_count(message.message)
-        token_count += message.token_count
-    return token_count
-
 
 def is_user_message(message: Message) -> bool:
     msg = message.message

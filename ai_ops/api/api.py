@@ -1,4 +1,5 @@
 # TODO: logging here should bind to the fastapi logger
+import json
 from collections.abc import AsyncIterable
 from contextlib import asynccontextmanager
 from typing import Annotated
@@ -8,17 +9,17 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import StreamingResponse
 
 from ai_ops.api.auth import handle_api_key
-from ai_ops.api.config import build_agent_config, get_settings
-from ai_ops.api.model import StartAgentRequest
+from ai_ops.api.config import get_settings
+from ai_ops.api.model import ModelInfo, StartAgentRequest
 from ai_ops.api.profile import register_profile
+from ai_ops.config import AI_OPS_BASE_DIR
 from ai_ops.core.llm import (
     InferenceClient,
     ModelConfig,
-    ModelMetadata,
     build_inference_client,
 )
 from ai_ops.core.log import get_logger, log_event, logging
-from ai_ops.core.runner import AgentConfig, AgentRunner
+from ai_ops.core.runner import AgentConfig, AgentRunner, AgentSpec
 from ai_ops.core.schema import Event, ToolConfirmationEvent, UserMessageEvent
 from ai_ops.core.storage import Session, SessionStore
 from ai_ops.core.storage import get_session_store as _core_get_session_store
@@ -39,8 +40,17 @@ async def lifespan(app: FastAPI):
         model=settings.model,
         llm_provider_base=settings.llm_provider_base
     )
+   
+    spec_path = AI_OPS_BASE_DIR / "agent_config.json"
+    if not spec_path.exists():
+        agent_spec = AgentSpec()
+    else:
+        with open(str(spec_path), "r", encoding="utf-8") as fp: # noqa: ASYNC230
+            agent_spec_json = json.load(fp)
+        agent_spec = AgentSpec(**agent_spec_json)
 
-    agent_config = build_agent_config()
+    agent_config = agent_spec.build_config()
+
     
     inference_client = build_inference_client(config=ModelConfig(
         model=settings.model,
@@ -54,7 +64,7 @@ async def lifespan(app: FastAPI):
 
     app.state.inference_client = inference_client
     app.state.agent_config = agent_config
-    app.state.runner_map: dict[int, AgentRunner] = {}
+    app.state.runner_map = {}
     
     # call get_session_store once with the intended strategy (pay init cost
     # at startup since the JSONL strategy init does disk i/o).
@@ -96,8 +106,12 @@ async def health():
 @app.get("/model")
 async def get_model(
     inference_client: Annotated[InferenceClient, Depends(get_inference_client)]
-) -> ModelMetadata:
-    return inference_client.metadata
+) -> ModelInfo:
+    return ModelInfo(
+        model_id=inference_client.model_id,
+        provider=inference_client.model_provider, 
+        max_context_length=inference_client.config.max_context_length
+    )
 
 
 @conversation_router.post("") # POST /conversation
@@ -269,7 +283,7 @@ async def get_usage(
 
     return {
         "total_tokens": total,
-        "max_context_length": inference_client.metadata.max_context_length
+        "max_context_length": inference_client.config.max_context_length
     }
 
 

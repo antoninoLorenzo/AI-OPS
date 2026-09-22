@@ -1,6 +1,5 @@
 # Agent Orchestrator Implementation
 import asyncio
-import os
 from collections.abc import AsyncIterator, Iterator
 from typing import cast
 
@@ -8,7 +7,7 @@ from litellm import (
     ChatCompletionAssistantMessage,
 )
 
-from ai_ops.config import BASE_AGENT_ID, DEFAULT_TEMPERATURE, TEMPERATURE_ENV
+from ai_ops.config import BASE_AGENT_ID
 from ai_ops.core.context_management import ContextTransform, build_context
 from ai_ops.core.conversation import Message, get_token_count
 from ai_ops.core.llm import InferenceClient, aquery, query
@@ -30,11 +29,6 @@ from ai_ops.core.tracing import agent_trace
 _logger = get_logger(__name__)
 
 DEFAULT_ITERATION_LIMIT = {AgentMode.SUPERVISED: 30, AgentMode.UNSUPERVISED: 60}
-try:
-    _AGENT_TEMPERATURE = float(os.environ.get(TEMPERATURE_ENV, str(DEFAULT_TEMPERATURE)))
-except ValueError:
-    _AGENT_TEMPERATURE = DEFAULT_TEMPERATURE
-
 
 # The orchestrator implements the agent logic, currently that's just ReAct loop.
 # It's intentionally kept stateless so the only concern remains the orchestration 
@@ -49,7 +43,6 @@ def orchestrator(
     context_transforms: list[ContextTransform] | None = None,
     mode: AgentMode = AgentMode.SUPERVISED,
     max_iterations: int | None = None,
-    temperature: float = _AGENT_TEMPERATURE,
     agent_id: str = BASE_AGENT_ID
 ) -> Iterator[Message | Event]:
     agent_tools = [tool.serialize() for tool in tools.values()]
@@ -72,8 +65,7 @@ def orchestrator(
             response = query(
                 client=client, 
                 messages=[m.message for m in context], 
-                tools=agent_tools, 
-                temperature=temperature
+                tools=agent_tools,
             )
         except RuntimeError as query_err:
             yield StopEvent(issuer="agent", error=str(query_err))
@@ -85,7 +77,7 @@ def orchestrator(
         yield Message(
             message=chat_completion_message,
             token_count=get_token_count(chat_completion_message),
-            model_id=client.model,
+            model_id=client.config.model,
             agent_id=agent_id
         )
 
@@ -161,7 +153,6 @@ async def aorchestrator(
     context_transforms: list[ContextTransform] | None = None,
     mode: AgentMode = AgentMode.SUPERVISED,
     max_iterations: int | None = None,
-    temperature: float = _AGENT_TEMPERATURE,
     confirm: ConfirmCallback | None = None,
     agent_id: str = BASE_AGENT_ID
 ) -> AsyncIterator[Message | Event]:
@@ -186,7 +177,6 @@ async def aorchestrator(
                 client=client,
                 messages=[m.message for m in context],
                 tools=agent_tools,
-                temperature=temperature
             )
         except RuntimeError as query_err:
             yield StopEvent(issuer="agent", error=str(query_err))
@@ -198,7 +188,7 @@ async def aorchestrator(
         yield Message(
             message=chat_completion_message,
             token_count=get_token_count(chat_completion_message),
-            model_id=client.model,
+            model_id=client.config.model,
             agent_id=agent_id
         )
 

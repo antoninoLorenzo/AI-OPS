@@ -10,7 +10,7 @@ from litellm import (
 )
 
 from ai_ops.core.context_management import CheckpointCompaction, SlidingWindow
-from ai_ops.core.conversation import Message, is_valid_context, count_tokens
+from ai_ops.core.conversation import Message, is_valid_context
 from ai_ops.core.tools.whiteboard import (
     WhiteboardEntry,
     WhiteboardWriteRequest,
@@ -135,10 +135,8 @@ def test_checkpoint_compaction(
 # --- SlidingWindow
 
 # Helpers that build messages with *explicit* token counts. SlidingWindow cuts
-# using `message.token_count` and `count_tokens` sums the same field, so setting
-# it explicitly makes the drop boundary (and the resulting window size) exactly
-# predictable. `Message.token_count` is a mutable field (CheckpointCompaction
-# already mutates it), so overriding it after construction is fine.
+# using `message.token_count`, so setting it explicitly makes the drop boundary
+# (and the resulting window size) exactly predictable.
 
 def _sized(message: Message, tokens: int) -> Message:
     message.token_count = tokens
@@ -267,5 +265,5 @@ def test_sliding_window(test_case):
 
     valid, err = is_valid_context(context)
     assert valid, err
-    assert count_tokens(context) <= transform._max_input
+    assert sum([msg.token_count for msg in context]) <= transform._max_input
     assert context == test_case["expected"], print_decent(context, test_case["expected"])

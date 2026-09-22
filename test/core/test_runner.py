@@ -32,7 +32,7 @@ from ai_ops.core.storage import get_session_store
 from ai_ops.core.tools import StopReason, StopTool
 
 from test.core.mocks.agent import mock_aorchestrator, mock_orchestrator
-from test.core.mocks.llm import mock_inference_client, mock_model
+from test.core.mocks.llm import mock_inference_client, mock_model_config
 from test.core.mocks.tool import (
     MockTool,
     MockConfirmTool,
@@ -47,7 +47,7 @@ _USER_MESSAGE = {"role": "user", "content": "hello"}
 _USER_MESSAGE_TOKENS = get_token_count(_USER_MESSAGE)
 # model_id is stamped on assistant/tool messages (not user/system) from the client
 # actually driving the run, so it must match `mock_inference_client.model`.
-_MODEL_ID = mock_inference_client.model
+_MODEL_ID = mock_inference_client.config.model
 
 # Test cases follow the format 
 # {

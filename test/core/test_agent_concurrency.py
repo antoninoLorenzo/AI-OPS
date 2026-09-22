@@ -30,7 +30,7 @@ from ai_ops.core.schema import AgentMode
 from ai_ops.core.storage import Session
 from ai_ops.core.tools.base import Tool
 
-from test.core.mocks.llm import mock_aquery, mock_model
+from test.core.mocks.llm import mock_aquery, mock_model_config
 
 
 class _SlowIn(BaseModel):
@@ -122,7 +122,7 @@ async def test_blocking_tool_does_not_freeze_event_loop(monkeypatch):
 
     slow = SlowTool()
     client = InferenceClient(
-        metadata=mock_model,
+        config=mock_model_config,
         client=_SequencedChatCompletion([
             _assistant_tool_call("c1", SlowTool.name, _SlowIn().model_dump_json()),
             _assistant_stop(),

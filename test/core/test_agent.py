@@ -22,7 +22,7 @@ from ai_ops.core.conversation import Message
 from ai_ops.core.storage import Session
 from ai_ops.core.agent import aorchestrator, orchestrator
 
-from test.core.mocks.llm import InferenceClient, MockChatCompletion, mock_aquery, mock_model, mock_query
+from test.core.mocks.llm import InferenceClient, MockChatCompletion, mock_aquery, mock_model_config, mock_query
 from test.core.mocks.tool import MockTool, MockConfirmTool, MockIn, MockOut, NOT_ADMITTED_VAL
 from ai_ops.core.tools import StopReason, StopTool
 
@@ -38,7 +38,7 @@ _AGENT_LOOP_TESTS = [
     {
         "parameters": {
             "client": InferenceClient(
-                metadata=mock_model,
+                config=mock_model_config,
                 client=MockChatCompletion(RuntimeError("whatever"))
             ),
             "session": Session(uuid="1234", short_id="1234", messages=_message_list),
@@ -50,7 +50,7 @@ _AGENT_LOOP_TESTS = [
     {
         "parameters": {
             "client": InferenceClient(
-                metadata=mock_model,
+                config=mock_model_config,
                 client=MockChatCompletion(ModelResponse(
                     model="gpt-4o",
                     choices=[Choices(
@@ -67,7 +67,7 @@ _AGENT_LOOP_TESTS = [
             Message(agent_id="react", 
                 message={"role": "assistant", "content": "content", "tool_calls": None, "function_call": None}, 
                 token_count=1,
-                model_id=mock_model.model_id
+                model_id=mock_model_config.model
             ),
             StopEvent(issuer="agent")
         ]
@@ -158,7 +158,7 @@ def _tool_call_response(tool_name: str, args_json: str, call_id: str = "call_1")
 def _stop_tool_parameters():
     return {
         "client": InferenceClient(
-            metadata=mock_model,
+            config=mock_model_config,
             client=MockChatCompletion(_tool_call_response(
                 StopTool.name,
                 StopReason(reason="objective reached").model_dump_json(),
@@ -204,7 +204,7 @@ def _run_confirm_case(monkeypatch, mode, confirm, call_id="call_1", val=5):
     monkeypatch.setattr(target=ai_ops.core.agent, name="aquery", value=mock_aquery)
 
     client = InferenceClient(
-        metadata=mock_model,
+        config=mock_model_config,
         client=MockChatCompletion(_tool_call_response(
             tool_name=MockConfirmTool.name,
             args_json=MockIn(val=val).model_dump_json(),

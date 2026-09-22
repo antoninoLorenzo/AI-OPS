@@ -8,7 +8,7 @@ from litellm import (
     Message as LiteLLMMessage
 )
 
-from ai_ops.core.llm import InferenceClient, ModelMetadata
+from ai_ops.core.llm import InferenceClient, ModelConfig
 from ai_ops.core.agent import StopTool
 
 class MockChatCompletion:
@@ -43,36 +43,18 @@ def mock_query(client: InferenceClient, stream: bool = False, **kwargs) -> Union
     if stream:
         raise NotImplementedError()
 
-    return client.client.completion(model=client.model, stream=stream)
+    return client.client.completion(model=client.config.model, stream=stream)
 
 async def mock_aquery(client: InferenceClient, stream: bool = False, **kwargs) -> Union[ModelResponse, CustomStreamWrapper]:
     if stream:
         raise NotImplementedError()
 
-    return client.client.completion(model=client.model, stream=stream)
+    return client.client.completion(model=client.config.model, stream=stream)
 
-mock_model = ModelMetadata(
-    provider="mock",
-    model_id="mock",
-    max_context_length=0,
-    tool_use=True,
-    reasoning=True,
-    response_format=True,
-    structured_output=True
-)
-
-mock_metadata = ModelMetadata(
-    provider="mock_provider",
-    model_id="mock_model_id",
-    max_context_length=0,
-    tool_use=True,
-    reasoning=True,
-    response_format=True,
-    structured_output=True
-)
+mock_model_config = ModelConfig(model="mock_provider/mock_model")
 
 mock_inference_client = InferenceClient(
-    metadata=mock_metadata,
+    config=mock_model_config,
     client=MockChatCompletion(completion_output=ModelResponse(
         model="gpt-4o",
         choices=Choices(
