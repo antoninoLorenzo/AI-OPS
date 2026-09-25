@@ -18,7 +18,6 @@ from ai_ops.core.tools import (
     LoadSkill,
     Terminal,
     ThinkTool,
-    WhiteboardRead,
     WhiteboardWrite,
     WriteFile,
 )
@@ -41,6 +40,5 @@ __all__ = [
     "ToolErrorFailure",
     "ToolResultEvent",
     "UserMessageEvent",
-    "WhiteboardRead",
     "WhiteboardWrite",
 ]

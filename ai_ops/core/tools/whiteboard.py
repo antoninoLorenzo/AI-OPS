@@ -13,12 +13,6 @@ class WhiteboardEntry(BaseModel):
     content: str
 
 
-class WhiteboardReadRequest(BaseModel):
-    name: Annotated[
-        str,
-        Field(description="Finding name / index key. Required for both read and write.")
-    ] 
-
 class WhiteboardWriteRequest(BaseModel):
     name: Annotated[
         str,
@@ -86,53 +80,9 @@ def get_whiteboard_store() -> WhiteboardStore:
     return _WHITEBOARD_STORE
 
 
-class WhiteboardRead(Tool[WhiteboardReadRequest, WhiteboardResult]):
-    name = 'read_whiteboard'
-    description = get_prompt(name="read_whiteboard", kind="tool")
-
-    def __init__(
-        self, 
-        whiteboard_id: str, 
-        new_whiteboard: bool = True,
-        model: str | None = None
-    ):
-        self.whiteboard_id = whiteboard_id
-        store = get_whiteboard_store()
-        if new_whiteboard:
-            store.new_whiteboard(whiteboard_id)
-
-    def __call__(self, tool_args: WhiteboardReadRequest) -> WhiteboardResult:
-        store = get_whiteboard_store()
-
-        try:
-            entry = store.get_entry(self.whiteboard_id, tool_args.name)
-        except ValueError:
-            return WhiteboardResult(
-                status=False,
-                result=f"No entry for {tool_args.name} in whiteboard"
-            )
-
-        return WhiteboardResult(
-            status=True,
-            result=entry
-        )
-
-    @staticmethod
-    def format_result(whiteboard_result: WhiteboardResult) -> str:
-        if whiteboard_result.status:
-            return f"{whiteboard_result.result}"
-        return f"ERROR: {whiteboard_result.result}"
-
-
-    @property
-    def index(self) -> str | None:
-        store = get_whiteboard_store()
-        return store.get_index(whiteboard_id=self.whiteboard_id)
-
-
 class WhiteboardWrite(Tool[WhiteboardWriteRequest, WhiteboardResult]):
     name = 'write_whiteboard'
-    description = get_prompt(name="write_whiteboard", kind="tool")
+    # description = get_prompt(name="write_whiteboard", kind="tool")
 
     def __init__(
         self, 
@@ -140,6 +90,8 @@ class WhiteboardWrite(Tool[WhiteboardWriteRequest, WhiteboardResult]):
         new_whiteboard: bool = True, 
         model: str | None = None
     ):
+        self.description = get_prompt("write_whiteboard")
+
         self.whiteboard_id = whiteboard_id
         store = get_whiteboard_store()
         if new_whiteboard:

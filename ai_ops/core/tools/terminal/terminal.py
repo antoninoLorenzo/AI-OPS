@@ -46,7 +46,7 @@ class TerminalResult(BaseModel):
 
 class Terminal(Tool[TerminalRequest, TerminalResult]):
     name = "terminal"
-    description = get_prompt(name="terminal", kind="tool")
+#   description = get_prompt(name="terminal", kind="tool")
     requires_confirmation = True
 
     def __init__(
@@ -55,6 +55,8 @@ class Terminal(Tool[TerminalRequest, TerminalResult]):
         working_directory: Path,
         policies: tuple[CommandAdmissionPolicy]
     ):
+        self.description = get_prompt(name="terminal")
+
         self.session_id = session_id # => tied to conversation
         self.working_directory = working_directory
         if not self.working_directory.exists():

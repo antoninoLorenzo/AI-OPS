@@ -1,5 +1,4 @@
 import asyncio
-import os
 from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass, field
 from typing import Any
@@ -7,10 +6,8 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from ai_ops.config import (
-    BASE_AGENT_ID, 
-    CONFIRMATION_TIMEOUT_S, 
-    API_MODEL_MAX_CONTEXT_LENGTH, 
-    DEFAULT_MAX_CONTEXT_LENGTH
+    BASE_AGENT_ID,
+    CONFIRMATION_TIMEOUT_S,
 )
 from ai_ops.core.agent import aorchestrator, orchestrator
 from ai_ops.core.context_management import (
@@ -19,9 +16,9 @@ from ai_ops.core.context_management import (
     ContextTransformType,
 )
 from ai_ops.core.conversation import Message, get_token_count, is_valid_context
-from ai_ops.core.llm import ModelConfig, InferenceClient
+from ai_ops.core.llm import InferenceClient
 from ai_ops.core.log import get_logger, log_event, logging
-from ai_ops.core.prompt import build_prompt
+from ai_ops.core.prompt import get_prompt 
 from ai_ops.core.schema import (
     AgentMode,
     Event,
@@ -43,12 +40,10 @@ from ai_ops.core.tools import (
     Tool,
     ToolContext,
     ToolRegistry,
-    WhiteboardRead,
     WhiteboardWrite,
     replay_whiteboard,
 )
 from ai_ops.core.tools.terminal.policy import COMMAND_POLICY_REGISTRY
-
 
 _logger = get_logger(__name__)
 
@@ -150,11 +145,13 @@ class AgentRunner:
         self._store = get_session_store()
 
         if is_new_conversation:
-            system_prompt = build_prompt(
-                agent_id=config.agent_id,
-                model=client.model_id,
-                prompt_extension=config.prompt_extension
-            )
+            system_prompt = get_prompt(name=config.agent_id)
+            system_prompt += f"\n{config.prompt_extension}"
+            # system_prompt = build_prompt(
+            #    agent_id=config.agent_id,
+            #     model=client.model_id,
+            #     prompt_extension=config.prompt_extension
+            #)
             log_event(
                 _logger, logging.DEBUG, "Done building system_prompt", 
                 agent_id=config.agent_id, model=client.model_id
@@ -166,7 +163,7 @@ class AgentRunner:
                 session_id=self.session_id,
                 message=Message(message=system_prompt_message, token_count=system_prompt_tokens, agent_id=config.agent_id)
             )
-        elif any(t in config.tools for t in (WhiteboardWrite, WhiteboardRead)):
+        elif any(t in config.tools for t in (WhiteboardWrite, )):
             # rebuild the whiteboard from session events on resume
             replay_whiteboard(
                 whiteboard_id=self.session_id,

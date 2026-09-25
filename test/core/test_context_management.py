@@ -15,7 +15,6 @@ from ai_ops.core.tools.whiteboard import (
     WhiteboardEntry,
     WhiteboardWriteRequest,
     WhiteboardResult,
-    WhiteboardRead, 
     WhiteboardWrite
 )
 from ai_ops.core.tools.think import ThinkTool

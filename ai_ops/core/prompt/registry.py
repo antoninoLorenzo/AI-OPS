@@ -1,178 +1,74 @@
 import functools
-import json
-import re
-from pathlib import Path
-from typing import Literal
 
-from ai_ops.config import BASE_AGENT_ID
-from ai_ops.core.log import get_logger, log_event, logging
-from ai_ops.core.tracing import mlflow_ready
+from ai_ops.core.prompt._prompts import (
+    LOAD_SKILL,
+    REACT,
+    TERMINAL,
+    WRITE_FILE,
+    WRITE_WHITEBOARD,
+)
 
-PROMPT_BASE_PATH = Path(__file__).parent / "local"
-
-_logger = get_logger(__name__)
-
-
-def _normalize_model_name(model: str | None) -> str | None:
-    if not model:
-        return None
-    # strips case-insensitive suffixes like -AWQ, -GGUF, extend the regex
-    return re.sub(re.compile(r"-(awq|gguf)$", re.IGNORECASE), "", model)
+_PROMPT_REGISTRY = {
+    "react": REACT,
+    "terminal": TERMINAL,
+    "write_whiteboard": WRITE_WHITEBOARD,
+    "load_skill": LOAD_SKILL,
+    "write_file": WRITE_FILE,
+}
 
 
-def build_prompt(
-    agent_id: str = BASE_AGENT_ID,
-    model: str | None = None,
-    prompt_extension: str | None = None
-) -> str:
-    system_prompt = get_prompt(name=agent_id, model=model)
-    
-    if prompt_extension:
-        system_prompt += prompt_extension
-    
-    return system_prompt
-
-@functools.lru_cache 
-def get_prompt(
-    name: str, 
-    kind: Literal["agent", "tool", "example"] = "agent",
-    model: str | None = None, 
-    version: str | None = None
-) -> str:
-    """Load a prompt template by name, kind and optionally model and/or version.
-
-    On disk, the prompt identifier is `{name}_{model}` for prompt variants, otherwise 
-    just the name. For MLFlow the identifier is `{kind}_{name}_{model}`.
-
-    Versioning uses SemVer strings (`X.Y.Z`):
-    * `X`: Major agent architectural changes
-    * `Y`: Minor changes such as tool schemas.
-    * `Z`: Text optimization and changes in wording.
-    Only the latest version lives inside the repository (technically not though), 
-    versioning is enabled by a prompt registry (currently MLFlow), so the versioning 
-    parameter is ignored if a backend is not setup.
-
-    > Note: currently this only loads template strings, attaching inference configs \
-    such as temperature per prompt would be a desirable future feature. (it would be \
-    attached only to the "agent" prompts though). Skill versioning could also be a \
-    future functionality.
-
-    Examples:
-    >>> # get the react agent prompt
-    >>> get_prompt("react")
-    >>> # get the load_skill tool description tuned towards gemma-4
-    >>> get_prompt("load_skill", kind="tool", model="gemma-4-31B-it")
+def get_prompt(name: str, parameters: dict | None = None) -> str:
     """
-    log_event(
-        _logger, logging.INFO, "Loading Prompt",
-        name=name, kind=kind, version=version, mlflow_ready=mlflow_ready()
-    )
-    if mlflow_ready():
-        return load_prompt_from_mlflow(
-            name=name, kind=kind, 
-            model=_normalize_model_name(model), 
-            version=version
-        )
-    else:
-        return load_prompt_from_disk(
-            name=name, kind=kind, 
-            model=_normalize_model_name(model)
-        )
-
-
-def load_prompt_from_disk(
-    name: str, 
-    kind: Literal["agent", "tool", "example"] = "agent", 
-    model: str | None = None
-):
-    base_path = PROMPT_BASE_PATH
-    if kind == "tool":
-        base_path = Path(base_path / 'tools')
-    if kind == "example":
-        base_path = Path(base_path / 'examples')
-
-    prompt_path = Path(base_path / name)
-    if not prompt_path.exists():
-        raise ValueError(f"Prompt {name} doesn't exists.")
-
-    if model:
-        # how to handle same model different `model_id` (ex. gemma-4-31B-it vs gemma-4-31B-it-AWQ) ???
-        _prompt_path = Path(base_path / f"{name}_{model}")
-        if _prompt_path.exists():
-            prompt_path = _prompt_path
-        else:
-            # does this kind of silent fail with fallback make sense ???
-            log_event(
-                _logger, logging.WARNING, 
-                f"Prompt {name} not found for {model}, defaulting to base."
-            )
+    Templating:
+    * Parameters is flattened to a dict[str, str]
+    * If a parameter is not defined in the prompt it's ignored
+    * If a parameter is defined in the prompt and isn't provided it's ignored
     
-    with open(str(prompt_path), 'r', encoding='utf-8') as fp:
-        prompt = fp.read()
+    raises ValueError: prompt `name` not in `_PROMPT_REGISTRY`
+    """
+    template = _PROMPT_REGISTRY.get(name)
+    if template is None:
+        raise ValueError(f"Prompt \"{name}\" not found in [{', '.join(_PROMPT_REGISTRY.keys())}]")
+
+    if parameters is None:
+        parameters = {}
+    
+    parameters = flatten(parameters)
+    prompt = template.format_map(drop_missing(parameters))
+    prompt = prompt.strip()
 
     return prompt
 
 
-def semver_encode(version: str) -> str:
-    return version.replace('.', '_')
+class drop_missing(dict):
+    def __missing__(self, _):
+        return ""
 
+def flatten(d: dict) -> dict:
+    return {
+        k: flatten_helper(v)
+        for k, v in d.items()
+    }
 
-def load_prompt_from_mlflow(
-    name: str, 
-    kind: Literal["agent", "tool", "example"] = "agent",
-    model: str | None = None, 
-    version: str | None = None
-) -> str:
-    # if the prompt doesn't exist it needs to be registered, the version lives in 
-    # "local/registry.json". There are two "versioning" systems in place, one is the 
-    # prompt living in the repo, the other is MLFlow storage, porting a version from 
-    # MLFlow to GitHub is manual; in the other direction (for example a clean MLFlow 
-    # instance) this method pushed the on disk prompts to MLFlow. 
-    import mlflow
+@functools.singledispatch
+def flatten_helper(o: str) -> str:
+    return o
 
-    with open(str(Path(PROMPT_BASE_PATH / "registry.json")), "r", encoding="utf-8") as fp:
-        registry = json.load(fp)
-
-    variant = f"_{model}" if model else ""
-    prompt_name = f"{kind}_{name}{variant}"
-
-    # MLFlow uses sequential 1...N versioning but we can use aliases to "version" it.
-    # semver is used as the alias; if no version is passed, fall back to registry.json,
-    # and if that's also missing, load whatever MLFlow considers latest.
-    semver = version or registry.get(kind, {}).get(name, {}).get("version")
-    if semver:
-        # MLFlow doesn't accept dots in alias names 
-        semver = semver_encode(version=semver)
+@flatten_helper.register
+def _(o: int | float) -> str:
+    return str(o)
     
-    uri = f"prompts:/{prompt_name}@{semver}" if semver else f"prompts:/{prompt_name}"
-
-    prompt = mlflow.genai.load_prompt(uri, allow_missing=True)
-    if prompt is not None:
-        return prompt.template
-
-    # variant doesn't exist? fall back to base
-    if model:
-        base_prompt_name = f"{kind}_{name}"
-        base_uri = f"prompts:/{base_prompt_name}@{semver}" if semver else f"prompts:/{base_prompt_name}"
-        prompt = mlflow.genai.load_prompt(base_uri, allow_missing=True)
-        if prompt is not None:
-            log_event(
-                _logger, logging.WARNING,
-                f"Prompt {name} not found for {model}, defaulting to {base_uri}."
-            )
-            return prompt.template
-
-    log_event(
-        _logger, logging.INFO,
-        f"Prompt {prompt_name} not found, bootstrapping from disk."
+@flatten_helper.register
+def _(o: list) -> str:
+    return '\n'.join(
+        f"* {flatten_helper(item)}" 
+        for item in o
     )
-    local_prompt = load_prompt_from_disk(name=name, kind=kind, model=model)
-    try:
-        version_obj = mlflow.genai.register_prompt(name=prompt_name, template=local_prompt)
-        if semver:
-            mlflow.genai.set_prompt_alias(name=prompt_name, alias=semver, version=version_obj.version)
-        return local_prompt
-    except Exception as e:
-        raise RuntimeError(
-            f"Prompt not found at {uri} and automated MLflow registration failed: {e}"
-        )
+
+@flatten_helper.register
+def _(o: dict) -> str:
+    return '\n'.join((
+        f"{k}:\n{flatten_helper(v)}" 
+        for k, v in o.items()
+    ))
+

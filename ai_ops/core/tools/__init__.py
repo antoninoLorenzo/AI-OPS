@@ -23,8 +23,6 @@ from ai_ops.core.tools.terminal import (
 )
 from ai_ops.core.tools.think import ThinkRequest, ThinkResult, ThinkTool
 from ai_ops.core.tools.whiteboard import (
-    WhiteboardRead,
-    WhiteboardReadRequest,
     WhiteboardResult,
     WhiteboardWrite,
     WhiteboardWriteRequest,
@@ -72,11 +70,6 @@ class ToolSpec:
 ToolRegistry: dict[str, ToolSpec] = {
     LoadSkill.name: ToolSpec(LoadSkill, lambda ctx: LoadSkill(model=ctx.model_id)),
     ThinkTool.name: ToolSpec(ThinkTool, lambda _: ThinkTool()),
-    WhiteboardRead.name: ToolSpec(WhiteboardRead, lambda ctx: WhiteboardRead(
-        whiteboard_id=ctx.session_id,
-        new_whiteboard=ctx.is_new_conversation,
-        model=ctx.model_id
-    )),
     WhiteboardWrite.name: ToolSpec(WhiteboardWrite, lambda ctx: WhiteboardWrite(
         whiteboard_id=ctx.session_id,
         new_whiteboard=ctx.is_new_conversation,

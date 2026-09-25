@@ -82,9 +82,11 @@ class WriteFileOutput(BaseModel):
 
 class WriteFile(Tool[WriteFileInput, WriteFileOutput]):
     name = 'write_file'
-    description = get_prompt(name="write_file", kind="tool")
+    # description = get_prompt(name="write_file", kind="tool")
 
     def __init__(self, working_directory: Path):
+        self.description = get_prompt(name="write_file")
+
         self.working_directory = working_directory
         if not self.working_directory.exists():
             self.working_directory.mkdir(parents=True, exist_ok=True)
