@@ -1,3 +1,4 @@
+# TODO: log_event feels like a useless level of abstraction, should have read the fcking docs it has `extra=`
 import logging
 import os
 import sys
@@ -57,11 +58,9 @@ def setup_logging():
         "LiteLLM Router",
         "openai",
         "paramiko",
-        "git", # mlflow dependency
         "asyncio",
         "urllib3",
         "httpcore",
-        "mlflow.store.model_registry.abstract_store"
     )
 
     for name in yappers:

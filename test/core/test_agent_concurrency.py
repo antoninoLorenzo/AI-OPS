@@ -22,7 +22,6 @@ from litellm import (
 from pydantic import BaseModel
 
 import ai_ops.core.agent
-import ai_ops.core.tracing
 from ai_ops.core.agent import aorchestrator
 from ai_ops.core.conversation import Message
 from ai_ops.core.llm import InferenceClient
@@ -117,7 +116,6 @@ _MESSAGES = [
 
 
 async def test_blocking_tool_does_not_freeze_event_loop(monkeypatch):
-    monkeypatch.setattr(ai_ops.core.tracing, "mlflow_ready", lambda: False)
     monkeypatch.setattr(ai_ops.core.agent, "aquery", mock_aquery)
 
     slow = SlowTool()

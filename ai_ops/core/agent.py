@@ -24,7 +24,6 @@ from ai_ops.core.schema import (
 )
 from ai_ops.core.storage import Session
 from ai_ops.core.tools import StopTool, Tool, validate_tool_call
-from ai_ops.core.tracing import agent_trace
 
 _logger = get_logger(__name__)
 
@@ -35,7 +34,6 @@ DEFAULT_ITERATION_LIMIT = {AgentMode.SUPERVISED: 30, AgentMode.UNSUPERVISED: 60}
 # of the agent actions. 
 # Conversation management and LLM reliability should be kept outside the orchestrator.
 # TODO: mode is not actually used to determine whether a command needs approval
-@agent_trace
 def orchestrator(
     client: InferenceClient,
     session: Session,
@@ -143,9 +141,6 @@ def orchestrator(
 # block the event loop while waiting on the model provider.
 # Tools are still synchronous, but they're run via `asyncio.to_thread` so a
 # blocking tool doesn't freeze the event loop (see the tool-execution comment).
-# `agent_trace` detects the async-generator function and dispatches to the async
-# tracer, so tracing works the same way it does for `orchestrator`.
-@agent_trace
 async def aorchestrator(
     client: InferenceClient,
     session: Session,

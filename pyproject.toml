@@ -7,8 +7,6 @@ requires-python = ">=3.12"
 dependencies = [
     "bashlex>=0.18",
     "litellm>=1.84.0",
-    "litellm[mlflow]",
-    "mlflow>=3.11.1",
     "pydantic>=2.13",
     "python-dotenv>=1.2.2",
 ]
@@ -31,13 +29,17 @@ dev = [
     "pandas>=2.2.2",
     "numpy",
     "matplotlib~=3.9.0",
+    "pyqt6>=6.11.0",
     "seaborn~=0.13.2",
     "tqdm~=4.66.4",
     "transformers>=5.5.3",
     "streamlit>=1.40",
     "tokenizers",
     "ruff>=0.16.2",
-    "pyinstrument"
+    "pyinstrument",
+    "tqdm",
+    "statsmodels", 
+    "pyte"
 ]
 bench = [
     "autopenbench"

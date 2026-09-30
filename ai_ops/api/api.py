@@ -23,15 +23,12 @@ from ai_ops.core.runner import AgentConfig, AgentRunner, AgentSpec
 from ai_ops.core.schema import Event, ToolConfirmationEvent, UserMessageEvent
 from ai_ops.core.storage import Session, SessionStore
 from ai_ops.core.storage import get_session_store as _core_get_session_store
-from ai_ops.core.tracing import configure_tracing
 
 _logger = get_logger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    configure_tracing()
-
     settings = get_settings()
     log_event(
         _logger, logging.INFO, "Loaded API Settings",

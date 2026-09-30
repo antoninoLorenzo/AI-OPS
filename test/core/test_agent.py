@@ -11,7 +11,6 @@ from litellm import (
 )
 
 import ai_ops.core.agent    # we need to mock query so that it takes our mock_inference_client and raises on demand
-import ai_ops.core.tracing  # we need to mock mlflow_ready to disable @agent_trace
 from ai_ops.core.schema import (
     AgentMode,
     StopEvent,
@@ -77,12 +76,6 @@ _AGENT_LOOP_TESTS = [
 
 @pytest.mark.parametrize("test_case", _AGENT_LOOP_TESTS)
 def test_agent_loop(test_case, monkeypatch):
-    monkeypatch.setattr(
-        target=ai_ops.core.tracing,
-        name="mlflow_ready",
-        value=lambda: False
-    )
-
     # mock query to completely isolate the agent_loop from external code, even though 
     # we can just pass mock_inference_client and it would be called in query.
     monkeypatch.setattr(
@@ -103,12 +96,6 @@ def test_agent_loop(test_case, monkeypatch):
 
 @pytest.mark.parametrize("test_case", _AGENT_LOOP_TESTS)
 async def test_agent_loop_async(test_case, monkeypatch):
-    monkeypatch.setattr(
-        target=ai_ops.core.tracing,
-        name="mlflow_ready",
-        value=lambda: False
-    )
-
     # mock aquery to completely isolate the agent loop from external code.
     monkeypatch.setattr(
         target=ai_ops.core.agent,
@@ -173,7 +160,6 @@ def _stop_tool_parameters():
 def test_orchestrator_stop_tool_carries_call_id(monkeypatch):
     # the stop tool is an orchestration primitive; the StopEvent must carry the
     # stop tool_call id so the runner can answer it with a synthetic tool result.
-    monkeypatch.setattr(target=ai_ops.core.tracing, name="mlflow_ready", value=lambda: False)
     monkeypatch.setattr(target=ai_ops.core.agent, name="query", value=mock_query)
 
     stop_events = [e for e in orchestrator(**_stop_tool_parameters()) if isinstance(e, StopEvent)]
@@ -181,7 +167,6 @@ def test_orchestrator_stop_tool_carries_call_id(monkeypatch):
 
 
 async def test_aorchestrator_stop_tool_carries_call_id(monkeypatch):
-    monkeypatch.setattr(target=ai_ops.core.tracing, name="mlflow_ready", value=lambda: False)
     monkeypatch.setattr(target=ai_ops.core.agent, name="aquery", value=mock_aquery)
 
     events = await _collect_events(aorchestrator(**_stop_tool_parameters()))
@@ -200,7 +185,6 @@ async def _collect_events(event_stream):
 
 
 def _run_confirm_case(monkeypatch, mode, confirm, call_id="call_1", val=5):
-    monkeypatch.setattr(target=ai_ops.core.tracing, name="mlflow_ready", value=lambda: False)
     monkeypatch.setattr(target=ai_ops.core.agent, name="aquery", value=mock_aquery)
 
     client = InferenceClient(
