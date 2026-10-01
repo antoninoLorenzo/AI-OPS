@@ -19,7 +19,7 @@
     "@types/react": "^19.3.0",
     "ink-testing-library": "^4.0.0",
     "oxlint": "^1.83.0",
-    "tsx": "^4.23.13",
+    "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   },
   "dependencies": {
