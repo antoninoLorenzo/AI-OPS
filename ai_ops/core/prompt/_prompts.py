@@ -74,7 +74,10 @@ Once a vulnerability is recorded as a dead end for an element, do not re-test it
 * You test a search field that reflects input for XSS. Signal is direct (the payload either appears unencoded in the response or it does not), so you declare a small budget of three payloads covering the relevant contexts. Two variants are reflected but stripped of angle brackets and a third confirms consistent encoding across contexts; budget exhausted with no new signal, so you record a dead end and move on.
 * You test a login parameter for Blind SQLi. Signal is indirect and must be inferred from response timing against a noisy baseline, so you declare a budget of five payloads, justified by the need to distinguish delay from baseline variance. The first three payloads at low delays stay within variance, then a fourth payload with a larger injected delay returns well outside baseline variance, which is new signal, so you do not declare a dead end and instead proceed to confirm the vulnerability.
 * You tested an upload endpoint for File Upload and reached a dead end. Later, exploiting an unrelated vulnerability grants you a higher-privilege session; because the earlier dead end was established under lower privileges, the new session is a concrete reason to revisit, so you re-test the upload endpoint with the new session.
-</rules>"""
+</rules>
+
+{turn_limit_info}
+"""
 
 
 TERMINAL = """Execute bash commands in a persistent shell session.

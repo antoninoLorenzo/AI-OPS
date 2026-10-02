@@ -51,6 +51,7 @@ _AGENT_LOOP_TESTS = [
             "client": InferenceClient(
                 config=mock_model_config,
                 client=MockChatCompletion(ModelResponse(
+                    id="chatcmpl-mock",
                     model="gpt-4o",
                     choices=[Choices(
                         finish_reason="stop", index=0,
@@ -63,10 +64,11 @@ _AGENT_LOOP_TESTS = [
             "tools": {MockTool.name : MockTool()},
         },
         "expected": [
-            Message(agent_id="react", 
-                message={"role": "assistant", "content": "content", "tool_calls": None, "function_call": None}, 
+            Message(agent_id="react",
+                message={"role": "assistant", "content": "content", "tool_calls": None, "function_call": None},
                 token_count=1,
-                model_id=mock_model_config.model
+                model_id=mock_model_config.model,
+                response_id="chatcmpl-mock"
             ),
             StopEvent(issuer="agent")
         ]

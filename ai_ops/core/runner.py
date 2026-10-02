@@ -9,7 +9,7 @@ from ai_ops.config import (
     BASE_AGENT_ID,
     CONFIRMATION_TIMEOUT_S,
 )
-from ai_ops.core.agent import aorchestrator, orchestrator
+from ai_ops.core.agent import DEFAULT_ITERATION_LIMIT, aorchestrator, orchestrator
 from ai_ops.core.context_management import (
     DEFAULT_CONTEXT_TRANSFORMS,
     ContextTransformRegistry,
@@ -18,7 +18,7 @@ from ai_ops.core.context_management import (
 from ai_ops.core.conversation import Message, get_token_count, is_valid_context
 from ai_ops.core.llm import InferenceClient
 from ai_ops.core.log import get_logger, log_event, logging
-from ai_ops.core.prompt import get_prompt 
+from ai_ops.core.prompt import get_prompt
 from ai_ops.core.schema import (
     AgentMode,
     Event,
@@ -145,7 +145,11 @@ class AgentRunner:
         self._store = get_session_store()
 
         if is_new_conversation:
-            system_prompt = get_prompt(name=config.agent_id)
+            # note: the mode can be toggled and the limit changes
+            prompt_parameters = {
+                "turn_limit_info": f"You have a limit of {DEFAULT_ITERATION_LIMIT[AgentMode.UNSUPERVISED]} turns."
+            }
+            system_prompt = get_prompt(name=config.agent_id, parameters=prompt_parameters)
             system_prompt += f"\n{config.prompt_extension}"
             # system_prompt = build_prompt(
             #    agent_id=config.agent_id,
@@ -252,26 +256,36 @@ class AgentRunner:
                 # this currently handles non-streaming
                 text_content = event.message.get("content")
                 reasoning_content = event.message.get("reasoning_content")
-
+                 
                 if reasoning_content is not None and isinstance(reasoning_content, str):
-                    yield ReasoningEvent(chunk=reasoning_content)
+                    reasoning_event = ReasoningEvent(chunk=reasoning_content)
+                    yield reasoning_event
+                    self._store.append_event(session_id=self.session_id, event=reasoning_event)
 
                 if text_content is not None and isinstance(text_content, str):
-                    yield TextEvent(chunk=text_content)
+                    txt_event = TextEvent(chunk=text_content)
+                    yield txt_event
+                    self._store.append_event(session_id=self.session_id, event=txt_event)
 
                 self._store.append_message(session_id=self.session_id, message=event)
+            elif isinstance(event, ToolCallEvent):
+                yield event
+                self._store.append_event(session_id=self.session_id, event=event) 
             elif isinstance(event, ToolResultEvent):
                 yield event
                 self._store.append_message(
                     session_id=self.session_id,
                     message=self._tool_result_to_message(event)
                 )
+
+                self._store.append_event(session_id=self.session_id, event=event)
             elif isinstance(event, ToolErrorEvent):
                 yield event
                 self._store.append_message(
                     session_id=self.session_id,
                     message=self._tool_error_to_message(event)
                 )
+                self._store.append_event(session_id=self.session_id, event=event)
             elif isinstance(event, StopEvent):
                 yield event
                 # a stop issued via the stop tool leaves an unanswered tool_call;
@@ -281,9 +295,7 @@ class AgentRunner:
                         session_id=self.session_id,
                         message=self._stop_to_message(event.call_id)
                     )
-            elif isinstance(event, ToolCallEvent):
-                yield event
-
+                self._store.append_event(session_id=self.session_id, event=event)
             if self._user_stopped:
                 break
         

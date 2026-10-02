@@ -77,12 +77,16 @@ class Message(BaseModel):
     agent_id: str
     """Identifier of the agent that authored this message (see `AgentConfig.agent_id`)."""
 
+    response_id: str | None = None
+    """Identifier of the LLM API call, only on assistant messages, used to correlate with 
+    `core.llm.ResponseUsage`."""
+
     token_count: int = 0
-    """Required for context compaction."""
+    """Amount of tokens used by a single message, it's used for context compaction as 
+    an estimate and should never be used for cost tracking."""
 
     model_id: str | None = None
     """Useful for analysis. System and user messages won't have this field."""
-
 
 
 # --- message utilities

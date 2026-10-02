@@ -10,7 +10,7 @@ from litellm import (
 from ai_ops.config import BASE_AGENT_ID
 from ai_ops.core.context_management import ContextTransform, build_context
 from ai_ops.core.conversation import Message, get_token_count
-from ai_ops.core.llm import InferenceClient, aquery, query
+from ai_ops.core.llm import InferenceClient, aquery, get_response_usage, query
 from ai_ops.core.log import get_logger, log_event, logging
 from ai_ops.core.schema import (
     AgentMode,
@@ -22,18 +22,13 @@ from ai_ops.core.schema import (
     ToolErrorFailure,
     ToolResultEvent,
 )
-from ai_ops.core.storage import Session
+from ai_ops.core.storage import Session, get_session_store
 from ai_ops.core.tools import StopTool, Tool, validate_tool_call
 
 _logger = get_logger(__name__)
 
 DEFAULT_ITERATION_LIMIT = {AgentMode.SUPERVISED: 30, AgentMode.UNSUPERVISED: 60}
 
-# The orchestrator implements the agent logic, currently that's just ReAct loop.
-# It's intentionally kept stateless so the only concern remains the orchestration 
-# of the agent actions. 
-# Conversation management and LLM reliability should be kept outside the orchestrator.
-# TODO: mode is not actually used to determine whether a command needs approval
 def orchestrator(
     client: InferenceClient,
     session: Session,
@@ -43,6 +38,7 @@ def orchestrator(
     max_iterations: int | None = None,
     agent_id: str = BASE_AGENT_ID
 ) -> Iterator[Message | Event]:
+    session_store = get_session_store()
     agent_tools = [tool.serialize() for tool in tools.values()]
 
     # stop tool is an orchestration primitive so it's always given
@@ -71,12 +67,19 @@ def orchestrator(
 
         response_message = response.choices[0].message
         chat_completion_message = cast(ChatCompletionAssistantMessage, response_message.model_dump())
+        
+        response_usage = get_response_usage(response)
+        if response_usage is not None:
+            session_store.append_usage(session_id=session.uuid, usage=response_usage)    
+        else:
+            log_event(_logger, logging.WARNING, "get_response_usage returned None", session_id=session.uuid)
 
         yield Message(
             message=chat_completion_message,
             token_count=get_token_count(chat_completion_message),
             model_id=client.config.model,
-            agent_id=agent_id
+            agent_id=agent_id,
+            response_id=response_usage.response_id if response_usage is not None else None
         )
 
         if not response_message.tool_calls:
@@ -136,11 +139,6 @@ def orchestrator(
         it += 1
 
 
-# Async variant of `orchestrator`. It mirrors the synchronous loop one-to-one,
-# the only difference is that inference is awaited (`aquery`) so the loop doesn't
-# block the event loop while waiting on the model provider.
-# Tools are still synchronous, but they're run via `asyncio.to_thread` so a
-# blocking tool doesn't freeze the event loop (see the tool-execution comment).
 async def aorchestrator(
     client: InferenceClient,
     session: Session,
@@ -151,6 +149,7 @@ async def aorchestrator(
     confirm: ConfirmCallback | None = None,
     agent_id: str = BASE_AGENT_ID
 ) -> AsyncIterator[Message | Event]:
+    session_store = get_session_store()
     agent_tools = [tool.serialize() for tool in tools.values()]
 
     # stop tool is an orchestration primitive so it's always given
@@ -180,11 +179,18 @@ async def aorchestrator(
         response_message = response.choices[0].message
         chat_completion_message = cast(ChatCompletionAssistantMessage, response_message.model_dump())
 
+        response_usage = get_response_usage(response)
+        if response_usage is not None:
+            session_store.append_usage(session_id=session.uuid, usage=response_usage)    
+        else:
+            log_event(_logger, logging.WARNING, "get_response_usage returned None", session_id=session.uuid)
+
         yield Message(
             message=chat_completion_message,
             token_count=get_token_count(chat_completion_message),
             model_id=client.config.model,
-            agent_id=agent_id
+            agent_id=agent_id,
+            response_id=response_usage.response_id if response_usage is not None else None
         )
 
         if not response_message.tool_calls:
