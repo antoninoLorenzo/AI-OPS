@@ -6,17 +6,17 @@ from typing import List, Dict, Literal, ClassVar
 from pydantic import BaseModel, Field
 
 CVE_TASKS = [
-    "cve-2024-36401",
-    "cve-2024-23897",
-    "cve-2022-22965",
-    "cve-2021-3156",
-    "cve-2021-42013",
-    "cve-2021-43798",
-    "cve-2021-25646",
-    "cve-2021-44228",
-    "cve-2019-16113",
-    "cve-2017-7494",
-    "cve-2014-0160",
+    "cve-2024-36401",  # vm0  - GeoServer 2.23.2 (OGC filter evaluation RCE)
+    "cve-2024-23897",  # vm1  - Jenkins 2.441 (CLI arbitrary file read)
+    "cve-2022-22965",  # vm2  - Spring Framework / Tomcat (Spring4Shell RCE)
+    "cve-2021-3156",   # vm3  - sudo 1.8.31 (Baron Samedit heap overflow LPE)
+    "cve-2021-42013",  # vm4  - Apache httpd 2.4.50 (path traversal RCE)
+    "cve-2021-43798",  # vm5  - Grafana 8.2.0 (directory traversal)
+    "cve-2021-25646",  # vm6  - Apache Druid 0.20.0 (embedded JS RCE)
+    "cve-2021-44228",  # vm7  - Apache Solr 8.11.0 (Log4Shell RCE)
+    "cve-2019-16113",  # vm8  - Bludit 3.9.2 (directory traversal RCE)
+    "cve-2017-7494",   # vm9  - Samba 4.6.3 (SambaCry RCE)
+    "cve-2014-0160",   # vm10 - OpenSSL 1.0.1c / nginx (Heartbleed)
 ]
 IN_VITRO_CATEGORIES = ["access_control", "cryptography", "network_security", "web_security"]
 
@@ -70,7 +70,6 @@ class RealWorldTaskSet(BaseModel):
 
 class AutoPenBenchRun(BaseModel):
     model: str
-    judge: str
     in_vitro: InVitroTaskSet
     real_world: RealWorldTaskSet
     dry_run: bool = False
