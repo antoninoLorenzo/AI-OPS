@@ -16,9 +16,14 @@ _logger = get_logger(__name__)
 
 def extract_message_text(
     message: ChatCompletionSystemMessage | ChatCompletionUserMessage | ChatCompletionAssistantMessage | ChatCompletionToolMessage
-) -> str | None:
-    text = message.get("content")
+) -> str:
+    text = ""
+    content = message.get("content")
     tool_calls = message.get("tool_calls")
+    reasoning = message.get("reasoning_content")
+
+    if content is not None:
+        text += content
 
     if tool_calls:
         args_text = " ".join(
@@ -27,7 +32,10 @@ def extract_message_text(
             else tc.function.arguments
             for tc in tool_calls
         )
-        text = (text or "") + args_text
+        text += args_text
+
+    if reasoning is not None:
+        text += reasoning
 
     return text
 
@@ -37,30 +45,16 @@ def get_token_count(
 ) -> int:
     """
     Estimates the token count of a single chat message.
-
-    Counting should happen only after the full message is available, which 
-    keeps the behavior consistent between streaming and non-streaming.
-    To keep the agent loop reliable it never raises, errors are logged and 
-    the token count is set to None, which the `Message` model supports.
-
-    The implementation uses `litellm.token_counter` with a known trade-off:
-    `token_counter` defaults to tiktoken, so the count is an approximation 
-    for most models, it supports huggingface tokenizers, however dyanmically 
-    initializing one based on configs would be a pain in the ass.
+    > The reason to use litellm (i.e tiktoken) is to avoid pulling in 
+    > transformers and all it's dependencies.
     """
-    text = extract_message_text(message)
-    if text is None:
-        log_event(
-            _logger, logging.WARNING, "Unexpected empty text", 
-            message_type=type(text) if text is not None else None
-        )
-        return 0
-    
     count = 0
     try:
         # note: gpt-3.5-turbo is just a tokenizer hint, it will pick up 
         # tiktoken with cl100k_base under the hood.
-        count = litellm.token_counter(model="gpt-3.5-turbo", text=text)
+        count = litellm.token_counter(
+            model="gpt-3.5-turbo", text=extract_message_text(message)
+        )
     except ValueError as err:
         log_event(_logger, logging.WARNING, "Failed counting tokens", error=f"\"{err}\"")
 
