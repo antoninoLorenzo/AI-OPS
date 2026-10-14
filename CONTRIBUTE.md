@@ -1,62 +1,41 @@
-
 # Contributing
 
 You're welcome to contribute to AI-OPS, whether you want to simply provide feedback or help in the development process.
 
-## General
+> I am the only maintainer of this project and the codebase is not yet mature, for this reason the `dev` and `main` branch are often off-sync. 
+> **All work happens on `dev`: branch from it and open your PR against it**. 
 
-<details>
-<summary> On AI Coding </summary>
-Kinda sus putting that in the repo of an AI Agent, however as AI-OPS shouldn't be blindly used for ethical hacking (if we ever get to that), if you're looking to contribute you shouldn't be the "middleman" between the repo and an ai agent, I could do that myself if I wanted to.
 
-You *can* use AI, but here's a couple of nice guidelines if you do so:
-* Coding agents are "objective-oriented", so they quickly try to find workarounds to fix problems, those workarounds *may* be a solution but more often than not they hard-code an edge-case without really solving anything. If you use an agent to find a bug, take a piece of paper or whatever and think about the problem on your own before thinking about asking ai (I can't believe I'm prompting people).
-* This is not the linux kernel, it's an agent, it's not supposed to be ~512k loc (if you know you know). Coding agents tend to write code that *looks* professional, the reason it never scales is that it's often over-engineered boilerplate. Basically what I'm saying here is KISS, often a function does the job.
+## Development Workflow
 
-</details>
+AI-OPS runs only on Linux (isn't meant to be cross-platform), on Windows you can use WSL.
 
-<details>
-<summary> Tips on LLM APIs </summary>
-LLMs ain't cheap, so even developing an AI Agent requires you to manage token consumption. The obvious trick here is avoiding as much as possible LLM calls in development, however at some point you'll have to make api calls. AI-OPS is trying to target medium sized LLMs (ex. Gemma4 31B) and there's effort in context compaction so even 16k could do the job. 
-
-That said, if you are blessed with enough hardware to get medium-sized at >30tok/s (under that you'll suffer the wrath of linear algebra) you may still be interested in knowing what low-hanging fruits are around. I personally still have to spend a cent on llm inference, this is thanks to the two following platforms:
-* [Modal](https://modal.com/docs): you register and *once you connect a payment method* you get 30$ worth of credits, note that by default the budget is set to 42.5$ (let's call that a tax on not paying attention) but you can lower it to 30$. It offers serverless GPUs and if you're familiar with Docker containers you'll understand their Images api.
-
-</details>
-
----
-
-### Development Workflow
-
-> As of 2026-06-09 (v0.1.0) the `development` and `main` branch are completely different, so you may want to see what's into the dev branch before doing any work. For this reason and also common-sense *I do not accept pull-requests directly to the main branch*.
-
-Contributing is as-easy as:
-1. Opening an issue or looking at open ones, also take a look at [ROADMAP.md](ROADMAP.md#help-wanted).
-2. Create a new branch (from dev) like `fix/something` or `feat/whatever`.
-3. Once you're done, make a pull request.
-
----
-
-### Technical Guidelines
-
-**Submodules**
-```
-git submodule init
-git submodule update --recursive
+It's recommended to use `uv` to create and manage Python environments; you can follow their [documentation](https://docs.astral.sh/uv/) to install it. Before setting up Python, checkout to `dev` first:
+```bash
+git clone https://github.com/antoninoLorenzo/AI-OPS.git -b dev && cd AI-OPS
+uv sync --python 3.12
+source .venv/bin/activate
 ```
 
-**Use Logging**: print statements are ok for debugging (I understand that `pdb` may be a bit of a pain in the ass), though don't commit them, instead use the log utilities.
-
-```python
-from ai_ops.core.log import get_logger, log_event, logging
-
-_logger = get_logger(__name__)
-
-var = 1
-log_event(_logger, logging.INFO, "Message", var=var)
+Once you've done the initial setup create branch to implement your changes (ex. `fix/something` or `feat/whatever`):
+```bash
+git switch -c fix/something
 ```
 
-**Test your changes**: when implementing code changes (ex. fixing a tool implementation or whatever) use `pytest` to verify the behaviour is the expected one. Personally, I like decoupling the test cases definition and the execution logic, however that's just my personal style: 
+AI-OPS uses `pytest` to test the codebase, when you implement your changes add any relevant test case and run any existing tests to ensure everything behaves as expected. 
+```bash
+# run your new tests
+python -m pytest test/core/test_[your_test].py<::test_foo>
+
+# run this depending on the impact of your changes
+python -m pytest test/core
+python -m pytest test/api
+python -m pytest test/ 
+```
+> CI will run the full suite anyway, it's a way to get faster feedback.
+
+
+When implementing a test, leverage `@pytest.mark.parametrize` where you can to make tests more readable and extendible:
 ```python
 import pytest
 
@@ -75,13 +54,39 @@ def test_foo(test_case):
     assert foo(**test_case["input"]) == test_case["expected"]
 ```
 
+Before submitting a PR, run the linters (CI will too, catch locally anyway):
+```bash
+# python
+ruff check ai_ops/
+
+# typescript (cli)
+cd cli/
+npx oxlint src
+```
+
+When you open the pull request set the base branch to `dev` (GH defaults to `main`).
+
+
+### AI Assisted Contributions
+
+You can use coding agents freely, after all that's an AI agent project, the rules are simple: review the code, test it yourself, when opening a PRs describe it yourself.
+You **must** disclose usage of AI assistance both in the PR as a note and in commit message(s) as follows:
+```
+[your message]
+
+Co-authored-by: [gipiti or claudio or whatever]
+```
+
 ---
+
+## Other
 
 ### Documentation
 
 The docs live in `docs/` (plain markdown) and are built with [MkDocs](https://www.mkdocs.org/) + [Material](https://squidfunk.github.io/mkdocs-material/). The build tools are in the `docs` dependency group, install them with:
 
 ```bash
+# already included with dev dependencies
 uv sync --group docs
 ```
 
@@ -103,4 +108,13 @@ A few notes:
 * Page order and the sidebar come from the `nav:` block in `mkdocs.yml`. When you add a page under `docs/`, add it to `nav:` too.
 * `site/` is generated output and is gitignored, don't commit it. `mkdocs.yml` and everything under `docs/` are tracked.
 * The `Docs` GitHub Action validates the build on every docs change. Publishing to GitHub Pages via `mkdocs gh-deploy` is available but left commented out in `.github/workflows/docs.yml`.
+
+
+### Submodules
+
+The repository includes submodules, specifically a fork of [AutoPenBench](https://github.com/antoninoLorenzo/auto-pen-bench/tree/dfef9fe56e1948a86e26262787c786f6b17084b7) under `benchmark/auto_pen_bench/auto-pen-bench`; to initialize it run the following commands:
+```bash
+git submodule init
+git submodule update --recursive
+```
 
