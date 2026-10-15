@@ -29,25 +29,42 @@ _EXTRACT_EXECUTABLE_TESTS = [
         # process substitution
         "command": "echo <(ls -l $(cat file.txt))",
         "expected": {"echo", "ls", "cat"}
+    },
+    {
+        "command": "sudo docker ps -a",
+        "expected": {"sudo", "docker"}
+    },
+    {
+        "command": "   sudo   systemctl restart $(cat service_name)   ",
+        "expected": {"sudo", "systemctl", "cat"}
+    },
+    {
+        "command": "sudo -l",
+        "expected": {"sudo"}
+    },
+    {
+        # the bug this fixes: without special-casing `sudo` (and the
+        # other transparent wrapper commands), only `sudo` was ever
+        # extracted here, so the allowlist policy never saw `rm` at all
+        # and a blocked command could be smuggled straight through it.
+        "command": "sudo rm -rf /",
+        "expected": {"sudo", "rm"}
+    },
+    {
+        "command": "doas whoami",
+        "expected": {"doas", "whoami"}
+    },
+    {
+        # a duration-taking wrapper's own positional argument must not
+        # be mistaken for the wrapped command -- flagging it would
+        # require confirmation on every ordinary use of `timeout`, not
+        # just malicious ones.
+        "command": "timeout 10 nmap -sS 10.0.0.1",
+        "expected": {"timeout"}
     }
-    # TODO: fix this edge case (see core.tools.utils)
-    # {
-    #     "command": "sudo docker ps -a",
-    #     "expected": {"sudo", "docker"}
-    # },
-    # {
-    #     "command": "   sudo   systemctl restart $(cat service_name)   ",
-    #     "expected": {"sudo", "systemctl", "cat"}
-    # },
-    # {
-    #     "command": "sudo -l",
-    #     "expected": {"sudo"}
-    # }
 ]
 
 @pytest.mark.parametrize("test_case", _EXTRACT_EXECUTABLE_TESTS)
 def test_extract_executables(test_case):
     assert extract_executables(test_case["command"]) == test_case["expected"]
-    if test_case["command"] == "sudo -l":
-        pytest.fail(reason="jomama")
         
