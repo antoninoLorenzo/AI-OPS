@@ -8,7 +8,7 @@ from litellm import (
 )
 
 from ai_ops.config import BASE_AGENT_ID
-from ai_ops.core.context_management import ContextTransform, build_context
+from ai_ops.core.context import ContextTransform, build_context
 from ai_ops.core.conversation import Message, get_token_count
 from ai_ops.core.llm import InferenceClient, aquery, get_response_usage, query
 from ai_ops.core.log import get_logger, log_event, logging

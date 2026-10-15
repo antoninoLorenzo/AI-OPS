@@ -1,4 +1,5 @@
-from typing import Annotated
+import json
+from typing import Annotated, Literal
 
 import litellm
 from litellm import (
@@ -85,9 +86,31 @@ class Message(BaseModel):
 
 # --- message utilities
 
-def is_user_message(message: Message) -> bool:
+def message_has_role(message: Message, role: Literal["system", "user", "assistant", "tool"]) -> bool:
     msg = message.message
-    return msg.get("role", "") == "user"
+    return msg.get("role", "") == role
+
+
+def get_tool_call_signature(tool_call: dict) -> tuple[str, str, dict]:
+    try:
+        call_id = tool_call["id"]
+        tool_name = tool_call["function"]["name"]
+        params = json.loads(tool_call["function"]["arguments"])
+        return call_id, tool_name, params
+    except json.JSONDecodeError:
+        # TODO: add warning
+        return "", "", {}
+
+
+def get_tool_calls(message: Message) -> list[tuple[str, str, dict]]:
+    if not message_has_role(message, "assistant"):
+        return []
+    
+    tool_calls = []
+    for tool_call in message.message.get("tool_calls") or []:
+        tool_calls.append(get_tool_call_signature(tool_call))
+
+    return tool_calls
 
 
 def is_tool_call(message: Message, tool_name_key: str) -> tuple[bool, list[str] | None]:
@@ -99,7 +122,7 @@ def is_tool_call(message: Message, tool_name_key: str) -> tuple[bool, list[str] 
     :returns: (False, None) or (True, [tool_call_id, ...])
     """
     msg = message.message
-    if msg.get("role", "") != "assistant":
+    if not message_has_role(message, "assistant"):
         return False, None
     
     tool_calls = msg.get("tool_calls")
@@ -237,10 +260,3 @@ def is_valid_context(messages: list[Message]) -> tuple[bool, str | None]:
 
     return True, None
 
-
-# --- conversation
-
-class Conversation(BaseModel):
-    uuid: str
-    short_id: int
-    messages: list[Message] = Field(default_factory=list)

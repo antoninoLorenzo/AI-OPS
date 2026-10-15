@@ -59,7 +59,7 @@ from ai_ops.core.runner import AgentSpec
 from ai_ops.core.llm import build_inference_client
 from ai_ops.core.storage import get_session_store
 from ai_ops.core.tools.load_skill.skill import Tool
-from ai_ops.core.context_management import ContextTransformType
+from ai_ops.core.context import ContextTransformType
 
 from benchmark.auto_pen_bench.schema import (
     InVitroCategories,
@@ -380,8 +380,14 @@ def main():
         ExecuteBashTool, FileWriteTool, SSHConnectTool, FinalAnswerTool
     ]
     
+    # TODO: make context_transforms configurable from cli
+    transforms = [
+        {"kind": "reasoning"},
+        {"kind": "terminal", "config": {"terminal_alias": ExecuteBashTool.name}}
+    ]
     agent_spec = AgentSpec(
        tools=[tool.name for tool in selected_tools if not tool.name in run_settings.excluded_tools],
+       context_transforms=transforms,
        prompt_extension=_BASE_PROMPT_EXTENSION
     )
 

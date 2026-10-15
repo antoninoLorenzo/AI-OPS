@@ -3,17 +3,18 @@ from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from ai_ops.config import (
     BASE_AGENT_ID,
     CONFIRMATION_TIMEOUT_S,
 )
 from ai_ops.core.agent import DEFAULT_ITERATION_LIMIT, aorchestrator, orchestrator
-from ai_ops.core.context_management import (
+from ai_ops.core.context import (
     DEFAULT_CONTEXT_TRANSFORMS,
     ContextTransformRegistry,
     ContextTransformType,
+    ContextTransformSettings
 )
 from ai_ops.core.conversation import Message, get_token_count, is_valid_context
 from ai_ops.core.llm import InferenceClient
@@ -59,7 +60,7 @@ class AgentConfig:
     confirmation_timeout_s: float = CONFIRMATION_TIMEOUT_S
     """Time before the execution of tool that requires confirmation is automatically denied."""
 
-    context_transforms: tuple[ContextTransformType] = field(default_factory=tuple)
+    context_transforms: tuple[ContextTransformSettings] = field(default_factory=tuple)
     """Transformations applied to agent context at each turn."""
 
     command_policies: tuple[CommandAdmissionPolicy] = field(default_factory=tuple)
@@ -78,7 +79,10 @@ class AgentSpec(BaseModel):
 
     confirmation_timeout_s: float = Field(default=CONFIRMATION_TIMEOUT_S)
 
-    context_transforms: list[str] = Field(default=[str(ctx_fn) for ctx_fn in DEFAULT_CONTEXT_TRANSFORMS])
+    context_transforms: list[dict] = Field(default=[
+        {"kind": ctx_settings.kind, "config": ctx_settings.config} 
+        for ctx_settings in DEFAULT_CONTEXT_TRANSFORMS
+    ])
     
     prompt_extension: str | None = None
 
@@ -105,23 +109,41 @@ class AgentSpec(BaseModel):
                 admission_policies.append(policy_cls(**policy_params))
             except Exception as err:
                 raise ValueError(f"Invalid parameters for \"{policy_name}\": {err}")
-
-        context_transforms = []    
-        for ctx_fn_name in self.context_transforms:
-            try:
-                context_transforms.append(ContextTransformType(ctx_fn_name))
-            except ValueError:
-                raise ValueError(f"ContextTransform \"{ctx_fn_name}\" is not available (see ai_ops.core.context_management.ContextTransformType)")
         
+        # resolve client-provided [{"kind": "...", "config": {...}}] 
+        # to concrete ContextTransformSettings.
+        context_transforms = []
+        for raw in self.context_transforms:
+            kind_value = raw.get("kind")
+            try:
+                kind = ContextTransformType(kind_value)
+            except ValueError:
+                raise ValueError(f"Unknown context transform kind: {kind_value!r}")
+
+            ctx_cls = ContextTransformRegistry[kind]
+            config_cls = ctx_cls.config_schema()
+
+            try:
+                if config_cls is None:
+                    settings = ContextTransformSettings(kind=kind)
+                else:
+                    settings = ContextTransformSettings(
+                        kind=kind,
+                        config=config_cls.model_validate(raw.get("config") or {})
+                    )
+            except ValidationError as verr:
+                raise ValueError(f"Invalid config for context transform \"{kind}\": {verr}")
+
+            context_transforms.append(settings)
+       
         return AgentConfig(
             tools=tools,
             confirmation_timeout_s=self.confirmation_timeout_s,
-            command_policies=admission_policies,
-            context_transforms=context_transforms,
+            command_policies=tuple(admission_policies),
+            context_transforms=tuple(context_transforms),
             prompt_extension=self.prompt_extension
         )
 
-  
 class AgentRunner:
     """
     `AgentRunner` separates the client from the orchestrator implementation.
@@ -146,21 +168,16 @@ class AgentRunner:
 
         if is_new_conversation:
             # note: the mode can be toggled and the limit changes
+            # REF: parameters depend on the prompt, should be injected
             prompt_parameters = {
                 "turn_limit_info": f"You have a limit of {DEFAULT_ITERATION_LIMIT[AgentMode.UNSUPERVISED]} turns."
             }
             system_prompt = get_prompt(name=config.agent_id, parameters=prompt_parameters)
             system_prompt += f"\n{config.prompt_extension}"
-            # system_prompt = build_prompt(
-            #    agent_id=config.agent_id,
-            #     model=client.model_id,
-            #     prompt_extension=config.prompt_extension
-            #)
             log_event(
                 _logger, logging.DEBUG, "Done building system_prompt", 
                 agent_id=config.agent_id, model=client.model_id
             )
-
             system_prompt_message = {"role": "system", "content": system_prompt}
             system_prompt_tokens = get_token_count(system_prompt_message)
             self._store.append_message(
@@ -189,10 +206,19 @@ class AgentRunner:
         }
         log_event(_logger, logging.DEBUG, "Done loading tools")
 
-        self._context_transforms = [
-            ContextTransformRegistry[transform_type](tools=self.tools.values()) 
-            for transform_type in config.context_transforms
-        ]
+        self._context_transforms = []
+        for ctx_settings in config.context_transforms:
+            ctx_cls = ContextTransformRegistry[ctx_settings.kind]
+            config_cls = ctx_cls.config_schema()
+            if config_cls is not None and ctx_settings.config is not None:
+                ctx_config = ctx_settings.config.model_dump()
+            else:
+                ctx_config = {}
+            
+            if ctx_cls.requires_state:
+                ctx_config["tools"] = self.tools.values()
+
+            self.context_transforms.append(ctx_cls(**ctx_config))
 
         # guards run from being invoked when it already was
         self._running = False

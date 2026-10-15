@@ -16,7 +16,7 @@ from ai_ops.core.llm import InferenceClient
 from ai_ops.core.tools import Tool
 from ai_ops.core.conversation import Message
 from ai_ops.core.storage import Session
-from ai_ops.core.context_management import ContextTransform
+from ai_ops.core.context import ContextTransform
 
 
 def mock_orchestrator(
