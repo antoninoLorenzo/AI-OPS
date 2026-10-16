@@ -13,7 +13,7 @@ from ai_ops.config import (
     DEFAULT_SKILL_VERIFY_INSTALLED,
     SKILL_VERIFY_INSTALLED_ENV,
 )
-from ai_ops.core.log import get_logger, log_event, logging
+from ai_ops.core.log import get_logger
 from ai_ops.core.prompt import get_prompt
 from ai_ops.core.tools.base import Tool
 
@@ -106,10 +106,7 @@ class SkillRegistry:
                 continue
             
             if skill.name in self._skill_registry:
-                log_event(
-                    _logger, logging.WARNING, 
-                    f"Overriding bundled skill {skill.name}"
-                )
+                _logger.warning("Overriding bundled skill %s", skill.name)
             
             self._skill_registry[skill.name] = skill
 
@@ -164,10 +161,7 @@ class LoadSkill(Tool[LoadSkillRequest, LoadSkillResult]):
         
         skill_id = skill_request.skill_id.lower().strip()
         if not skill_id in registry.get_available():
-            log_event(
-                _logger, logging.WARNING,
-                "Skill not found", skill_id=skill_id
-            )
+            _logger.warning("Skill not found skill_id=%s", skill_id)
             return LoadSkillResult(skill=None)
         
         return LoadSkillResult(skill=registry.get_skill(skill_id))

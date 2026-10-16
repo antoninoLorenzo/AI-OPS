@@ -10,7 +10,7 @@ from ai_ops.core.conversation import (
     is_tool_call,
     message_has_role,
 )
-from ai_ops.core.log import get_logger, log_event, logging
+from ai_ops.core.log import get_logger
 from ai_ops.core.tools import Tool, WhiteboardWrite
 
 _logger = get_logger(__name__)
@@ -138,9 +138,9 @@ class CheckpointCompaction(ContextTransform):
             ))
 
         token_after = sum([message.token_count for message in context])
-        log_event(
-            _logger, logging.INFO, "Applied CheckpointCompaction",
-            token_before=token_before, token_after=token_after
+        _logger.info(
+            "Applied CheckpointCompaction token_before=%s token_after=%s",
+            token_before, token_after
         )
 
         return context

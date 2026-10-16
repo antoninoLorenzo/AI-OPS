@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, TypeAdapter, ValidationError
 from ai_ops.config import AI_OPS_BASE_DIR
 from ai_ops.core.conversation import Message
 from ai_ops.core.llm import ResponseUsage
-from ai_ops.core.log import get_logger, log_event, logging
+from ai_ops.core.log import get_logger
 from ai_ops.core.schema import AnyEvent, Event, EventType
 from ai_ops.core.storage.json_utils import append_jsonl, read_jsonl
 from ai_ops.core.tools import resolve_args_type, resolve_result_type
@@ -79,14 +79,14 @@ def _hydrate_tool_payload(raw: dict) -> dict:
         if args_type is not None:
             raw["args"] = args_type.model_validate(raw["args"])
         else:
-            log_event(_logger, logging.WARNING, "Unresolvable tool args type", tool_name=name)
+            _logger.warning("Unresolvable tool args type tool_name=%s", name)
 
     if kind == EventType.TOOL_RESULT and isinstance(raw.get("result"), dict):
         result_type = resolve_result_type(name)
         if result_type is not None:
             raw["result"] = result_type.model_validate(raw["result"])
         else:
-            log_event(_logger, logging.WARNING, "Unresolvable tool result type", tool_name=name)
+            _logger.warning("Unresolvable tool result type tool_name=%s", name)
 
     return raw
 

@@ -1,4 +1,3 @@
-# TODO: log_event feels like a useless level of abstraction, should have read the fcking docs it has `extra=`
 import logging
 import os
 import sys
@@ -70,14 +69,6 @@ def setup_logging():
 def get_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)
     return logger
-
-
-def log_event(logger: logging.Logger, level: int, message: str, **fields) -> None:
-    # make logs more standardized
-    parts = [message]
-    for key, value in fields.items():
-        parts.append(f"{key}={value!s}")
-    logger.log(level, " ".join(parts), stacklevel=2)
 
 
 setup_logging()

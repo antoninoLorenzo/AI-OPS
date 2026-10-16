@@ -4,7 +4,7 @@ from fastapi import FastAPI, Request
 
 from ai_ops.api.config import get_settings
 from ai_ops.config import AI_OPS_BASE_DIR
-from ai_ops.core.log import get_logger, log_event, logging
+from ai_ops.core.log import get_logger
 
 _logger = get_logger(__name__)
 
@@ -12,13 +12,13 @@ _logger = get_logger(__name__)
 def register_profile(app: FastAPI):
     settings = get_settings()
     if not settings.debug:
-        log_event(_logger, logging.DEBUG, "Set `AI_OPS_DEBUG` to True to enable profiling.")
+        _logger.debug("Set `AI_OPS_DEBUG` to True to enable profiling.")
         return
 
     try:
         import pyinstrument  # noqa: F401
     except ImportError:
-        log_event(_logger, logging.DEBUG, "Install `pyinstrument` to profile api.")
+        _logger.debug("Install `pyinstrument` to profile api.")
         return
 
     from pyinstrument import Profiler

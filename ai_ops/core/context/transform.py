@@ -7,7 +7,7 @@ from ai_ops.core.conversation import (
     Message,
     is_valid_context,
 )
-from ai_ops.core.log import get_logger, log_event, logging
+from ai_ops.core.log import get_logger
 
 _logger = get_logger(__name__)
 
@@ -70,9 +70,9 @@ def build_context(
         _messages = transform(messages=context)
         valid, err = is_valid_context(_messages)
         if not valid:
-            log_event(
-                _logger, logging.WARNING, "Skipping invalid malformed transform", 
-                context_view=type(transform).__name__, error=err
+            _logger.warning(
+                "Skipping invalid malformed transform context_view=%s error=%s",
+                type(transform).__name__, err
             )
         else:
             context = _messages

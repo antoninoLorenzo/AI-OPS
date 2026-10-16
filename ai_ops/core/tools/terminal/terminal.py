@@ -4,7 +4,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field
 
-from ai_ops.core.log import get_logger, log_event, logging
+from ai_ops.core.log import get_logger
 from ai_ops.core.prompt import get_prompt
 from ai_ops.core.tools.base import Tool
 from ai_ops.core.tools.terminal.bash import BashSession, CommandStatus, Status2String
@@ -72,10 +72,10 @@ class Terminal(Tool[TerminalRequest, TerminalResult]):
         for policy in self.__policies:
             policy_result = policy(CommandContext(session_id=self.session_id, command=command))
             if not policy_result.allowed:
-                log_event(
-                    _logger, logging.WARNING, "Command not allowed",
-                    session_id=self.session_id,
-                    command=command, reason=policy_result.reason
+                _logger.warning(
+                    "Command not allowed session_id=%s command=%s reason=%s",
+                    self.session_id,
+                    command, policy_result.reason
                 )
                 return True
         return False
@@ -90,7 +90,7 @@ class Terminal(Tool[TerminalRequest, TerminalResult]):
 
         bash_session = self.__sessions.get(session_id)
         if bash_session is None:
-            log_event(_logger, logging.INFO, "Crearing BashSession", session_id=session_id)
+            _logger.info("Crearing BashSession session_id=%s", session_id)
             self.__sessions[session_id] = BashSession(working_directory=str(self.working_directory))
             bash_session = self.__sessions[session_id]
         

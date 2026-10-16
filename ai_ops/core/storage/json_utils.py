@@ -2,7 +2,7 @@ import json
 from collections.abc import Iterator
 from pathlib import Path
 
-from ai_ops.core.log import get_logger, log_event, logging
+from ai_ops.core.log import get_logger
 
 _logger = get_logger(__name__)
 
@@ -12,9 +12,9 @@ def read_jsonl(file: Path) -> Iterator[dict]:
             try:
                 yield json.loads(line)
             except json.JSONDecodeError as err:
-                log_event(
-                    _logger, logging.DEBUG, "Error parsing JSONL line, skipping.",
-                    jsonl_file=str(file), error=err
+                _logger.debug(
+                    "Error parsing JSONL line, skipping. jsonl_file=%s error=%s",
+                    str(file), err
                 )
 
 

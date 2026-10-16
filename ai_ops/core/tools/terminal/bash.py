@@ -12,7 +12,7 @@ import time
 import uuid
 from dataclasses import dataclass
 
-from ai_ops.core.log import get_logger, log_event, logging
+from ai_ops.core.log import get_logger
 
 _logger = get_logger(__name__)
 
@@ -102,31 +102,31 @@ class BashSession:
         When a command exceeds the timeout it gets killed (SIGKILL) to avoid interfering with 
         successive commands. 
         """
-        log_event(
-            _logger, logging.INFO, "Start BashSession.run", 
-            command=command, timeout=timeout, interactive=interactive
+        _logger.info(
+            "Start BashSession.run command=%s timeout=%s interactive=%s",
+            command, timeout, interactive
         )
         if not isinstance(command, str) or len(command) == 0:
             raise ValueError('Empty command in BashSession.run')
         
         if command in String2Signal:
             self.__send_signal(String2Signal[command])
-            log_event(_logger, logging.DEBUG, "done __send_signal", command=command)
+            _logger.debug("done __send_signal command=%s", command)
         else:
             self.__send_command(command, wrap=not (interactive or self.is_interactive))
-            log_event(_logger, logging.DEBUG, "done __send_command", command=command)
+            _logger.debug("done __send_command command=%s", command)
 
         if interactive or self.is_interactive:
             self.is_interactive = True
 
-            log_event(_logger, logging.DEBUG, "start __read_interactive", command=command)
+            _logger.debug("start __read_interactive command=%s", command)
             output = self.__read_interactive()
             
             # the way we get status for non-interactive is `$?`, however this can't be done for 
             # interactive commands so default to UNKNOWN.
             command_output = CommandOutput(output=output, status=CommandStatus.UNKNOWN)
         else:
-            log_event(_logger, logging.DEBUG, "start __read", command=command)
+            _logger.debug("start __read command=%s", command)
             output, command_timed_out = self.__read(read_timeout=timeout)
 
             # capture status of last executed command
@@ -140,11 +140,11 @@ class BashSession:
                     status_no = int(status_match.group(1))
                     status_code = CommandStatus(status_no)
             except (IndexError, ValueError) as status_err:
-                log_event(_logger, logging.ERROR, "Failed acquiring status", error=status_err)
+                _logger.error("Failed acquiring status error=%s", status_err)
             
-            log_event(
-                _logger, logging.DEBUG, "Captured status_code", command=f"`{command}`", 
-                raw_status=f"{status_result!r}", status_code=status_code
+            _logger.debug(
+                "Captured status_code command=%s raw_status=%s status_code=%s",
+                f"`{command}`", f"{status_result!r}", status_code
             )
             command_output = CommandOutput(
                 output=output, 
@@ -152,9 +152,9 @@ class BashSession:
                 timed_out=command_timed_out
             )
 
-        log_event(
-            _logger, logging.INFO, "Done BashSession.run",
-            status=command_output.status, timed_out=command_output.timed_out
+        _logger.info(
+            "Done BashSession.run status=%s timed_out=%s",
+            command_output.status, command_output.timed_out
         )
         return command_output
             
@@ -196,9 +196,9 @@ class BashSession:
         cmd_bytes = (text + '\n').encode()
         sent_bytes = os.write(self.master_fd, cmd_bytes)
         if sent_bytes != len(cmd_bytes):
-            log_event(
-                _logger, logging.ERROR, "command partially sent",
-                sent_bytes=sent_bytes, expected_bytes=len(cmd_bytes)
+            _logger.error(
+                "command partially sent sent_bytes=%s expected_bytes=%s",
+                sent_bytes, len(cmd_bytes)
             )
 
     def __send_signal(self, signal):
@@ -274,15 +274,15 @@ class BashSession:
 
             base_delay = base_delay * 2
             if base_delay >= max_delay:
-                log_event(
-                    _logger, logging.DEBUG, "max_delay reached in interactive read", max_delay=max_delay
+                _logger.debug(
+                    "max_delay reached in interactive read max_delay=%s", max_delay
                 )
                 break
 
             if len(cmd_output) > 0:
                 consecutive_empty += 1
                 if consecutive_empty >= 2:
-                    log_event(_logger, logging.DEBUG, "done reading in interactive read")
+                    _logger.debug("done reading in interactive read")
                     break
 
         if self.write_sentinel in cmd_output:

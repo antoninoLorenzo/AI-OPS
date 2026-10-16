@@ -18,7 +18,7 @@ from ai_ops.core.llm import (
     ModelConfig,
     build_inference_client,
 )
-from ai_ops.core.log import get_logger, log_event, logging
+from ai_ops.core.log import get_logger
 from ai_ops.core.runner import AgentConfig, AgentRunner, AgentSpec
 from ai_ops.core.schema import Event, ToolConfirmationEvent, UserMessageEvent
 from ai_ops.core.storage import Session, SessionStore
@@ -30,12 +30,12 @@ _logger = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
-    log_event(
-        _logger, logging.INFO, "Loaded API Settings",
-        host=settings.host,
-        storage_strategy=settings.storage_strategy,
-        model=settings.model,
-        llm_provider_base=settings.llm_provider_base
+    _logger.info(
+        "Loaded API Settings host=%s storage_strategy=%s model=%s llm_provider_base=%s",
+        settings.host,
+        settings.storage_strategy,
+        settings.model,
+        settings.llm_provider_base
     )
    
     spec_path = AI_OPS_BASE_DIR / "agent_config.json"
@@ -55,9 +55,7 @@ async def lifespan(app: FastAPI):
         api_key=settings.llm_provider_key
     ))
     # TODO: impl. startup client check 
-    log_event(
-        _logger, logging.DEBUG, "Done build_inference_client"
-    )
+    _logger.debug("Done build_inference_client")
 
     app.state.inference_client = inference_client
     app.state.agent_config = agent_config

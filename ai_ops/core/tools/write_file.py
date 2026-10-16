@@ -5,7 +5,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field
 
-from ai_ops.core.log import get_logger, log_event, logging
+from ai_ops.core.log import get_logger
 from ai_ops.core.prompt import get_prompt
 from ai_ops.core.tools.base import Tool
 
@@ -94,10 +94,9 @@ class WriteFile(Tool[WriteFileInput, WriteFileOutput]):
     def __call__(self, tool_args: WriteFileInput) -> WriteFileOutput:
         path = resolve_path(self.working_directory, tool_args.path)
         if path is None:
-            log_event(
-                _logger, logging.WARNING, 
-                "WriteFile call with unauthorized path.", 
-                requested_path=str(path)
+            _logger.warning(
+                "WriteFile call with unauthorized path. requested_path=%s",
+                str(path)
             )
             return WriteFileOutput(error=WriteFileError.NOT_AUTHORIZED)
 

@@ -11,7 +11,7 @@ from ai_ops.config import BASE_AGENT_ID
 from ai_ops.core.context import ContextTransform, build_context
 from ai_ops.core.conversation import Message, get_token_count
 from ai_ops.core.llm import InferenceClient, aquery, get_response_usage, query
-from ai_ops.core.log import get_logger, log_event, logging
+from ai_ops.core.log import get_logger
 from ai_ops.core.schema import (
     AgentMode,
     ConfirmCallback,
@@ -49,9 +49,9 @@ def orchestrator(
     it = 0
     stop_called = False
     while it < iteration_limit and not stop_called:
-        log_event(
-            _logger, logging.INFO, "Agent Loop Iteration", 
-            session_id=session.uuid, iteration=it
+        _logger.info(
+            "Agent Loop Iteration session_id=%s iteration=%s",
+            session.uuid, it
         )
 
         context = build_context(messages=session.messages, context_transforms=context_transforms)
@@ -72,7 +72,7 @@ def orchestrator(
         if response_usage is not None:
             session_store.append_usage(session_id=session.uuid, usage=response_usage)    
         else:
-            log_event(_logger, logging.WARNING, "get_response_usage returned None", session_id=session.uuid)
+            _logger.warning("get_response_usage returned None session_id=%s", session.uuid)
 
         yield Message(
             message=chat_completion_message,
@@ -83,14 +83,14 @@ def orchestrator(
         )
 
         if not response_message.tool_calls:
-            log_event(_logger, logging.DEBUG, "no tool call in response_message", session_id=session.uuid)
+            _logger.debug("no tool call in response_message session_id=%s", session.uuid)
             yield StopEvent(issuer="agent")
             break
         
         for tool_call in response_message.tool_calls:
-            log_event(
-                _logger, logging.DEBUG, "raw tool call",
-                model=response.model, tool_call=tool_call.model_dump_json()
+            _logger.debug(
+                "raw tool call model=%s tool_call=%s",
+                response.model, tool_call.model_dump_json()
             )
             
             tool_name = tool_call.function.name
@@ -110,9 +110,9 @@ def orchestrator(
             tool, args = validate_tool_call(available_tools=tools, tool_call=tool_call)
             if tool is None:
                 error_msg = args
-                log_event(
-                    _logger, logging.ERROR, "", 
-                    model=response.model, tool_error=f"\"{error_msg}\""
+                _logger.error(
+                    "model=%s tool_error=%s",
+                    response.model, f"\"{error_msg}\""
                 )
 
                 yield ToolErrorEvent(
@@ -160,9 +160,9 @@ async def aorchestrator(
     it = 0
     stop_called = False
     while it < iteration_limit and not stop_called:
-        log_event(
-            _logger, logging.INFO, "Agent Loop Iteration",
-            session_id=session.uuid, iteration=it
+        _logger.info(
+            "Agent Loop Iteration session_id=%s iteration=%s",
+            session.uuid, it
         )
 
         context = build_context(messages=session.messages, context_transforms=context_transforms)
@@ -183,7 +183,7 @@ async def aorchestrator(
         if response_usage is not None:
             session_store.append_usage(session_id=session.uuid, usage=response_usage)    
         else:
-            log_event(_logger, logging.WARNING, "get_response_usage returned None", session_id=session.uuid)
+            _logger.warning("get_response_usage returned None session_id=%s", session.uuid)
 
         yield Message(
             message=chat_completion_message,
@@ -194,15 +194,15 @@ async def aorchestrator(
         )
 
         if not response_message.tool_calls:
-            log_event(_logger, logging.DEBUG, "no tool call in response_message", session_id=session.uuid)
+            _logger.debug("no tool call in response_message session_id=%s", session.uuid)
             yield StopEvent(issuer="agent")
             break
 
 
         for tool_call in response_message.tool_calls:
-            log_event(
-                _logger, logging.DEBUG, "raw tool call",
-                model=response.model, tool_call=tool_call.model_dump_json()
+            _logger.debug(
+                "raw tool call model=%s tool_call=%s",
+                response.model, tool_call.model_dump_json()
             )
 
             tool_name = tool_call.function.name
@@ -222,9 +222,9 @@ async def aorchestrator(
             tool, args = validate_tool_call(available_tools=tools, tool_call=tool_call)
             if tool is None:
                 error_msg = args
-                log_event(
-                    _logger, logging.ERROR, "",
-                    model=response.model, tool_error=f"\"{error_msg}\""
+                _logger.error(
+                    "model=%s tool_error=%s",
+                    response.model, f"\"{error_msg}\""
                 )
 
                 yield ToolErrorEvent(

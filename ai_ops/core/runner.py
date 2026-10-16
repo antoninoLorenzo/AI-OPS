@@ -18,7 +18,7 @@ from ai_ops.core.context import (
 )
 from ai_ops.core.conversation import Message, get_token_count, is_valid_context
 from ai_ops.core.llm import InferenceClient
-from ai_ops.core.log import get_logger, log_event, logging
+from ai_ops.core.log import get_logger
 from ai_ops.core.prompt import get_prompt
 from ai_ops.core.schema import (
     AgentMode,
@@ -157,9 +157,9 @@ class AgentRunner:
         is_new_conversation: bool = True,
         extra_tool_ctx: dict[str, Any] | None = None
     ):
-        log_event(
-            _logger, logging.DEBUG, "Initalizing AgentRunner", 
-            session_id=session_id, is_new_conversation=is_new_conversation
+        _logger.debug(
+            "Initalizing AgentRunner session_id=%s is_new_conversation=%s",
+            session_id, is_new_conversation
         )
         self.agent_config = config
         self.session_id = session_id
@@ -174,9 +174,9 @@ class AgentRunner:
             }
             system_prompt = get_prompt(name=config.agent_id, parameters=prompt_parameters)
             system_prompt += f"\n{config.prompt_extension}"
-            log_event(
-                _logger, logging.DEBUG, "Done building system_prompt", 
-                agent_id=config.agent_id, model=client.model_id
+            _logger.debug(
+                "Done building system_prompt agent_id=%s model=%s",
+                config.agent_id, client.model_id
             )
             system_prompt_message = {"role": "system", "content": system_prompt}
             system_prompt_tokens = get_token_count(system_prompt_message)
@@ -190,7 +190,7 @@ class AgentRunner:
                 whiteboard_id=self.session_id,
                 events=self._store.get_events_by_uuid(session_id=self.session_id)
             )
-            log_event(_logger, logging.DEBUG, "Done replaying whiteboard", session_id=self.session_id)
+            _logger.debug("Done replaying whiteboard session_id=%s", self.session_id)
 
         ctx = ToolContext(
             session_id=session_id, 
@@ -204,7 +204,7 @@ class AgentRunner:
             for tool in config.tools
             if (spec := ToolRegistry.get(tool.name)) is not None
         }
-        log_event(_logger, logging.DEBUG, "Done loading tools")
+        _logger.debug("Done loading tools")
 
         self._context_transforms = []
         for ctx_settings in config.context_transforms:
@@ -325,10 +325,10 @@ class AgentRunner:
             if self._user_stopped:
                 break
         
-        log_event(
-            _logger, logging.INFO, "",
-            session_id=self.session_id,
-            total_event_count=total_event_count
+        _logger.info(
+            "session_id=%s total_event_count=%s",
+            self.session_id,
+            total_event_count
         )
 
     def arun(
@@ -454,10 +454,10 @@ class AgentRunner:
         # edge case: the user called send and then stop, before the enqueued message 
         # could have been consumed
         self._pending_message = None
-        log_event(
-            _logger, logging.INFO, "",
-            session_id=self.session_id,
-            total_event_count=total_event_count
+        _logger.info(
+            "session_id=%s total_event_count=%s",
+            self.session_id,
+            total_event_count
         )
 
     def send(self, user_event: UserMessageEvent) -> bool:
@@ -500,9 +500,9 @@ class AgentRunner:
                 future, timeout=self.agent_config.confirmation_timeout_s
             )
         except TimeoutError:
-            log_event(
-                _logger, logging.WARNING, "Tool confirmation timed out",
-                session_id=self.session_id, call_id=tool_call.call_id
+            _logger.warning(
+                "Tool confirmation timed out session_id=%s call_id=%s",
+                self.session_id, tool_call.call_id
             )
             approved = False
         finally:

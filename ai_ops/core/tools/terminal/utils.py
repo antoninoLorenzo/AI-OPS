@@ -1,7 +1,7 @@
 
 import bashlex
 
-from ai_ops.core.log import get_logger, log_event, logging
+from ai_ops.core.log import get_logger
 
 _logger = get_logger(__name__)
 
@@ -27,7 +27,7 @@ def extract_executables(command: str) -> set[str]:
     try:
         parts = bashlex.parse(command)
     except bashlex.errors.ParsingError as err:
-        log_event(_logger, logging.WARNING, "failed to parse command", bashlex_error=str(err))
+        _logger.warning("failed to parse command bashlex_error=%s", str(err))
         return set()
 
     executables: set[str] = set()

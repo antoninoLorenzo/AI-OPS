@@ -19,7 +19,7 @@ from ai_ops.config import (
     TEMPERATURE_ENV,
     env_or_default,
 )
-from ai_ops.core.log import get_logger, log_event, logging
+from ai_ops.core.log import get_logger
 
 _logger = get_logger(__name__)
 
@@ -93,7 +93,7 @@ async def aquery(
     :param tools: Serialized tool list.
     :raises `RuntimeError`: Fatal unrecoverable error.
     """
-    log_event(_logger, logging.DEBUG, "Starting async query", model=client.model_id)
+    _logger.debug("Starting async query model=%s", client.model_id)
     try:
         response = await client.client.acompletion(
             model=client.model_id,
@@ -102,16 +102,16 @@ async def aquery(
             temperature=client.config.temperature,
             **kwargs
         )
-        log_event(_logger, logging.DEBUG, "Completed async query", model=client.model_id)
+        _logger.debug("Completed async query model=%s", client.model_id)
     except RateLimitError as rate_limit:
         raise RuntimeError(f"Maximum retry limit reached: {rate_limit}")
     except APIError as fatal:
-        log_event(
-            _logger, logging.ERROR, "API Error", 
-            status_code=fatal.status_code,
-            error_message=fatal.message,
-            model=fatal.model,
-            provider=fatal.llm_provider
+        _logger.error(
+            "API Error status_code=%s error_message=%s model=%s provider=%s",
+            fatal.status_code,
+            fatal.message,
+            fatal.model,
+            fatal.llm_provider
         )
         raise RuntimeError("APIError in query")
 
@@ -128,7 +128,7 @@ def query(
     :param tools: Serialized tool list.
     :raises `RuntimeError`: Fatal unrecoverable error.
     """
-    log_event(_logger, logging.INFO, "Starting query", model=client.model_id)
+    _logger.info("Starting query model=%s", client.model_id)
 
     try:
         response = client.client.completion(
@@ -141,12 +141,12 @@ def query(
     except RateLimitError as rate_limit:
         raise RuntimeError(f"Maximum retry limit reached: {rate_limit}")
     except litellm.exceptions.APIError as fatal:
-        log_event(
-            _logger, logging.ERROR, "API Error", 
-            status_code=fatal.status_code,
-            message=fatal.message,
-            model=fatal.model,
-            provider=fatal.llm_provider
+        _logger.error(
+            "API Error status_code=%s message=%s model=%s provider=%s",
+            fatal.status_code,
+            fatal.message,
+            fatal.model,
+            fatal.llm_provider
         )
         raise RuntimeError("APIError in query")
         

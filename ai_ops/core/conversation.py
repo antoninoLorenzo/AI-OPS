@@ -10,7 +10,7 @@ from litellm import (
 )
 from pydantic import BaseModel, Discriminator, Field, Tag
 
-from ai_ops.core.log import get_logger, log_event, logging
+from ai_ops.core.log import get_logger
 
 _logger = get_logger(__name__)
 
@@ -57,7 +57,7 @@ def get_token_count(
             model="gpt-3.5-turbo", text=extract_message_text(message)
         )
     except ValueError as err:
-        log_event(_logger, logging.WARNING, "Failed counting tokens", error=f"\"{err}\"")
+        _logger.warning("Failed counting tokens error=%s", f"\"{err}\"")
 
     return count
 
