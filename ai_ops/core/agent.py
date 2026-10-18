@@ -1,19 +1,13 @@
 # Agent Orchestrator Implementation
 import asyncio
 from collections.abc import AsyncIterator, Iterator
-from typing import cast
 
-from litellm import (
-    ChatCompletionAssistantMessage,
-)
-
-from ai_ops.config import BASE_AGENT_ID
 from ai_ops.core.context import ContextTransform, build_context
-from ai_ops.core.conversation import Message, get_token_count
-from ai_ops.core.llm import InferenceClient, aquery, get_response_usage, query
+from ai_ops.core.llm import InferenceClient, aquery, query
 from ai_ops.core.log import get_logger
 from ai_ops.core.schema import (
     AgentMode,
+    ChatCompletionEvent,
     ConfirmCallback,
     Event,
     StopEvent,
@@ -22,23 +16,21 @@ from ai_ops.core.schema import (
     ToolErrorFailure,
     ToolResultEvent,
 )
-from ai_ops.core.storage import Session, get_session_store
+from ai_ops.core.storage import Session
 from ai_ops.core.tools import StopTool, Tool, validate_tool_call
 
 _logger = get_logger(__name__)
 
 DEFAULT_ITERATION_LIMIT = {AgentMode.SUPERVISED: 30, AgentMode.UNSUPERVISED: 60}
 
-def orchestrator(
+def agent_loop_sync(
     client: InferenceClient,
     session: Session,
     tools: dict[str, Tool],
     context_transforms: list[ContextTransform] | None = None,
     mode: AgentMode = AgentMode.SUPERVISED,
     max_iterations: int | None = None,
-    agent_id: str = BASE_AGENT_ID
-) -> Iterator[Message | Event]:
-    session_store = get_session_store()
+) -> Iterator[Event]:
     agent_tools = [tool.serialize() for tool in tools.values()]
 
     # stop tool is an orchestration primitive so it's always given
@@ -62,29 +54,26 @@ def orchestrator(
                 tools=agent_tools,
             )
         except RuntimeError as query_err:
-            yield StopEvent(issuer="agent", error=str(query_err))
+            yield StopEvent(
+                session_id=session.uuid, 
+                issuer="agent", 
+                error=str(query_err)
+            )
             break
-
-        response_message = response.choices[0].message
-        chat_completion_message = cast(ChatCompletionAssistantMessage, response_message.model_dump())
         
-        response_usage = get_response_usage(response)
-        if response_usage is not None:
-            session_store.append_usage(session_id=session.uuid, usage=response_usage)    
-        else:
-            _logger.warning("get_response_usage returned None session_id=%s", session.uuid)
-
-        yield Message(
-            message=chat_completion_message,
-            token_count=get_token_count(chat_completion_message),
-            model_id=client.config.model,
-            agent_id=agent_id,
-            response_id=response_usage.response_id if response_usage is not None else None
+        yield ChatCompletionEvent.from_model_response(
+            session_id=session.uuid, 
+            response=response
         )
 
+        response_message = response.choices[0].message
         if not response_message.tool_calls:
             _logger.debug("no tool call in response_message session_id=%s", session.uuid)
-            yield StopEvent(issuer="agent")
+            yield StopEvent(
+                session_id=session.uuid, 
+                issuer="agent",
+                reason="no tool calls"
+            )
             break
         
         for tool_call in response_message.tool_calls:
@@ -96,14 +85,16 @@ def orchestrator(
             tool_name = tool_call.function.name
             
             if tool_name == StopTool.name:
-                # TODO: `break` skips any sibling tool_calls positioned after stop
-                # in this same assistant message, leaving them unanswered. Out of
-                # scope here; the common case is stop emitted on its own.
                 reason = StopTool.get_input_schema().model_validate_json(tool_call.function.arguments)
                 # carry the stop tool_call id so the runner can persist the
                 # synthetic tool result that answers it (keeps the trajectory
                 # resumable, see AgentRunner._stop_to_message).
-                yield StopEvent(issuer="agent", reason=reason.reason, call_id=tool_call.id)
+                yield StopEvent(
+                    session_id=session.uuid,
+                    issuer="agent", 
+                    reason=reason.reason, 
+                    call_id=tool_call.id
+                )
                 stop_called = True
                 break
             
@@ -116,6 +107,7 @@ def orchestrator(
                 )
 
                 yield ToolErrorEvent(
+                    session_id=session.uuid,
                     failure=ToolErrorFailure.VALIDATION_ERROR,
                     call_id=tool_call.id,
                     name=tool_name,
@@ -124,12 +116,22 @@ def orchestrator(
                 continue
 
             # note: here we don't evaluate policy, at least for now
-            yield ToolCallEvent(call_id=tool_call.id, name=tool_name, args=args)
+            yield ToolCallEvent(
+                session_id=session.uuid, 
+                call_id=tool_call.id, 
+                name=tool_name, args=args
+            )
             try:
                 tool_result = tool(args)
-                yield ToolResultEvent(call_id=tool_call.id, name=tool_name, args=args, result=tool_result)
+                yield ToolResultEvent(
+                    session_id=session.uuid,
+                    call_id=tool_call.id, 
+                    name=tool_name, args=args, 
+                    result=tool_result
+                )
             except Exception as tool_failure:
                 yield ToolErrorEvent(
+                    session_id=session.uuid,
                     failure=ToolErrorFailure.EXECUTION_ERROR,
                     call_id=tool_call.id,
                     name=tool_name,
@@ -139,7 +141,7 @@ def orchestrator(
         it += 1
 
 
-async def aorchestrator(
+async def agent_loop(
     client: InferenceClient,
     session: Session,
     tools: dict[str, Tool],
@@ -147,23 +149,14 @@ async def aorchestrator(
     mode: AgentMode = AgentMode.SUPERVISED,
     max_iterations: int | None = None,
     confirm: ConfirmCallback | None = None,
-    agent_id: str = BASE_AGENT_ID
-) -> AsyncIterator[Message | Event]:
-    session_store = get_session_store()
+) -> AsyncIterator[Event]:
+    iteration_limit = max_iterations if max_iterations else DEFAULT_ITERATION_LIMIT[mode]
     agent_tools = [tool.serialize() for tool in tools.values()]
-
-    # stop tool is an orchestration primitive so it's always given
     agent_tools.append(StopTool().serialize())
 
-    iteration_limit = max_iterations if max_iterations else DEFAULT_ITERATION_LIMIT[mode]
-
-    it = 0
-    stop_called = False
-    while it < iteration_limit and not stop_called:
-        _logger.info(
-            "Agent Loop Iteration session_id=%s iteration=%s",
-            session.uuid, it
-        )
+    turn, stop_called = 0, False
+    while turn < iteration_limit and not stop_called:
+        _logger.info("Agent Loop Iteration session_id=%s turn=%s", session.uuid, turn)
 
         context = build_context(messages=session.messages, context_transforms=context_transforms)
         try:
@@ -173,33 +166,21 @@ async def aorchestrator(
                 tools=agent_tools,
             )
         except RuntimeError as query_err:
-            yield StopEvent(issuer="agent", error=str(query_err))
+            yield StopEvent(session_id=session.uuid, issuer="agent", error=str(query_err))
             break
 
-        response_message = response.choices[0].message
-        chat_completion_message = cast(ChatCompletionAssistantMessage, response_message.model_dump())
-
-        response_usage = get_response_usage(response)
-        if response_usage is not None:
-            session_store.append_usage(session_id=session.uuid, usage=response_usage)    
-        else:
-            _logger.warning("get_response_usage returned None session_id=%s", session.uuid)
-
-        yield Message(
-            message=chat_completion_message,
-            token_count=get_token_count(chat_completion_message),
-            model_id=client.config.model,
-            agent_id=agent_id,
-            response_id=response_usage.response_id if response_usage is not None else None
+        yield ChatCompletionEvent.from_model_response(
+            session_id=session.uuid, 
+            response=response
         )
-
-        if not response_message.tool_calls:
+        
+        tool_calls = response.choices[0].message.tool_calls
+        if tool_calls is None or (isinstance(tool_calls, list) and len(tool_calls) == 0):
             _logger.debug("no tool call in response_message session_id=%s", session.uuid)
-            yield StopEvent(issuer="agent")
+            yield StopEvent(session_id=session.uuid, issuer="agent", reason="no tool calls")
             break
 
-
-        for tool_call in response_message.tool_calls:
+        for tool_call in tool_calls:
             _logger.debug(
                 "raw tool call model=%s tool_call=%s",
                 response.model, tool_call.model_dump_json()
@@ -208,14 +189,13 @@ async def aorchestrator(
             tool_name = tool_call.function.name
 
             if tool_name == StopTool.name:
-                # TODO: `break` skips any sibling tool_calls positioned after stop
-                # in this same assistant message, leaving them unanswered. Out of
-                # scope here; the common case is stop emitted on its own.
                 reason = StopTool.get_input_schema().model_validate_json(tool_call.function.arguments)
-                # carry the stop tool_call id so the runner can persist the
-                # synthetic tool result that answers it (keeps the trajectory
-                # resumable, see AgentRunner._stop_to_message).
-                yield StopEvent(issuer="agent", reason=reason.reason, call_id=tool_call.id)
+                yield StopEvent(
+                    session_id=session.uuid,
+                    issuer="agent", 
+                    reason=reason.reason, 
+                    call_id=tool_call.id
+                )
                 stop_called = True
                 break
 
@@ -223,11 +203,12 @@ async def aorchestrator(
             if tool is None:
                 error_msg = args
                 _logger.error(
-                    "model=%s tool_error=%s",
+                    "Invalid tool call model=%s tool_error=%s", 
                     response.model, f"\"{error_msg}\""
                 )
 
                 yield ToolErrorEvent(
+                    session_id=session.uuid,
                     failure=ToolErrorFailure.VALIDATION_ERROR,
                     call_id=tool_call.id,
                     name=tool_name,
@@ -243,6 +224,7 @@ async def aorchestrator(
             blocked = tool.evaluate(args)
             will_confirm = blocked and mode == AgentMode.SUPERVISED
             tool_call_event = ToolCallEvent(
+                session_id=session.uuid,
                 call_id=tool_call.id, name=tool_name, args=args,
                 requires_confirmation=will_confirm
             )
@@ -254,6 +236,7 @@ async def aorchestrator(
                     approved = await confirm(tool_call_event)
                 if not approved:
                     yield ToolResultEvent(
+                        session_id=session.uuid,
                         call_id=tool_call.id, name=tool_name, args=args,
                         result=tool.not_admitted_result(args)
                     )
@@ -265,13 +248,19 @@ async def aorchestrator(
                 # so a blocking tool doesn't freeze the whole loop (and with it
                 # every other conversation and the stop/confirm endpoints).
                 tool_result = await asyncio.to_thread(tool, args)
-                yield ToolResultEvent(call_id=tool_call.id, name=tool_name, args=args, result=tool_result)
+                yield ToolResultEvent(
+                    session_id=session.uuid,
+                    call_id=tool_call.id, 
+                    name=tool_name, args=args, 
+                    result=tool_result
+                )
             except Exception as tool_failure:
                 yield ToolErrorEvent(
+                    session_id=session.uuid,
                     failure=ToolErrorFailure.EXECUTION_ERROR,
                     call_id=tool_call.id,
                     name=tool_name,
                     error=str(tool_failure)
                 )
 
-        it += 1
+        turn += 1

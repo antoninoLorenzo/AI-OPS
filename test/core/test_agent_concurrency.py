@@ -1,6 +1,6 @@
-"""Regression test for the `aorchestrator` blocking-tool issue (ROADMAP).
+"""Regression test for the `agent_loop` blocking-tool issue (ROADMAP).
 
-`aorchestrator` runs synchronous tools via `asyncio.to_thread`, so a slow or
+`agent_loop` runs synchronous tools via `asyncio.to_thread`, so a slow or
 blocking tool executes off the event loop and doesn't freeze it — the API can
 still service other conversations and the `/stop`/`/confirmation` endpoints
 while a tool runs. This test pins that behaviour: it would fail if tool
@@ -22,7 +22,7 @@ from litellm import (
 from pydantic import BaseModel
 
 import ai_ops.core.agent
-from ai_ops.core.agent import aorchestrator
+from ai_ops.core.agent import agent_loop
 from ai_ops.core.conversation import Message
 from ai_ops.core.llm import InferenceClient
 from ai_ops.core.schema import AgentMode
@@ -136,7 +136,7 @@ async def test_blocking_tool_does_not_freeze_event_loop(monkeypatch):
 
     releaser_task = asyncio.create_task(releaser())
     _ = [
-        event async for event in aorchestrator(
+        event async for event in agent_loop(
             client=client,
             session=session,
             tools={SlowTool.name: slow},

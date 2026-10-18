@@ -56,15 +56,6 @@ class ModelConfig(BaseModel):
     """Maximum context length supported by LLM/API."""
 
 
-class ResponseUsage(BaseModel):
-    """Provider reported usage, extracted from litellm ModelResponse with `get_response_usage`"""
-    response_id: str # used to join with assistant message
-    prompt_tokens: int 
-    completion_tokens: int 
-    reasoning_tokens: int = 0
-    cached_tokens: int = 0
-
-
 @dataclass
 class InferenceClient:
     config: ModelConfig
@@ -151,38 +142,6 @@ def query(
         raise RuntimeError("APIError in query")
         
     return response
-
-
-def get_response_usage(response: ModelResponse) -> ResponseUsage | None:
-    # the schema definitions of litellm are extremely loose, since this is called  
-    # in the agent hot-path it's better to avoid errors
-    try:
-        if getattr(response, "usage", None) is None:
-            return None
-
-        usage = response.usage
-        if usage.prompt_tokens is None or usage.completion_tokens is None: 
-            return None
-
-        reasoning_tokens = 0
-        if usage.completion_tokens_details is not None \
-                and usage.completion_tokens_details.reasoning_tokens is not None:
-            reasoning_tokens = usage.completion_tokens_details.reasoning_tokens
-
-        cached_tokens = 0
-        if usage.prompt_tokens_details is not None \
-                and usage.prompt_tokens_details.cached_tokens is not None:
-            cached_tokens = usage.prompt_tokens_details.cached_tokens
-
-        return ResponseUsage(
-            response_id=response.id,
-            prompt_tokens=usage.prompt_tokens,
-            completion_tokens=usage.completion_tokens,
-            reasoning_tokens=reasoning_tokens,
-            cached_tokens=cached_tokens
-        )
-    except Exception:
-        return None
 
 
 @lru_cache(maxsize=3)

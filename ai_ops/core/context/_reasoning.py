@@ -1,6 +1,7 @@
 import copy
 
 from pydantic import BaseModel
+
 from ai_ops.core.context.transform import ContextTransform
 from ai_ops.core.conversation import Message, message_has_role
 

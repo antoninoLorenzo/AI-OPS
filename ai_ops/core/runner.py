@@ -9,12 +9,12 @@ from ai_ops.config import (
     BASE_AGENT_ID,
     CONFIRMATION_TIMEOUT_S,
 )
-from ai_ops.core.agent import DEFAULT_ITERATION_LIMIT, aorchestrator, orchestrator
+from ai_ops.core.agent import DEFAULT_ITERATION_LIMIT, agent_loop, agent_loop_sync
 from ai_ops.core.context import (
     DEFAULT_CONTEXT_TRANSFORMS,
     ContextTransformRegistry,
+    ContextTransformSettings,
     ContextTransformType,
-    ContextTransformSettings
 )
 from ai_ops.core.conversation import Message, get_token_count, is_valid_context
 from ai_ops.core.llm import InferenceClient
@@ -22,10 +22,9 @@ from ai_ops.core.log import get_logger
 from ai_ops.core.prompt import get_prompt
 from ai_ops.core.schema import (
     AgentMode,
+    ChatCompletionEvent,
     Event,
-    ReasoningEvent,
     StopEvent,
-    TextEvent,
     ToolCallEvent,
     ToolConfirmationEvent,
     ToolErrorEvent,
@@ -146,7 +145,7 @@ class AgentSpec(BaseModel):
 
 class AgentRunner:
     """
-    `AgentRunner` separates the client from the orchestrator implementation.
+    `AgentRunner` separates the client from the agent loop implementation.
     It holds the agent state for a given conversation.
     """
     def __init__(
@@ -266,62 +265,21 @@ class AgentRunner:
         max_iterations: int | None = None
     ) -> Iterator[Event]:
         total_event_count = 0
-        event_stream = orchestrator(
+        event_stream = agent_loop_sync(
             client=self.client,
             session=session,
             tools=self.tools,
             context_transforms=self._context_transforms,
             mode=mode,
             max_iterations=max_iterations,
-            agent_id=self.agent_config.agent_id
         )
         
         for event in event_stream:
             total_event_count += 1
-            if isinstance(event, Message):
-                # this currently handles non-streaming
-                text_content = event.message.get("content")
-                reasoning_content = event.message.get("reasoning_content")
-                 
-                if reasoning_content is not None and isinstance(reasoning_content, str):
-                    reasoning_event = ReasoningEvent(chunk=reasoning_content)
-                    yield reasoning_event
-                    self._store.append_event(session_id=self.session_id, event=reasoning_event)
-
-                if text_content is not None and isinstance(text_content, str):
-                    txt_event = TextEvent(chunk=text_content)
-                    yield txt_event
-                    self._store.append_event(session_id=self.session_id, event=txt_event)
-
-                self._store.append_message(session_id=self.session_id, message=event)
-            elif isinstance(event, ToolCallEvent):
-                yield event
-                self._store.append_event(session_id=self.session_id, event=event) 
-            elif isinstance(event, ToolResultEvent):
-                yield event
-                self._store.append_message(
-                    session_id=self.session_id,
-                    message=self._tool_result_to_message(event)
-                )
-
-                self._store.append_event(session_id=self.session_id, event=event)
-            elif isinstance(event, ToolErrorEvent):
-                yield event
-                self._store.append_message(
-                    session_id=self.session_id,
-                    message=self._tool_error_to_message(event)
-                )
-                self._store.append_event(session_id=self.session_id, event=event)
-            elif isinstance(event, StopEvent):
-                yield event
-                # a stop issued via the stop tool leaves an unanswered tool_call;
-                # persist the synthetic result so the trajectory stays resumable.
-                if event.call_id is not None:
-                    self._store.append_message(
-                        session_id=self.session_id,
-                        message=self._stop_to_message(event.call_id)
-                    )
-                self._store.append_event(session_id=self.session_id, event=event)
+            self._store.append_event(session_id=self.session_id, event=event)
+            self._append_message(event)            
+            
+            yield event
             if self._user_stopped:
                 break
         
@@ -363,7 +321,7 @@ class AgentRunner:
 
         while True:
             should_continue = False
-            event_stream = aorchestrator(
+            event_stream = agent_loop(
                 client=self.client,
                 session=session,
                 tools=self.tools,
@@ -371,69 +329,35 @@ class AgentRunner:
                 mode=mode,
                 max_iterations=max_iterations,
                 confirm=self._confirm,
-                agent_id=self.agent_config.agent_id
             )
 
             async for event in event_stream:
                 total_event_count += 1
-                if isinstance(event, Message):
-                    # this currently handles non-streaming
-                    text_content = event.message.get("content")
-                    reasoning_content = event.message.get("reasoning_content")
+                # append here does both the in-memory update and the disk write, twice, in 
+                # a for loop... at this scale that's nowhere near a performance issue (and 
+                # I don't rlly think it will ever be); however the in-memory update has to 
+                # be done before the next turn (agent loop iteration) to maintain consistency 
+                # i.e don't move appends or everything falls apart.
+                self._store.append_event(session_id=self.session_id, event=event)
+                self._append_message(event)
 
-                    if reasoning_content is not None and isinstance(reasoning_content, str):
-                        reasoning_event = ReasoningEvent(chunk=reasoning_content)
-                        yield reasoning_event
-                        self._store.append_event(session_id=self.session_id, event=reasoning_event)
-
-                    if text_content is not None and isinstance(text_content, str):
-                        txt_event = TextEvent(chunk=text_content)
-                        yield txt_event
-                        self._store.append_event(session_id=self.session_id, event=txt_event)
-
+                if isinstance(event, ChatCompletionEvent):
                     tool_calls = event.message.get("tool_calls") or []
                     self._pending_tool_calls = len(tool_calls)
-
-                    self._store.append_message(session_id=self.session_id, message=event)
                 elif isinstance(event, ToolCallEvent):
                     if event.requires_confirmation:
                         self._blocked_calls.append(event.call_id)
-                    
-                    yield event
-                    self._store.append_event(session_id=self.session_id, event=event)
-                elif isinstance(event, ToolResultEvent):
-                    yield event
-
-                    self._store.append_message(
-                        session_id=self.session_id,
-                        message=self._tool_result_to_message(event)
-                    )
-                    self._store.append_event(session_id=self.session_id, event=event)
-                    self._pending_tool_calls -= 1
-                elif isinstance(event, ToolErrorEvent):
-                    yield event
-                    
-                    self._store.append_message(
-                        session_id=self.session_id,
-                        message=self._tool_error_to_message(event)
-                    )
-                    self._store.append_event(session_id=self.session_id, event=event)
+                elif isinstance(event, (ToolResultEvent, ToolErrorEvent)):
                     self._pending_tool_calls -= 1
                 elif isinstance(event, StopEvent):
-                    yield event
-                    # a stop issued via the stop tool leaves an unanswered
-                    # tool_call; persist the synthetic result so the trajectory
-                    # stays resumable, and settle its pending-call accounting.
                     if event.call_id is not None:
-                        self._store.append_message(
-                            session_id=self.session_id,
-                            message=self._stop_to_message(event.call_id)
-                        )
                         self._pending_tool_calls -= 1
-                    self._store.append_event(session_id=self.session_id, event=event)
+                
+                # stream back only when pending _blocked_calls is already populated
+                yield event
 
                 if self._user_stopped:
-                    stop_event = StopEvent(issuer="user")
+                    stop_event = StopEvent(session_id=self.session_id, issuer="user")
                     yield stop_event
                     self._store.append_event(session_id=self.session_id, event=stop_event)
                     self._running = False
@@ -493,7 +417,7 @@ class AgentRunner:
             future.set_result(confirmation.approved)
 
     async def _confirm(self, tool_call: ToolCallEvent) -> bool:
-        # this is what gets awaited within `aorchestrator`
+        # this is what gets awaited within `agent_loop`
         future = self._get_confirmation_future(tool_call.call_id)
         try:
             approved = await asyncio.wait_for(
@@ -517,6 +441,39 @@ class AgentRunner:
             self._confirmations[call_id] = future
         return future
 
+    def _append_message(self, event: Event):
+        agent_id = self.agent_config.agent_id
+        model_id = self.client.config.model
+        if isinstance(event, ChatCompletionEvent):
+            self._store.append_message(
+                session_id=self.session_id, 
+                message=_chat_completion_to_message(
+                    event=event, agent_id=agent_id, model_id=model_id
+                )
+            )
+        elif isinstance(event, ToolResultEvent):
+            self._store.append_message(
+                session_id=self.session_id, 
+                message=_tool_result_to_message(
+                    event=event, tool=self.tools[event.name],
+                    agent_id=agent_id, model_id=model_id
+                )
+            )
+        elif isinstance(event, ToolErrorEvent):
+            self._store.append_message(
+                session_id=self.session_id,
+                message=_tool_error_to_message(
+                    event=event, agent_id=agent_id, model_id=model_id
+                )
+            )
+        elif isinstance(event, StopEvent) and event.call_id is not None:
+            self._store.append_message(
+                session_id=self.session_id,
+                message=_stop_to_message(
+                    call_id=event.call_id, agent_id=agent_id, model_id=model_id
+                )
+            )
+
     def _append_user_message(self, content: str):
         user_message = {"role": "user", "content": content}
 
@@ -530,52 +487,84 @@ class AgentRunner:
         )
         self._store.append_event(
             session_id=self.session_id,
-            event=UserMessageEvent(content=content)
+            event=UserMessageEvent(session_id=self.session_id, content=content)
         )
+    
 
-    def _stop_to_message(self, call_id: str) -> Message:
-        # The stop tool is an orchestration primitive that never yields a real
-        # tool result, so the assistant message carrying its tool_call would be
-        # left unanswered (breaking the tool_calls/tool contract on resume). We
-        # persist the synthetic empty result the tool schema describes.
-        tool_message = {
-            "role": "tool",
-            "tool_call_id": call_id,
-            "content": StopTool.format_result(Noop()),
-        }
-        return Message(
-            message=tool_message,
-            token_count=0,
-            model_id=self.client.config.model,
-            agent_id=self.agent_config.agent_id
-        )
+def _stop_to_message(
+    call_id: str, 
+    agent_id: str, 
+    model_id: str | None = None
+) -> Message:
+    # The stop tool is an orchestration primitive that never yields a real
+    # tool result, so the assistant message carrying its tool_call would be
+    # left unanswered (breaking the tool_calls/tool contract on resume). We
+    # persist the synthetic empty result the tool schema describes.
+    tool_message = {
+        "role": "tool",
+        "tool_call_id": call_id,
+        "content": StopTool.format_result(Noop()),
+    }
 
-    def _tool_result_to_message(self, event: ToolResultEvent) -> Message:
-        tool = self.tools[event.name]
-        tool_content = tool.format_result(event.result)
-        tool_message = {
-            "role": "tool",
-            "tool_call_id": event.call_id,
-            "content": tool_content
-        }
+    return Message(
+        message=tool_message,
+        token_count=0,
+        agent_id=agent_id,
+        model_id=model_id
+    )
 
-        return Message(
-            message=tool_message,
-            token_count=get_token_count(tool_message),
-            model_id=self.client.config.model,
-            agent_id=self.agent_config.agent_id
-        )
-        
-    def _tool_error_to_message(self, event: ToolErrorEvent) -> Message:
-        tool_message = {
-            "role": "tool",
-            "tool_call_id": event.call_id,
-            "content": f"{event.name} {event.failure}: {event.error}"
-        }
+def _chat_completion_to_message(
+    event: ChatCompletionEvent, 
+    agent_id: str, 
+    model_id: str | None = None
+) -> Message:
+    if event.usage is not None:
+        token_count = event.usage.completion_tokens
+    else:
+        token_count = get_token_count(event.message)
 
-        return Message(
-            message=tool_message,
-            token_count=get_token_count(tool_message),
-            model_id=self.client.config.model,
-            agent_id=self.agent_config.agent_id
-        )
+    return Message(
+        message=event.message,
+        token_count=token_count,
+        agent_id=agent_id,
+        model_id=model_id
+    )
+
+def _tool_result_to_message(
+    event: ToolResultEvent,
+    tool: Tool,
+    agent_id: str,
+    model_id: str | None = None
+) -> Message:
+    tool_content = tool.format_result(event.result)
+    tool_message = {
+        "role": "tool",
+        "tool_call_id": event.call_id,
+        "content": tool_content
+    }
+
+    return Message(
+        message=tool_message,
+        token_count=get_token_count(tool_message),
+        agent_id=agent_id,
+        model_id=model_id
+    )
+    
+def _tool_error_to_message(
+    event: ToolErrorEvent,
+    agent_id: str,
+    model_id: str | None = None
+) -> Message:
+    tool_message = {
+        "role": "tool",
+        "tool_call_id": event.call_id,
+        "content": f"{event.name} {event.failure}: {event.error}"
+    }
+
+    return Message(
+        message=tool_message,
+        token_count=get_token_count(tool_message),
+        agent_id=agent_id,
+        model_id=model_id,
+    )
+

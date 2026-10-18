@@ -13,8 +13,7 @@ from ai_ops.core.conversation import get_token_count
 from ai_ops.core.schema import (
     AgentMode,
     UserMessageEvent,
-    TextEvent,
-    ReasoningEvent,
+    ChatCompletionEvent,
     ToolCallEvent,
     ToolConfirmationEvent,
     ToolResultEvent,
@@ -31,7 +30,12 @@ from ai_ops.core.conversation import (
 from ai_ops.core.storage import get_session_store
 from ai_ops.core.tools import StopReason, StopTool
 
-from test.core.mocks.agent import mock_aorchestrator, mock_orchestrator
+from test.core.utils import (
+    DUMMY_SESSION_ID,
+    assert_events_equal,
+    assert_event_lists_equal,
+)
+from test.core.mocks.agent import mock_agent_loop, mock_agent_loop_sync
 from test.core.mocks.llm import mock_inference_client, mock_model_config
 from test.core.mocks.tool import (
     MockTool,
@@ -49,96 +53,130 @@ _USER_MESSAGE_TOKENS = get_token_count(_USER_MESSAGE)
 # actually driving the run, so it must match `mock_inference_client.model`.
 _MODEL_ID = mock_inference_client.config.model
 
-# Test cases follow the format 
+# Test cases follow the format
 # {
-#   "events": List[Message | Event] | Exception (agent orchestartor output),
+#   "events": List[Event] | Exception (agent loop output),
 #   "persisted_messages": List[Message] (conversation content),
 #   "expected_events": List[Event] (what the client receives)
 # }
+# The agent loop now emits a single `ChatCompletionEvent` per turn (carrying the
+# whole assistant message) instead of a `Message`, and the runner forwards every
+# event to the client as-is (no more Text/Reasoning splitting). Events are compared
+# with `assert_events_equal`, which ignores the per-construction `session_id` and
+# `timestamp` fields.
 # What's not being tested:
 # * empty user message, can't happen because pydantic would raise before
 # (user sends message during agent loop is covered by the send/drain tests below)
+
+# assistant tool-call message shared between the ChatCompletionEvent and its
+# persisted Message so their dicts compare equal.
+_CASE1_ASSISTANT = ChatCompletionAssistantMessage(
+    role="assistant",
+    content=None,
+    tool_calls=[
+        ChatCompletionAssistantToolCall(
+            type="function",
+            id="1234",
+            function=ChatCompletionToolCallFunctionChunk(
+                name=MockTool.name,
+                arguments=MockIn(val=1).model_dump_json()
+            )
+        )
+    ]
+)
+_CASE2_ASSISTANT = ChatCompletionAssistantMessage(
+    role="assistant",
+    content="I'm a silly boi",
+    tool_calls=[
+        ChatCompletionAssistantToolCall(
+            type="function",
+            id="1234",
+            function=ChatCompletionToolCallFunctionChunk(
+                name=MockTool.name,
+                arguments="{}"
+            )
+        )
+    ]
+)
+_CASE4_ASSISTANT = {
+    "role": "assistant",
+    "content": "yes 2+2=5",
+    "reasoning_content": "let me think about it",
+}
+
 _RUNNER_RUN_TEST_CASES = [
     # Case 1
     # The agent calls a tool but doesn't provide any text -> content is None,
     # then we get a StopEvent (should be called as tool but keep it simple).
     # We expect that:
     # * the conversation contains Assistant and Tool messages.
-    # * the client gets ToolCallEvent -> ToolResultEvent -> StopEvent.
+    # * the client gets ChatCompletionEvent -> ToolCallEvent -> ToolResultEvent -> StopEvent.
     {
         "session_id": "case_1",
         "user_message": _USER_MESSAGE["content"],
         "events": [
-            Message(agent_id="react", message=ChatCompletionAssistantMessage(
-                role="assistant",
-                content=None,
-                tool_calls=[
-                    ChatCompletionAssistantToolCall(
-                        type="function",
-                        id="1234",
-                        function=ChatCompletionToolCallFunctionChunk(
-                            name=MockTool.name,
-                            arguments=MockIn(val=1).model_dump_json()
-                        )
-                    )
-                ]
-            ), model_id=_MODEL_ID),
+            ChatCompletionEvent(
+                session_id=DUMMY_SESSION_ID,
+                response_id="resp-case1",
+                message=_CASE1_ASSISTANT,
+            ),
             ToolCallEvent(
+                session_id=DUMMY_SESSION_ID,
                 call_id="1234",
                 name=MockTool.name,
                 args=MockIn(val=1)
             ),
             ToolResultEvent(
+                session_id=DUMMY_SESSION_ID,
                 call_id="1234",
                 name=MockTool.name,
                 args=MockIn(val=1),
                 result=MockOut(val=1)
             ),
-            StopEvent(issuer="agent", reason="Done")
+            StopEvent(session_id=DUMMY_SESSION_ID, issuer="agent", reason="Done")
         ],
         "persisted_messages": [
             Message(agent_id="react", message=_USER_MESSAGE, token_count=_USER_MESSAGE_TOKENS),
-            Message(agent_id="react", message=ChatCompletionAssistantMessage(
-                role="assistant",
-                content=None,
-                tool_calls=[
-                    ChatCompletionAssistantToolCall(
-                        type="function",
-                        id="1234",
-                        function=ChatCompletionToolCallFunctionChunk(
-                            name=MockTool.name,
-                            arguments=MockIn(val=1).model_dump_json()
-                        )
-                    )
-                ]
-            ), model_id=_MODEL_ID),
-            Message(agent_id="react", 
+            Message(
+                agent_id="react",
+                message=_CASE1_ASSISTANT,
+                token_count=get_token_count(_CASE1_ASSISTANT),
+                model_id=_MODEL_ID
+            ),
+            Message(agent_id="react",
                 message=ChatCompletionToolMessage(
                     role="tool",
                     content="1",
                     tool_call_id="1234"
-                ), 
+                ),
                 token_count=get_token_count(ChatCompletionToolMessage(
                     role="tool",
                     content="1",
                     tool_call_id="1234"
-                )), 
+                )),
                 model_id=_MODEL_ID
             )
         ],
         "expected_events": [
+            ChatCompletionEvent(
+                session_id=DUMMY_SESSION_ID,
+                response_id="resp-case1",
+                message=_CASE1_ASSISTANT,
+            ),
             ToolCallEvent(
+                session_id=DUMMY_SESSION_ID,
                 call_id="1234",
                 name=MockTool.name,
                 args=MockIn(val=1)
             ),
             ToolResultEvent(
+                session_id=DUMMY_SESSION_ID,
                 call_id="1234",
                 name=MockTool.name,
                 args=MockIn(val=1),
                 result=MockOut(val=1)
             ),
-            StopEvent(issuer="agent", reason="Done")
+            StopEvent(session_id=DUMMY_SESSION_ID, issuer="agent", reason="Done")
         ]
     },
 
@@ -147,50 +185,34 @@ _RUNNER_RUN_TEST_CASES = [
     # We expect that:
     # * the conversation contains Assistant and Tool messages (the tool message
     #   contains an error in content so the agent can retry).
-    # * the client gets TextEvent -> AgentErrorEvent -> StopEvent.
+    # * the client gets ChatCompletionEvent -> ToolErrorEvent -> StopEvent.
     {
         "session_id": "case_2",
         "user_message": _USER_MESSAGE["content"],
         "events": [
-            Message(agent_id="react", message=ChatCompletionAssistantMessage(
-                role="assistant",
-                content="I'm a silly boi",
-                tool_calls=[
-                    ChatCompletionAssistantToolCall(
-                        type="function",
-                        id="1234",
-                        function=ChatCompletionToolCallFunctionChunk(
-                            name=MockTool.name,
-                            arguments="{}"
-                        )
-                    )
-                ]
-            ), model_id=_MODEL_ID),
+            ChatCompletionEvent(
+                session_id=DUMMY_SESSION_ID,
+                response_id="resp-case2",
+                message=_CASE2_ASSISTANT,
+            ),
             ToolErrorEvent(
+                session_id=DUMMY_SESSION_ID,
                 failure=ToolErrorFailure.VALIDATION_ERROR,
                 call_id="1234",
                 name=MockTool.name,
                 error="Tool call with wrong arguments"
             ),
-            StopEvent(issuer="agent")
+            StopEvent(session_id=DUMMY_SESSION_ID, issuer="agent")
         ],
         "persisted_messages": [
             Message(agent_id="react", message=_USER_MESSAGE, token_count=_USER_MESSAGE_TOKENS),
-            Message(agent_id="react", message=ChatCompletionAssistantMessage(
-                role="assistant",
-                content="I'm a silly boi",
-                tool_calls=[
-                    ChatCompletionAssistantToolCall(
-                        type="function",
-                        id="1234",
-                        function=ChatCompletionToolCallFunctionChunk(
-                            name=MockTool.name,
-                            arguments="{}"
-                        )
-                    )
-                ]
-            ), model_id=_MODEL_ID),
-            Message(agent_id="react", 
+            Message(
+                agent_id="react",
+                message=_CASE2_ASSISTANT,
+                token_count=get_token_count(_CASE2_ASSISTANT),
+                model_id=_MODEL_ID
+            ),
+            Message(agent_id="react",
                 message=ChatCompletionToolMessage(
                     role="tool",
                     content="mock_tool validation_error: Tool call with wrong arguments",
@@ -205,14 +227,19 @@ _RUNNER_RUN_TEST_CASES = [
             )
         ],
         "expected_events": [
-            TextEvent(chunk="I'm a silly boi"),
+            ChatCompletionEvent(
+                session_id=DUMMY_SESSION_ID,
+                response_id="resp-case2",
+                message=_CASE2_ASSISTANT,
+            ),
             ToolErrorEvent(
+                session_id=DUMMY_SESSION_ID,
                 failure=ToolErrorFailure.VALIDATION_ERROR,
                 call_id="1234",
                 name=MockTool.name,
                 error="Tool call with wrong arguments"
             ),
-            StopEvent(issuer="agent")
+            StopEvent(session_id=DUMMY_SESSION_ID, issuer="agent")
         ]
     },
 
@@ -221,55 +248,40 @@ _RUNNER_RUN_TEST_CASES = [
     # We expect that:
     # * the conversation contains Assistant and Tool messages (the tool message
     #   contains an error in content so the agent can retry).
-    # * the client gets TextEvent -> ToolCallEvent -> AgentErrorEvent -> StopEvent.
+    # * the client gets ChatCompletionEvent -> ToolCallEvent -> ToolErrorEvent -> StopEvent.
     {
         "session_id": "case_3",
         "user_message": _USER_MESSAGE["content"],
         "events": [
-            Message(agent_id="react", message=ChatCompletionAssistantMessage(
-                role="assistant",
-                content=None,
-                tool_calls=[
-                    ChatCompletionAssistantToolCall(
-                        type="function",
-                        id="1234",
-                        function=ChatCompletionToolCallFunctionChunk(
-                            name=MockTool.name,
-                            arguments=MockIn(val=1).model_dump_json()
-                        )
-                    )
-                ]
-            ), model_id=_MODEL_ID),
+            ChatCompletionEvent(
+                session_id=DUMMY_SESSION_ID,
+                response_id="resp-case3",
+                message=_CASE1_ASSISTANT,
+            ),
             ToolCallEvent(
+                session_id=DUMMY_SESSION_ID,
                 call_id="1234",
                 name=MockTool.name,
                 args=MockIn(val=1)
             ),
             ToolErrorEvent(
+                session_id=DUMMY_SESSION_ID,
                 failure=ToolErrorFailure.EXECUTION_ERROR,
                 call_id="1234",
                 name=MockTool.name,
                 error="Execution failed"
             ),
-            StopEvent(issuer="agent")
+            StopEvent(session_id=DUMMY_SESSION_ID, issuer="agent")
         ],
         "persisted_messages": [
             Message(agent_id="react", message=_USER_MESSAGE, token_count=_USER_MESSAGE_TOKENS),
-            Message(agent_id="react", message=ChatCompletionAssistantMessage(
-                role="assistant",
-                content=None,
-                tool_calls=[
-                    ChatCompletionAssistantToolCall(
-                        type="function",
-                        id="1234",
-                        function=ChatCompletionToolCallFunctionChunk(
-                            name=MockTool.name,
-                            arguments=MockIn(val=1).model_dump_json()
-                        )
-                    )
-                ]
-            ), model_id=_MODEL_ID),
-            Message(agent_id="react", 
+            Message(
+                agent_id="react",
+                message=_CASE1_ASSISTANT,
+                token_count=get_token_count(_CASE1_ASSISTANT),
+                model_id=_MODEL_ID
+            ),
+            Message(agent_id="react",
                 message=ChatCompletionToolMessage(
                     role="tool",
                     content="mock_tool execution_error: Execution failed",
@@ -284,18 +296,25 @@ _RUNNER_RUN_TEST_CASES = [
             )
         ],
         "expected_events": [
+            ChatCompletionEvent(
+                session_id=DUMMY_SESSION_ID,
+                response_id="resp-case3",
+                message=_CASE1_ASSISTANT,
+            ),
             ToolCallEvent(
+                session_id=DUMMY_SESSION_ID,
                 call_id="1234",
                 name=MockTool.name,
                 args=MockIn(val=1)
             ),
             ToolErrorEvent(
+                session_id=DUMMY_SESSION_ID,
                 failure=ToolErrorFailure.EXECUTION_ERROR,
                 call_id="1234",
                 name=MockTool.name,
                 error="Execution failed"
             ),
-            StopEvent(issuer="agent")
+            StopEvent(session_id=DUMMY_SESSION_ID, issuer="agent")
         ]
     },
 
@@ -303,35 +322,40 @@ _RUNNER_RUN_TEST_CASES = [
     # The model generates reasoning and then normal text, than the agent stops.
     # We expect that:
     # * the conversation contains Assistant message.
-    # * the client gets ReasoningEvent -> TextEvent -> StopEvent.
+    # * the client gets a single ChatCompletionEvent (carrying both content and
+    #   reasoning_content) -> StopEvent.
     {
         "session_id": "case_4",
         "user_message": _USER_MESSAGE["content"],
         "events": [
-            Message(agent_id="react", message=ChatCompletionAssistantMessage(
-                role="assistant",
-                content="yes 2+2=5",
-                reasoning_content="let me think about it"
-            ), model_id=_MODEL_ID),
-            StopEvent(issuer="agent")
+            ChatCompletionEvent(
+                session_id=DUMMY_SESSION_ID,
+                response_id="resp-case4",
+                message=_CASE4_ASSISTANT,
+            ),
+            StopEvent(session_id=DUMMY_SESSION_ID, issuer="agent")
         ],
         "persisted_messages": [
             Message(agent_id="react", message=_USER_MESSAGE, token_count=_USER_MESSAGE_TOKENS),
-            Message(agent_id="react", message={
-                "role": "assistant", 
-                "content": "yes 2+2=5", 
-                "reasoning_content": "let me think about it"
-            }, model_id=_MODEL_ID),
+            Message(
+                agent_id="react",
+                message=_CASE4_ASSISTANT,
+                token_count=get_token_count(_CASE4_ASSISTANT),
+                model_id=_MODEL_ID
+            ),
         ],
         "expected_events": [
-            ReasoningEvent(chunk="let me think about it"),
-            TextEvent(chunk="yes 2+2=5"),
-            StopEvent(issuer="agent")
+            ChatCompletionEvent(
+                session_id=DUMMY_SESSION_ID,
+                response_id="resp-case4",
+                message=_CASE4_ASSISTANT,
+            ),
+            StopEvent(session_id=DUMMY_SESSION_ID, issuer="agent")
         ]
     },
 
     # Case 5
-    # The orchestrator raises an exception, the runner fails gracefully by
+    # The agent loop raises an exception, the runner fails gracefully by
     # yielding a StopEvent with an error message.
     {
         "session_id": "case_5",
@@ -342,6 +366,7 @@ _RUNNER_RUN_TEST_CASES = [
         ],
         "expected_events": [
             StopEvent(
+                session_id=DUMMY_SESSION_ID,
                 issuer="agent",
                 error="The model provider cockblocked us again..."
             )
@@ -354,8 +379,8 @@ _RUNNER_RUN_TEST_CASES = [
 def test_agent_runner_run(test_case, monkeypatch, register_mock_tool):
     monkeypatch.setattr(
         target=ai_ops.core.runner,
-        name="orchestrator",
-        value=functools.partial(mock_orchestrator, mock_events=test_case["events"])
+        name="agent_loop_sync",
+        value=functools.partial(mock_agent_loop_sync, mock_events=test_case["events"])
     )
 
     # note: here for simplicity we are using the SessionStore instead of mocking
@@ -372,10 +397,10 @@ def test_agent_runner_run(test_case, monkeypatch, register_mock_tool):
 
     expected_events = test_case["expected_events"]
     event_stream = agent.run(
-        user_message=UserMessageEvent(content=test_case["user_message"])
+        user_message=UserMessageEvent(session_id=DUMMY_SESSION_ID, content=test_case["user_message"])
     )
     for idx, event in enumerate(event_stream):
-        assert event == expected_events[idx]
+        assert_events_equal(event, expected_events[idx])
 
     expected_messages = test_case["persisted_messages"]
     conv = conversation_store.get_session_by_uuid(conv.uuid)
@@ -390,8 +415,8 @@ async def test_agent_runner_arun_persists_events(test_case, monkeypatch, registe
     # user turn is persisted ahead of them (via `_append_user_message`).
     monkeypatch.setattr(
         target=ai_ops.core.runner,
-        name="aorchestrator",
-        value=functools.partial(mock_aorchestrator, mock_events=test_case["events"])
+        name="agent_loop",
+        value=functools.partial(mock_agent_loop, mock_events=test_case["events"])
     )
 
     conv = get_session_store().create_session()
@@ -401,19 +426,19 @@ async def test_agent_runner_arun_persists_events(test_case, monkeypatch, registe
         config=AgentConfig(tools=[MockTool])
     )
 
-    async for _ in agent.arun(user_message=UserMessageEvent(content=test_case["user_message"])):
+    async for _ in agent.arun(user_message=UserMessageEvent(session_id=DUMMY_SESSION_ID, content=test_case["user_message"])):
         pass
 
-    expected_events = [UserMessageEvent(content=test_case["user_message"])] + test_case["expected_events"]
+    expected_events = [UserMessageEvent(session_id=DUMMY_SESSION_ID, content=test_case["user_message"])] + test_case["expected_events"]
     persisted_events = agent._store.get_events_by_uuid(conv.uuid)
-    assert persisted_events == expected_events
+    assert_event_lists_equal(persisted_events, expected_events)
 
 
 # --- send / drain (arun) -----------------------------------------------------
 # `send` enqueues a user message mid-run; the runner drains it only once there
 # are no pending tool calls (an assistant tool-call message must be immediately
 # followed by its tool result). If the drain happens after a StopEvent, the
-# orchestrator loop restarts to process the new turn.
+# agent loop restarts to process the new turn.
 
 
 async def test_agent_runner_send_drains_after_stop_and_restarts(monkeypatch, register_mock_tool):
@@ -421,11 +446,11 @@ async def test_agent_runner_send_drains_after_stop_and_restarts(monkeypatch, reg
 
     async def _orch(state, **kwargs):
         state["calls"] += 1
-        yield StopEvent(issuer="agent")
+        yield StopEvent(session_id=DUMMY_SESSION_ID, issuer="agent")
 
     monkeypatch.setattr(
         target=ai_ops.core.runner,
-        name="aorchestrator",
+        name="agent_loop",
         value=functools.partial(_orch, call_state),
     )
 
@@ -437,13 +462,13 @@ async def test_agent_runner_send_drains_after_stop_and_restarts(monkeypatch, reg
     )
 
     sent = False
-    async for event in agent.arun(user_message=UserMessageEvent(content="start")):
+    async for event in agent.arun(user_message=UserMessageEvent(session_id=DUMMY_SESSION_ID, content="start")):
         if isinstance(event, StopEvent) and not sent:
             # queue a follow-up: it drains after this stop and restarts the loop.
-            assert agent.send(UserMessageEvent(content="follow up")) is True
+            assert agent.send(UserMessageEvent(session_id=DUMMY_SESSION_ID, content="follow up")) is True
             sent = True
 
-    # the orchestrator ran twice: once for the initial turn, once for the drained
+    # the agent loop ran twice: once for the initial turn, once for the drained
     # follow-up message.
     assert call_state["calls"] == 2
 
@@ -465,30 +490,35 @@ async def test_agent_runner_send_preserves_ordering_under_pending_tool_calls(
     async def _orch(state, **kwargs):
         state["calls"] += 1
         if state["calls"] == 1:
-            yield Message(agent_id="react", message=ChatCompletionAssistantMessage(
-                role="assistant",
-                content="working",
-                tool_calls=[
-                    ChatCompletionAssistantToolCall(
-                        type="function",
-                        id="1",
-                        function=ChatCompletionToolCallFunctionChunk(
-                            name=MockTool.name,
-                            arguments=MockIn(val=1).model_dump_json(),
-                        ),
-                    )
-                ],
-            ))
+            yield ChatCompletionEvent(
+                session_id=DUMMY_SESSION_ID,
+                response_id="resp-ordering",
+                message=ChatCompletionAssistantMessage(
+                    role="assistant",
+                    content="working",
+                    tool_calls=[
+                        ChatCompletionAssistantToolCall(
+                            type="function",
+                            id="1",
+                            function=ChatCompletionToolCallFunctionChunk(
+                                name=MockTool.name,
+                                arguments=MockIn(val=1).model_dump_json(),
+                            ),
+                        )
+                    ],
+                ),
+            )
             yield ToolResultEvent(
+                session_id=DUMMY_SESSION_ID,
                 call_id="1", name=MockTool.name, args=MockIn(val=1), result=MockOut(val=1)
             )
-            yield StopEvent(issuer="agent")
+            yield StopEvent(session_id=DUMMY_SESSION_ID, issuer="agent")
         else:
-            yield StopEvent(issuer="agent")
+            yield StopEvent(session_id=DUMMY_SESSION_ID, issuer="agent")
 
     monkeypatch.setattr(
         target=ai_ops.core.runner,
-        name="aorchestrator",
+        name="agent_loop",
         value=functools.partial(_orch, call_state),
     )
 
@@ -500,10 +530,10 @@ async def test_agent_runner_send_preserves_ordering_under_pending_tool_calls(
     )
 
     sent = False
-    async for event in agent.arun(user_message=UserMessageEvent(content="start")):
+    async for event in agent.arun(user_message=UserMessageEvent(session_id=DUMMY_SESSION_ID, content="start")):
         # send while a tool call is still pending (right after the assistant text)
-        if isinstance(event, TextEvent) and not sent:
-            assert agent.send(UserMessageEvent(content="mid")) is True
+        if isinstance(event, ChatCompletionEvent) and not sent:
+            assert agent.send(UserMessageEvent(session_id=DUMMY_SESSION_ID, content="mid")) is True
             sent = True
 
     conv = get_session_store().get_session_by_uuid(conv.uuid)
@@ -517,10 +547,14 @@ async def test_agent_runner_send_then_stop_drops_pending_message(monkeypatch, re
     # user sends then immediately stops: the stop wins, the enqueued message is
     # discarded, and a user-issued StopEvent is persisted.
     async def _orch(**kwargs):
-        yield Message(agent_id="react", message=ChatCompletionAssistantMessage(role="assistant", content="a"))
-        yield StopEvent(issuer="agent")
+        yield ChatCompletionEvent(
+            session_id=DUMMY_SESSION_ID,
+            response_id="resp-a",
+            message=ChatCompletionAssistantMessage(role="assistant", content="a"),
+        )
+        yield StopEvent(session_id=DUMMY_SESSION_ID, issuer="agent")
 
-    monkeypatch.setattr(target=ai_ops.core.runner, name="aorchestrator", value=_orch)
+    monkeypatch.setattr(target=ai_ops.core.runner, name="agent_loop", value=_orch)
 
     conv = get_session_store().create_session()
     agent = AgentRunner(
@@ -529,9 +563,9 @@ async def test_agent_runner_send_then_stop_drops_pending_message(monkeypatch, re
         config=AgentConfig(tools=[MockTool]),
     )
 
-    async for event in agent.arun(user_message=UserMessageEvent(content="start")):
-        if isinstance(event, TextEvent):
-            assert agent.send(UserMessageEvent(content="ghost")) is True
+    async for event in agent.arun(user_message=UserMessageEvent(session_id=DUMMY_SESSION_ID, content="start")):
+        if isinstance(event, ChatCompletionEvent):
+            assert agent.send(UserMessageEvent(session_id=DUMMY_SESSION_ID, content="ghost")) is True
             agent.stop()
 
     assert agent._pending_message is None
@@ -548,11 +582,12 @@ async def test_agent_runner_send_then_stop_drops_pending_message(monkeypatch, re
 
 
 # --- confirmation wiring (arun)
-# A stand-in aorchestrator that actually exercises the injected `confirm`
+# A stand-in agent loop that actually exercises the injected `confirm`
 # callback: it yields a confirmation request, awaits the decision, then reports
 # either the executed result or the not-admitted result.
-async def _confirming_aorchestrator(*, tools, confirm, **kwargs):
+async def _confirming_agent_loop(*, tools, confirm, **kwargs):
     call = ToolCallEvent(
+        session_id=DUMMY_SESSION_ID,
         call_id="c1", name=MockConfirmTool.name,
         args=MockIn(val=5), requires_confirmation=True
     )
@@ -563,14 +598,15 @@ async def _confirming_aorchestrator(*, tools, confirm, **kwargs):
     result = tool(MockIn(val=5)) if approved else tool.not_admitted_result(MockIn(val=5))
 
     yield ToolResultEvent(
+        session_id=DUMMY_SESSION_ID,
         call_id="c1", name=MockConfirmTool.name, args=MockIn(val=5), result=result
     )
-    yield StopEvent(issuer="agent")
+    yield StopEvent(session_id=DUMMY_SESSION_ID, issuer="agent")
 
 
 async def test_agent_runner_arun_confirm_approved(monkeypatch, register_mock_confirm_tool):
     monkeypatch.setattr(
-        target=ai_ops.core.runner, name="aorchestrator", value=_confirming_aorchestrator
+        target=ai_ops.core.runner, name="agent_loop", value=_confirming_agent_loop
     )
 
     conv = get_session_store().create_session()
@@ -581,11 +617,11 @@ async def test_agent_runner_arun_confirm_approved(monkeypatch, register_mock_con
     )
 
     results = []
-    async for event in agent.arun(user_message=UserMessageEvent(content="Hello"), mode=AgentMode.SUPERVISED):
+    async for event in agent.arun(user_message=UserMessageEvent(session_id=DUMMY_SESSION_ID, content="Hello"), mode=AgentMode.SUPERVISED):
         if isinstance(event, ToolCallEvent) and event.requires_confirmation:
-            # reply inline: the future is resolved before arun asks aorchestrator
+            # reply inline: the future is resolved before arun asks agent loop
             # for the next event, so the awaited `confirm` returns immediately.
-            agent.confirm(ToolConfirmationEvent(call_id=event.call_id, approved=True))
+            agent.confirm(ToolConfirmationEvent(session_id=DUMMY_SESSION_ID, call_id=event.call_id, approved=True))
         if isinstance(event, ToolResultEvent):
             results.append(event.result)
 
@@ -598,7 +634,7 @@ async def test_agent_runner_arun_confirm_approved(monkeypatch, register_mock_con
 
 async def test_agent_runner_arun_confirm_denied(monkeypatch, register_mock_confirm_tool):
     monkeypatch.setattr(
-        target=ai_ops.core.runner, name="aorchestrator", value=_confirming_aorchestrator
+        target=ai_ops.core.runner, name="agent_loop", value=_confirming_agent_loop
     )
 
     conv = get_session_store().create_session()
@@ -609,9 +645,9 @@ async def test_agent_runner_arun_confirm_denied(monkeypatch, register_mock_confi
     )
 
     results = []
-    async for event in agent.arun(user_message=UserMessageEvent(content="Hello"), mode=AgentMode.SUPERVISED):
+    async for event in agent.arun(user_message=UserMessageEvent(session_id=DUMMY_SESSION_ID, content="Hello"), mode=AgentMode.SUPERVISED):
         if isinstance(event, ToolCallEvent) and event.requires_confirmation:
-            agent.confirm(ToolConfirmationEvent(call_id=event.call_id, approved=False))
+            agent.confirm(ToolConfirmationEvent(session_id=DUMMY_SESSION_ID, call_id=event.call_id, approved=False))
         if isinstance(event, ToolResultEvent):
             results.append(event.result)
 
@@ -625,7 +661,7 @@ async def test_agent_runner_arun_confirm_timeout(monkeypatch, register_mock_conf
     # never call agent.confirm -> the confirm callback times out and the call is
     # treated as denied (not executed).
     monkeypatch.setattr(
-        target=ai_ops.core.runner, name="aorchestrator", value=_confirming_aorchestrator
+        target=ai_ops.core.runner, name="agent_loop", value=_confirming_agent_loop
     )
 
     conv = get_session_store().create_session()
@@ -636,7 +672,7 @@ async def test_agent_runner_arun_confirm_timeout(monkeypatch, register_mock_conf
     )
 
     results = []
-    async for event in agent.arun(user_message=UserMessageEvent(content="Hello"), mode=AgentMode.SUPERVISED):
+    async for event in agent.arun(user_message=UserMessageEvent(session_id=DUMMY_SESSION_ID, content="Hello"), mode=AgentMode.SUPERVISED):
         if isinstance(event, ToolResultEvent):
             results.append(event.result)
 
@@ -649,20 +685,20 @@ async def test_agent_runner_arun_confirm_timeout(monkeypatch, register_mock_conf
 
 # --- tightened contracts -----------------------------------------------------
 # The following tests exercise the guards added to `AgentRunner`:
-#   * `arun` may only drive one orchestrator at a time (`_running`).
+#   * `arun` may only drive one agent loop at a time (`_running`).
 #   * `send` cannot be spammed while a message is still pending.
 #   * `confirm` refuses call ids that were never blocked, so it never allocates
 #     a confirmation future that nothing will ever resolve.
 
 
 async def test_agent_runner_arun_rejects_concurrent_call(monkeypatch, register_mock_tool):
-    # A runner is tied to one conversation and runs a single orchestrator at a
+    # A runner is tied to one conversation and runs a single agent loop at a
     # time: while a run is in flight, a second `arun` must raise.
     monkeypatch.setattr(
         target=ai_ops.core.runner,
-        name="aorchestrator",
+        name="agent_loop",
         value=functools.partial(
-            mock_aorchestrator, mock_events=[StopEvent(issuer="agent")]
+            mock_agent_loop, mock_events=[StopEvent(session_id=DUMMY_SESSION_ID, issuer="agent")]
         )
     )
 
@@ -674,11 +710,11 @@ async def test_agent_runner_arun_rejects_concurrent_call(monkeypatch, register_m
     )
 
     # first call sets `_running` (synchronously, before iteration begins)
-    event_stream = agent.arun(user_message=UserMessageEvent(content="Hello"))
+    event_stream = agent.arun(user_message=UserMessageEvent(session_id=DUMMY_SESSION_ID, content="Hello"))
     assert agent.running is True
 
     with pytest.raises(RuntimeError):
-        agent.arun(user_message=UserMessageEvent(content="Again"))
+        agent.arun(user_message=UserMessageEvent(session_id=DUMMY_SESSION_ID, content="Again"))
 
     # draining the first run releases the guard so the runner can be reused
     async for _ in event_stream:
@@ -696,21 +732,23 @@ def test_agent_runner_send_rejected_when_not_running(register_mock_tool):
         config=AgentConfig(tools=[MockTool])
     )
 
-    assert agent.send(UserMessageEvent(content="nobody home")) is False
+    assert agent.send(UserMessageEvent(session_id=DUMMY_SESSION_ID, content="nobody home")) is False
 
 # TODO: this tests below could be parametrized AND should test `send` doesn't break ordering.
 async def test_agent_runner_send_not_spammable(monkeypatch, register_mock_tool):
     # Only one message may be pending at a time: the first `send` is accepted and
     # locks out further sends until the runner processes an event.
     send_events = [
-        Message(agent_id="react", message=ChatCompletionAssistantMessage(role="assistant", content="a")),
-        Message(agent_id="react", message=ChatCompletionAssistantMessage(role="assistant", content="b")),
-        StopEvent(issuer="agent"),
+        ChatCompletionEvent(session_id=DUMMY_SESSION_ID, response_id="resp-a",
+                            message=ChatCompletionAssistantMessage(role="assistant", content="a")),
+        ChatCompletionEvent(session_id=DUMMY_SESSION_ID, response_id="resp-b",
+                            message=ChatCompletionAssistantMessage(role="assistant", content="b")),
+        StopEvent(session_id=DUMMY_SESSION_ID, issuer="agent"),
     ]
     monkeypatch.setattr(
         target=ai_ops.core.runner,
-        name="aorchestrator",
-        value=functools.partial(mock_aorchestrator, mock_events=send_events)
+        name="agent_loop",
+        value=functools.partial(mock_agent_loop, mock_events=send_events)
     )
 
     conv = get_session_store().create_session()
@@ -720,17 +758,17 @@ async def test_agent_runner_send_not_spammable(monkeypatch, register_mock_tool):
         config=AgentConfig(tools=[MockTool])
     )
 
-    event_stream = agent.arun(user_message=UserMessageEvent(content="Hello"))
+    event_stream = agent.arun(user_message=UserMessageEvent(session_id=DUMMY_SESSION_ID, content="Hello"))
 
-    assert agent.send(UserMessageEvent(content="first")) is True   # accepted, locks
-    assert agent.send(UserMessageEvent(content="spam")) is False   # rejected
-    assert agent.send(UserMessageEvent(content="spam")) is False   # still rejected
+    assert agent.send(UserMessageEvent(session_id=DUMMY_SESSION_ID, content="first")) is True   # accepted, locks
+    assert agent.send(UserMessageEvent(session_id=DUMMY_SESSION_ID, content="spam")) is False   # rejected
+    assert agent.send(UserMessageEvent(session_id=DUMMY_SESSION_ID, content="spam")) is False   # still rejected
 
     # once the runner processes an event the lock is released and `send` is
     # accepted again (at most once more, then re-locked).
     accepted_again = False
     async for _ in event_stream:
-        if agent.send(UserMessageEvent(content="later")):
+        if agent.send(UserMessageEvent(session_id=DUMMY_SESSION_ID, content="later")):
             accepted_again = True
             break
     assert accepted_again is True
@@ -738,7 +776,7 @@ async def test_agent_runner_send_not_spammable(monkeypatch, register_mock_tool):
     # draining the run leaves the runner idle, so `send` is refused again
     async for _ in event_stream:
         pass
-    assert agent.send(UserMessageEvent(content="done")) is False
+    assert agent.send(UserMessageEvent(session_id=DUMMY_SESSION_ID, content="done")) is False
 
 
 def test_agent_runner_confirm_unknown_call_id_raises(register_mock_confirm_tool):
@@ -752,7 +790,7 @@ def test_agent_runner_confirm_unknown_call_id_raises(register_mock_confirm_tool)
     )
 
     with pytest.raises(RuntimeError):
-        agent.confirm(ToolConfirmationEvent(call_id="never-blocked", approved=True))
+        agent.confirm(ToolConfirmationEvent(session_id=DUMMY_SESSION_ID, call_id="never-blocked", approved=True))
 
     assert agent._confirmations == {}
     assert agent._blocked_calls == []
@@ -763,7 +801,7 @@ async def test_agent_runner_confirm_stale_call_raises(monkeypatch, register_mock
     # so a late/duplicate `confirm` for the same id raises instead of resurrecting
     # a resolved call.
     monkeypatch.setattr(
-        target=ai_ops.core.runner, name="aorchestrator", value=_confirming_aorchestrator
+        target=ai_ops.core.runner, name="agent_loop", value=_confirming_agent_loop
     )
 
     conv = get_session_store().create_session()
@@ -775,15 +813,15 @@ async def test_agent_runner_confirm_stale_call_raises(monkeypatch, register_mock
 
     call_id = None
     async for event in agent.arun(
-        user_message=UserMessageEvent(content="Hello"), mode=AgentMode.SUPERVISED
+        user_message=UserMessageEvent(session_id=DUMMY_SESSION_ID, content="Hello"), mode=AgentMode.SUPERVISED
     ):
         if isinstance(event, ToolCallEvent) and event.requires_confirmation:
             call_id = event.call_id
-            agent.confirm(ToolConfirmationEvent(call_id=call_id, approved=True))
+            agent.confirm(ToolConfirmationEvent(session_id=DUMMY_SESSION_ID, call_id=call_id, approved=True))
         if isinstance(event, ToolResultEvent):
             # the call has already resolved and been cleaned up
             with pytest.raises(RuntimeError):
-                agent.confirm(ToolConfirmationEvent(call_id=call_id, approved=True))
+                agent.confirm(ToolConfirmationEvent(session_id=DUMMY_SESSION_ID, call_id=call_id, approved=True))
 
     assert call_id is not None
     assert agent._confirmations == {}
@@ -794,8 +832,8 @@ async def test_agent_runner_confirm_stale_call_raises(monkeypatch, register_mock
 async def test_agent_runner_arun(test_case, monkeypatch, register_mock_tool):
     monkeypatch.setattr(
         target=ai_ops.core.runner,
-        name="aorchestrator",
-        value=functools.partial(mock_aorchestrator, mock_events=test_case["events"])
+        name="agent_loop",
+        value=functools.partial(mock_agent_loop, mock_events=test_case["events"])
     )
 
     conversation_store = get_session_store()
@@ -809,11 +847,11 @@ async def test_agent_runner_arun(test_case, monkeypatch, register_mock_tool):
 
     expected_events = test_case["expected_events"]
     event_stream = agent.arun(
-        user_message=UserMessageEvent(content=test_case["user_message"])
+        user_message=UserMessageEvent(session_id=DUMMY_SESSION_ID, content=test_case["user_message"])
     )
     idx = 0
     async for event in event_stream:
-        assert event == expected_events[idx]
+        assert_events_equal(event, expected_events[idx])
         idx += 1
 
     expected_messages = test_case["persisted_messages"]
@@ -824,7 +862,7 @@ async def test_agent_runner_arun(test_case, monkeypatch, register_mock_tool):
 
 
 # --- stop-tool result persistence / resume path ------------------------------
-# The stop tool is an orchestration primitive: the orchestrator ends the loop on
+# The stop tool is an orchestration primitive: the agent loop ends on
 # it without ever emitting a real tool result. Historically that left the last
 # assistant message with an unanswered `tool_calls`, so resuming the session
 # (appending a new user message) produced an invalid list that providers reject
@@ -872,44 +910,50 @@ def assert_valid_tool_pairing(messages: list[Message]) -> None:
             )
 
 
-def _stop_call_message(call_id: str) -> Message:
-    return Message(agent_id="react", message=ChatCompletionAssistantMessage(
-        role="assistant",
-        content="done",
-        tool_calls=[
-            ChatCompletionAssistantToolCall(
-                type="function",
-                id=call_id,
-                function=ChatCompletionToolCallFunctionChunk(
-                    name=StopTool.name,
-                    arguments=StopReason(reason="done").model_dump_json(),
-                ),
-            )
-        ],
-    ), model_id=_MODEL_ID)
+def _stop_call_event(call_id: str) -> ChatCompletionEvent:
+    # the agent loop emits the assistant turn (here: a call to the stop tool) as
+    # a ChatCompletionEvent; the runner persists it as the assistant message.
+    return ChatCompletionEvent(
+        session_id=DUMMY_SESSION_ID,
+        response_id="resp-stop",
+        message=ChatCompletionAssistantMessage(
+            role="assistant",
+            content="done",
+            tool_calls=[
+                ChatCompletionAssistantToolCall(
+                    type="function",
+                    id=call_id,
+                    function=ChatCompletionToolCallFunctionChunk(
+                        name=StopTool.name,
+                        arguments=StopReason(reason="done").model_dump_json(),
+                    ),
+                )
+            ],
+        ),
+    )
 
 
 def test_agent_runner_resume_after_stop_persists_stop_result(monkeypatch, register_mock_tool):
     store = get_session_store()
     conv = store.create_session()
 
-    # first run: the assistant calls `stop`; the orchestrator ends the loop with a
-    # StopEvent that carries the stop call id (as the real orchestrator now does).
+    # first run: the assistant calls `stop`; the agent loop ends with a
+    # StopEvent that carries the stop call id (as the real agent loop now does).
     first_events = [
-        _stop_call_message("stop1"),
-        StopEvent(issuer="agent", reason="done", call_id="stop1"),
+        _stop_call_event("stop1"),
+        StopEvent(session_id=DUMMY_SESSION_ID, issuer="agent", reason="done", call_id="stop1"),
     ]
     monkeypatch.setattr(
         target=ai_ops.core.runner,
-        name="orchestrator",
-        value=functools.partial(mock_orchestrator, mock_events=first_events),
+        name="agent_loop_sync",
+        value=functools.partial(mock_agent_loop_sync, mock_events=first_events),
     )
     agent = AgentRunner(
         session_id=conv.uuid,
         client=mock_inference_client,
         config=AgentConfig(tools=[MockTool]),
     )
-    for _ in agent.run(user_message=UserMessageEvent(content="start")):
+    for _ in agent.run(user_message=UserMessageEvent(session_id=DUMMY_SESSION_ID, content="start")):
         pass
 
     conv = store.get_session_by_uuid(conv.uuid)
@@ -923,8 +967,8 @@ def test_agent_runner_resume_after_stop_persists_stop_result(monkeypatch, regist
     # resume: a new runner on the same session appends a new user message and runs.
     monkeypatch.setattr(
         target=ai_ops.core.runner,
-        name="orchestrator",
-        value=functools.partial(mock_orchestrator, mock_events=[StopEvent(issuer="agent")]),
+        name="agent_loop_sync",
+        value=functools.partial(mock_agent_loop_sync, mock_events=[StopEvent(session_id=DUMMY_SESSION_ID, issuer="agent")]),
     )
     resumed = AgentRunner(
         session_id=conv.uuid,
@@ -932,7 +976,7 @@ def test_agent_runner_resume_after_stop_persists_stop_result(monkeypatch, regist
         config=AgentConfig(tools=[MockTool]),
         is_new_conversation=False,
     )
-    for _ in resumed.run(user_message=UserMessageEvent(content="follow up")):
+    for _ in resumed.run(user_message=UserMessageEvent(session_id=DUMMY_SESSION_ID, content="follow up")):
         pass
 
     conv = store.get_session_by_uuid(conv.uuid)

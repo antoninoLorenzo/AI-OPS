@@ -1,5 +1,27 @@
 import json
 from ai_ops.core.conversation import Message, get_token_count
+from ai_ops.core.schema import Event
+
+
+DUMMY_SESSION_ID = "test-session"
+_VOLATILE_EVENT_FIELDS = {"session_id", "timestamp"}
+
+
+def event_payload(event: Event) -> dict:
+    """Event dump excluding fields that differ per construction (`session_id`,
+    `timestamp`), so events can be compared by their meaningful content."""
+    return event.model_dump(exclude=_VOLATILE_EVENT_FIELDS)
+
+
+def assert_events_equal(actual: Event, expected: Event) -> None:
+    assert type(actual) is type(expected), f"{type(actual)} != {type(expected)}"
+    assert event_payload(actual) == event_payload(expected)
+
+
+def assert_event_lists_equal(actual: list[Event], expected: list[Event]) -> None:
+    assert len(actual) == len(expected), f"len {len(actual)} != {len(expected)}"
+    for a, e in zip(actual, expected):
+        assert_events_equal(a, e)
 
 
 def _system_message(text: str) -> Message:

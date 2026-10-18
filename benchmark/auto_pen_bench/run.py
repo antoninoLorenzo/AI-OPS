@@ -48,7 +48,7 @@ from ai_ops.core import (
     ModelConfig, AgentConfig,
     AgentRunner, AgentMode,
     Event,
-    TextEvent,
+    ChatCompletionEvent,
     UserMessageEvent,
     ToolCallEvent,
     ToolResultEvent,
@@ -301,11 +301,14 @@ def run_task(
     )
     agent_run_start = time.time()
     for event in event_stream: 
-        if isinstance(event, TextEvent):
-            print(
-                f"{'Turn'.center(50, '-')}\n"
-                f"Assistant: {event.chunk}"
-            )
+        if isinstance(event, ChatCompletionEvent):
+            reasoning = event.message.get("reasoning_content")
+            content = event.message.get("content")
+            print(f"{'Turn'.center(50, '-')}")
+            if reasoning:
+                print(f"Reasoning: {reasoning}")
+            if content:
+                print(f"Assistant: {content}")
         elif isinstance(event, ToolCallEvent):
             print(f"# Called {event.name}\n{event.args.model_dump_json(indent=2)}\n")
         elif isinstance(event, ToolResultEvent):

@@ -3,18 +3,16 @@ import json
 import uuid
 from enum import StrEnum, auto
 
-from pydantic import BaseModel, Field, TypeAdapter, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
 from ai_ops.config import AI_OPS_BASE_DIR
 from ai_ops.core.conversation import Message
-from ai_ops.core.llm import ResponseUsage
 from ai_ops.core.log import get_logger
-from ai_ops.core.schema import AnyEvent, Event, EventType
+from ai_ops.core.schema import AnyEvent, Event, deserialize_events
 from ai_ops.core.storage.json_utils import append_jsonl, read_jsonl
 from ai_ops.core.tools import resolve_args_type, resolve_result_type
 
 _logger = get_logger(__name__)
-_event_adapter = TypeAdapter(AnyEvent)
 
 
 class Session(BaseModel):
@@ -22,7 +20,6 @@ class Session(BaseModel):
     short_id: int
     events: list[AnyEvent] = Field(default_factory=list)
     messages: list[Message] = Field(default_factory=list)
-    usage: list[ResponseUsage] = Field(default_factory=list)
 
 
 class StorageStrategy(StrEnum):
@@ -52,10 +49,6 @@ class AbstractSessionStore(abc.ABC):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def append_usage(self, session_id: str, usage: ResponseUsage) -> None:
-        raise NotImplementedError()
-
-    @abc.abstractmethod
     def get_messages_by_uuid(self, session_id: str) -> list[Message]:
         raise NotImplementedError()
 
@@ -64,38 +57,10 @@ class AbstractSessionStore(abc.ABC):
         raise NotImplementedError()
 
 
-def _hydrate_tool_payload(raw: dict) -> dict:
-    # deserialization of ToolCallEvent/ToolResultEvent is tricky because the Event 
-    # schema uses `SerializeAsAny[BaseModel]` so we need to resolve the actual BaseModel 
-    # on the way back to keep type-safety.
-    kind = raw.get("kind")
-    if kind not in (EventType.TOOL_CALL, EventType.TOOL_RESULT):
-        return raw
-
-    name = raw.get("name")
-
-    args_type = resolve_args_type(name)
-    if isinstance(raw.get("args"), dict):
-        if args_type is not None:
-            raw["args"] = args_type.model_validate(raw["args"])
-        else:
-            _logger.warning("Unresolvable tool args type tool_name=%s", name)
-
-    if kind == EventType.TOOL_RESULT and isinstance(raw.get("result"), dict):
-        result_type = resolve_result_type(name)
-        if result_type is not None:
-            raw["result"] = result_type.model_validate(raw["result"])
-        else:
-            _logger.warning("Unresolvable tool result type tool_name=%s", name)
-
-    return raw
-
-
 class JSONLSessionStore(AbstractSessionStore):
     INDEX_FILE    = "index.json"
     MESSAGES_FILE = "messages.jsonl"
     EVENTS_FILE   = "events.jsonl"
-    USAGE_FILE    = "usage.jsonl"
 
     def __init__(self):
         self.base_dir = AI_OPS_BASE_DIR / "sessions"
@@ -138,23 +103,13 @@ class JSONLSessionStore(AbstractSessionStore):
             raise ValueError(f"No persistent session with uuid={session_id}")
 
         try:
-            return [
-                _event_adapter.validate_python(_hydrate_tool_payload(raw)) 
-                for raw in read_jsonl(events_path)
-            ]
+            return deserialize_events(
+                raw_events=[raw for raw in read_jsonl(events_path)],
+                resolve_tool_args_model=resolve_args_type,
+                resolve_tool_result_model=resolve_result_type
+            )
         except ValidationError:
             raise RuntimeError(f"Malformed event list at {events_path}")
-
-    def __load_usage(self, session_id: str) -> list[ResponseUsage]:
-        usage_path = self.base_dir / session_id / self.USAGE_FILE
-        if not usage_path.exists():
-            raise ValueError(f"session_id={session_id}: File not found: {usage_path}")
-
-        usage_list = []
-        for raw_usage in read_jsonl(file=usage_path):
-            usage_list.append(ResponseUsage.model_validate(raw_usage))
-
-        return usage_list
 
     def __load_session(self, session_id: str) -> Session:
         short_id = None
@@ -165,14 +120,12 @@ class JSONLSessionStore(AbstractSessionStore):
 
         messages = self.__load_messages(session_id)
         events = self.__load_events(session_id)
-        usage = self.__load_usage(session_id)
 
         return Session(
-            short_id=short_id, 
-            uuid=session_id, 
-            messages=messages, 
-            events=events,
-            usage=usage
+            short_id=short_id,
+            uuid=session_id,
+            messages=messages,
+            events=events
         )
 
     def __update_index(self, short_id: int, session_id: str):
@@ -196,7 +149,6 @@ class JSONLSessionStore(AbstractSessionStore):
         session_path.mkdir()
         (session_path / self.MESSAGES_FILE).touch()
         (session_path / self.EVENTS_FILE).touch()
-        (session_path / self.USAGE_FILE).touch()
 
         session = Session(uuid=session_id, short_id=short_id)
         self.__sessions[session_id] = session
@@ -233,15 +185,6 @@ class JSONLSessionStore(AbstractSessionStore):
         append_jsonl(file=p, raw=event.model_dump_json())
 
         self.__sessions[session_id].events.append(event)
-
-    def append_usage(self, session_id: str, usage: ResponseUsage) -> None:
-        if session_id not in self.__sessions:
-            raise ValueError(f"No session with uuid={session_id}")
-
-        p = self.base_dir / session_id / self.USAGE_FILE
-        append_jsonl(file=p, raw=usage.model_dump_json())
-
-        self.__sessions[session_id].usage.append(usage)
 
     def get_messages_by_uuid(self, session_id: str) -> list[Message]:
         if session_id not in self.__sessions:
@@ -288,9 +231,6 @@ class InMemorySessionStore(AbstractSessionStore):
     def append_event(self, session_id: str, event: Event) -> None:
         self.get_session_by_uuid(session_id).events.append(event)
 
-    def append_usage(self, session_id: str, usage: ResponseUsage) -> None:
-        return None
-
     def get_messages_by_uuid(self, session_id: str) -> list[Message]:
         return self.get_session_by_uuid(session_id).messages
 
@@ -318,9 +258,6 @@ class SessionStore:
     def append_event(self, session_id: str, event: Event) -> None:
         self._store.append_event(session_id=session_id, event=event)
     
-    def append_usage(self, session_id: str, usage: ResponseUsage) -> None:
-        self._store.append_usage(session_id=session_id, usage=usage)
-
     def get_messages_by_uuid(self, session_id: str) -> list[Message]:
         return self._store.get_messages_by_uuid(session_id=session_id)
 

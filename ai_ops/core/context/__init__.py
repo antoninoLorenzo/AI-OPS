@@ -4,8 +4,8 @@ from ai_ops.core.context._terminal import TerminalOutputCompaction
 from ai_ops.core.context.transform import (
     DEFAULT_CONTEXT_TRANSFORMS,
     ContextTransform,
-    ContextTransformType,
     ContextTransformSettings,
+    ContextTransformType,
     build_context,
 )
 

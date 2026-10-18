@@ -8,7 +8,7 @@ from litellm import (
     ChatCompletionToolMessage,
     ChatCompletionUserMessage,
 )
-from pydantic import BaseModel, Discriminator, Field, Tag
+from pydantic import BaseModel, Discriminator, Tag
 
 from ai_ops.core.log import get_logger
 
@@ -71,10 +71,6 @@ class Message(BaseModel):
 
     agent_id: str
     """Identifier of the agent that authored this message (see `AgentConfig.agent_id`)."""
-
-    response_id: str | None = None
-    """Identifier of the LLM API call, only on assistant messages, used to correlate with 
-    `core.llm.ResponseUsage`."""
 
     token_count: int = 0
     """Amount of tokens used by a single message, it's used for context compaction as 

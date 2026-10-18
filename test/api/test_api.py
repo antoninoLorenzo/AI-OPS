@@ -15,11 +15,12 @@ from ai_ops.api.auth import _handle_api_key, _handle_no_op, setup_auth, API_KEY_
 from ai_ops.core.conversation import Message
 from ai_ops.core.storage import StorageStrategy
 from ai_ops.core.runner import AgentRunner, AgentConfig
-from ai_ops.core.schema import AnyEvent, EventType, StopEvent, TextEvent
+from ai_ops.core.schema import AnyEvent, EventType, StopEvent, ChatCompletionEvent
+from test.core.utils import DUMMY_SESSION_ID
 from ai_ops.core.agent import AgentMode
 
 from test.core.mocks.llm import mock_inference_client
-from test.core.mocks.agent import mock_aorchestrator
+from test.core.mocks.agent import mock_agent_loop
 from test.core.mocks.tool import MockTool
 
 
@@ -188,12 +189,12 @@ async def test_load_conversation_returns_persisted_events(
     short_id = await _create_conversation(client)
 
     events = [
-        Message(agent_id="react", message=ChatCompletionAssistantMessage(role="assistant", content="hello")),
-        StopEvent(issuer="agent", reason="done"),
+        ChatCompletionEvent(session_id=DUMMY_SESSION_ID, response_id="resp-1", message={"role": "assistant", "content": "hello"}),
+        StopEvent(session_id=DUMMY_SESSION_ID, issuer="agent", reason="done"),
     ]
     monkeypatch.setattr(
-        ai_ops.core.runner, "aorchestrator",
-        functools.partial(mock_aorchestrator, mock_events=events),
+        ai_ops.core.runner, "agent_loop",
+        functools.partial(mock_agent_loop, mock_events=events),
     )
 
     resp = await client.post(f"/conversation/{short_id}", json={"content": "hi", "mode": "supervised"})
@@ -206,10 +207,10 @@ async def test_load_conversation_returns_persisted_events(
 
     parsed = [_event_adapter.validate_python(e) for e in resp.json()]
     kinds = [p.kind for p in parsed]
-    # the user turn is persisted first, then the assistant text and the stop.
-    assert kinds == [EventType.USER_MESSAGE, EventType.TEXT, EventType.STOP]
+    # the user turn is persisted first, then the assistant completion and the stop.
+    assert kinds == [EventType.USER_MESSAGE, EventType.CHAT_COMPLETION, EventType.STOP]
     assert parsed[0].content == "hi"
-    assert isinstance(parsed[1], TextEvent) and parsed[1].chunk == "hello"
+    assert isinstance(parsed[1], ChatCompletionEvent) and parsed[1].message["content"] == "hello"
 
 
 async def test_load_conversation_malformed_events_returns_500(client, runner_map):
@@ -255,12 +256,12 @@ async def test_start_agent_streams_events(client, runner_map, monkeypatch, regis
     short_id = await _create_conversation(client)
 
     events = [
-        Message(agent_id="react", message=ChatCompletionAssistantMessage(role="assistant", content="hello")),
-        StopEvent(issuer="agent", reason="done"),
+        ChatCompletionEvent(session_id=DUMMY_SESSION_ID, response_id="resp-1", message={"role": "assistant", "content": "hello"}),
+        StopEvent(session_id=DUMMY_SESSION_ID, issuer="agent", reason="done"),
     ]
     monkeypatch.setattr(
-        ai_ops.core.runner, "aorchestrator",
-        functools.partial(mock_aorchestrator, mock_events=events),
+        ai_ops.core.runner, "agent_loop",
+        functools.partial(mock_agent_loop, mock_events=events),
     )
 
     resp = await client.post(f"/conversation/{short_id}", json={"content": "hi", "mode": "supervised"})
@@ -269,11 +270,11 @@ async def test_start_agent_streams_events(client, runner_map, monkeypatch, regis
     lines = [ln for ln in resp.text.splitlines() if ln.strip()]
     parsed = [_event_adapter.validate_json(ln) for ln in lines]
 
-    # the assistant Message became a TextEvent; the StopEvent passed through.
+    # the assistant turn is a ChatCompletionEvent; the StopEvent passed through.
     # crucially, every serialized event carries its `kind` tag on the wire.
     kinds = [p.kind for p in parsed]
-    assert kinds == [EventType.TEXT, EventType.STOP]
-    assert isinstance(parsed[0], TextEvent) and parsed[0].chunk == "hello"
+    assert kinds == [EventType.CHAT_COMPLETION, EventType.STOP]
+    assert isinstance(parsed[0], ChatCompletionEvent) and parsed[0].message["content"] == "hello"
 
 
 async def test_start_agent_missing_runner_returns_404(client):

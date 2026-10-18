@@ -20,8 +20,7 @@ from litellm import ChatCompletionUserMessage
 from ai_ops.core.conversation import Message
 from ai_ops.core.schema import (
     UserMessageEvent,
-    TextEvent,
-    ReasoningEvent,
+    ChatCompletionEvent,
     ToolCallEvent,
     ToolResultEvent,
     StopEvent,
@@ -104,7 +103,7 @@ def test_append_message_then_retrieve(store):
 
 def test_append_event_then_retrieve(store):
     created = store.create_session()
-    store.append_event(created.uuid, UserMessageEvent(content="hello"))
+    store.append_event(created.uuid, UserMessageEvent(session_id=created.uuid, content="hello"))
 
     events = store.get_events_by_uuid(created.uuid)
     assert len(events) == 1
@@ -114,7 +113,7 @@ def test_append_event_then_retrieve(store):
 def test_messages_and_events_are_independent(store):
     created = store.create_session()
     store.append_message(created.uuid, _user_message("m"))
-    store.append_event(created.uuid, TextEvent(chunk="e"))
+    store.append_event(created.uuid, UserMessageEvent(session_id=created.uuid, content="e"))
 
     assert len(store.get_messages_by_uuid(created.uuid)) == 1
     assert len(store.get_events_by_uuid(created.uuid)) == 1
@@ -141,7 +140,7 @@ def test_append_message_unknown_session_raises(store):
 
 def test_append_event_unknown_session_raises(store):
     with pytest.raises(ValueError):
-        store.append_event("does-not-exist", StopEvent(issuer="agent"))
+        store.append_event("does-not-exist", StopEvent(session_id="does-not-exist", issuer="agent"))
 
 
 # --- JSONLSessionStore specifics ---------------------------------------------
@@ -150,7 +149,7 @@ def test_jsonl_persists_across_instances(jsonl_base):
     store_a = JSONLSessionStore()
     created = store_a.create_session()
     store_a.append_message(created.uuid, _user_message("persisted"))
-    store_a.append_event(created.uuid, TextEvent(chunk="persisted-event"))
+    store_a.append_event(created.uuid, UserMessageEvent(session_id=created.uuid, content="persisted-event"))
 
     # a fresh instance over the same base dir must reload everything from disk
     store_b = JSONLSessionStore()
@@ -160,7 +159,7 @@ def test_jsonl_persists_across_instances(jsonl_base):
     assert len(reloaded.messages) == 1
     assert reloaded.messages[0].message.get("content") == "persisted"
     assert len(reloaded.events) == 1
-    assert reloaded.events[0].chunk == "persisted-event"
+    assert reloaded.events[0].content == "persisted-event"
 
     assert store_b.get_session_uuid(created.short_id) == created.uuid
 
@@ -180,11 +179,15 @@ def test_jsonl_roundtrip_preserves_event_polymorphism(jsonl_base, register_mock_
     created = store.create_session()
 
     written = [
-        UserMessageEvent(content="go"),
-        ReasoningEvent(chunk="thinking"),
-        ToolCallEvent(call_id="1", name=MockTool.name, args=MockIn(val=1)),
-        ToolResultEvent(call_id="1", name=MockTool.name, args=MockIn(val=1), result=MockOut(val=1)),
-        StopEvent(issuer="agent"),
+        UserMessageEvent(session_id=created.uuid, content="go"),
+        ChatCompletionEvent(
+            session_id=created.uuid,
+            response_id="r1",
+            message={"role": "assistant", "content": "thinking"},
+        ),
+        ToolCallEvent(session_id=created.uuid, call_id="1", name=MockTool.name, args=MockIn(val=1)),
+        ToolResultEvent(session_id=created.uuid, call_id="1", name=MockTool.name, args=MockIn(val=1), result=MockOut(val=1)),
+        StopEvent(session_id=created.uuid, issuer="agent"),
     ]
     for event in written:
         store.append_event(created.uuid, event)
@@ -203,7 +206,7 @@ def test_jsonl_roundtrip_preserves_tool_payload_types(jsonl_base, register_mock_
     store.append_event(
         created.uuid,
         ToolResultEvent(
-            call_id="1", name=MockTool.name,
+            session_id=created.uuid, call_id="1", name=MockTool.name,
             args=MockIn(val=42), result=MockOut(val=42)
         ),
     )

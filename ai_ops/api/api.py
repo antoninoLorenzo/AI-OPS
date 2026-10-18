@@ -174,7 +174,10 @@ async def start_agent(
     # `arun` raises before returning the async iterator, so resolving the stream here lets 
     # us surface errors as proper status codes before the streaming response starts. 
     try:
-        event_stream = runner.arun(user_message=UserMessageEvent(content=body.content), mode=body.mode)
+        event_stream = runner.arun(
+            user_message=UserMessageEvent(session_id=runner.session_id, content=body.content),
+            mode=body.mode
+        )
     except RuntimeError:
         # here we assume `RuntimeError` is raised only because the agent is already running
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
@@ -200,7 +203,7 @@ async def send_message(
     if runner is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND) 
     
-    if not runner.send(UserMessageEvent(content=content)):
+    if not runner.send(UserMessageEvent(session_id=runner.session_id, content=content)):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT)
 
     return {"enqueued": True}
@@ -252,7 +255,9 @@ async def confirm_tool_call(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
     try:
-        runner.confirm(confirmation=ToolConfirmationEvent(call_id=tool_call_id, approved=approved))
+        runner.confirm(confirmation=ToolConfirmationEvent(
+            session_id=runner.session_id, call_id=tool_call_id, approved=approved
+        ))
     except RuntimeError:
         # here we assume `RuntimeError` is raised because `tool_call_id` doesn't match any existing 
         # pending tool call.
