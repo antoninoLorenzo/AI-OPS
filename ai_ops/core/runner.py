@@ -217,7 +217,7 @@ class AgentRunner:
             if ctx_cls.requires_state:
                 ctx_config["tools"] = self.tools.values()
 
-            self.context_transforms.append(ctx_cls(**ctx_config))
+            self._context_transforms.append(ctx_cls(**ctx_config))
 
         # guards run from being invoked when it already was
         self._running = False
