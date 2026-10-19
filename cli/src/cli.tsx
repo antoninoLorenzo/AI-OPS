@@ -8,6 +8,7 @@ import { loadConfig, ConfigError } from './config.js';
 import { runStartup, StartupError } from './startup.js';
 import { App } from './components/App.js';
 
+// TODO: add `--help`
 async function main(): Promise<void> {
   // Configuration: CLI flags over the optional ~/.config/ai_ops/cli.json file.
   let config;

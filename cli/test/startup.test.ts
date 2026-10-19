@@ -11,10 +11,6 @@ const MODEL = {
   provider: 'openai',
   model_id: 'gpt-4o',
   max_context_length: 8192,
-  tool_use: true,
-  reasoning: false,
-  response_format: true,
-  structured_output: true,
 };
 
 interface Captured {
@@ -128,7 +124,7 @@ test('unreachable API raises StartupError', async () => {
 test('resume: loads the event list and prior token usage', async () => {
   const events = [
     { kind: 'user_message', content: 'earlier prompt' },
-    { kind: 'text', chunk: 'earlier answer', stream: false, stream_done: false },
+    { kind: 'chat_completion', response_id: 'r1', message: { content: 'earlier answer' } },
     { kind: 'stop', issuer: 'agent', reason: null, error: null, max_iteration: false },
   ];
   await withServer({ resumeEvents: events }, async (baseUrl, captured) => {

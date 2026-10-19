@@ -160,8 +160,15 @@ export type Action =
 // --- Block helpers (immutable) ----------------------------------------------
 
 function nextId(state: SessionState): [string, number] {
-  const seq = state.seq + 1;
-  return [`blk-${seq}`, seq];
+  return nextIdFrom(state.seq);
+}
+
+// Allocates the next block id from a running seq counter, so a single event can
+// create more than one block (a chat_completion carrying both reasoning and an
+// answer) while keeping ids deterministic.
+function nextIdFrom(seq: number): [string, number] {
+  const next = seq + 1;
+  return [`blk-${next}`, next];
 }
 
 // Replaces exactly one block by id, preserving the identity of all others.
@@ -216,71 +223,36 @@ function applyEvent(state: SessionState, event: AnyEvent, opts: ApplyOptions): S
       };
     }
 
-    case 'text': {
-      // Reasoning cannot continue across a text event.
-      const closedReasoning = closeReasoning();
+    case 'chat_completion': {
+      // A full model turn. Tool calls arrive as separate `tool_call` events, so
+      // only the assistant answer and its reasoning are rendered here. Reasoning
+      // is appended before the answer, matching the order the model produced it.
+      // Both parts may be absent (e.g. a turn that is purely tool calls).
+      const closedText = finalizeText(state);
+      let blocks = closedText.blocks;
+      let seq = state.seq;
 
-      if (event.stream) {
-        if (state.openTextId !== null) {
-          const openId = state.openTextId;
-          const blocks = mapBlock(state.blocks, openId, (b) =>
-            b.type === 'text'
-              ? { ...b, content: b.content + event.chunk, streaming: !event.stream_done }
-              : b,
-          );
-          return {
-            ...state,
-            ...closedReasoning,
-            blocks,
-            openTextId: event.stream_done ? null : openId,
-          };
-        }
-        const [id, seq] = nextId(state);
-        const block: TextBlock = {
-          type: 'text',
-          id,
-          content: event.chunk,
-          streaming: !event.stream_done,
-        };
-        return {
-          ...state,
-          ...closedReasoning,
-          blocks: [...state.blocks, block],
-          openTextId: event.stream_done ? null : id,
-          seq,
-        };
+      const reasoning = event.message.reasoning_content;
+      if (typeof reasoning === 'string' && reasoning.length > 0) {
+        const [id, nseq] = nextIdFrom(seq);
+        seq = nseq;
+        const block: ReasoningBlock = { type: 'reasoning', id, content: reasoning };
+        blocks = [...blocks, block];
       }
 
-      // Non-streamed: render as one finalized block.
-      const closedText = finalizeText(state);
-      const [id, seq] = nextId(state);
-      const block: TextBlock = { type: 'text', id, content: event.chunk, streaming: false };
-      return {
-        ...state,
-        ...closedReasoning,
-        ...closedText,
-        blocks: [...closedText.blocks, block],
-        seq,
-      };
-    }
-
-    case 'reasoning': {
-      // Text streaming cannot continue across a reasoning event.
-      const closedText = finalizeText(state);
-      if (state.openReasoningId !== null) {
-        const openId = state.openReasoningId;
-        const blocks = mapBlock(closedText.blocks, openId, (b) =>
-          b.type === 'reasoning' ? { ...b, content: b.content + event.chunk } : b,
-        );
-        return { ...state, ...closedText, blocks };
+      const content = event.message.content;
+      if (typeof content === 'string' && content.length > 0) {
+        const [id, nseq] = nextIdFrom(seq);
+        seq = nseq;
+        const block: TextBlock = { type: 'text', id, content, streaming: false };
+        blocks = [...blocks, block];
       }
-      const [id, seq] = nextId(state);
-      const block: ReasoningBlock = { type: 'reasoning', id, content: event.chunk };
+
       return {
         ...state,
         ...closedText,
-        blocks: [...closedText.blocks, block],
-        openReasoningId: id,
+        ...closeReasoning(),
+        blocks,
         seq,
       };
     }
@@ -362,7 +334,7 @@ function applyEvent(state: SessionState, event: AnyEvent, opts: ApplyOptions): S
 
     case 'tool_error': {
       const closedText = finalizeText(state);
-      const existing = findTool(closedText.blocks, event.tool_call_id);
+      const existing = findTool(closedText.blocks, event.call_id);
       let blocks: Block[];
       if (existing) {
         blocks = mapBlock(closedText.blocks, existing.id, (b) =>
@@ -375,7 +347,7 @@ function applyEvent(state: SessionState, event: AnyEvent, opts: ApplyOptions): S
         const block: ToolBlock = {
           type: 'tool',
           id,
-          callId: event.tool_call_id,
+          callId: event.call_id,
           name: event.name,
           args: {},
           requiresConfirmation: false,
@@ -396,7 +368,7 @@ function applyEvent(state: SessionState, event: AnyEvent, opts: ApplyOptions): S
       );
       return historical
         ? settledError
-        : resolveQueuedConfirmation(settledError, event.tool_call_id);
+        : resolveQueuedConfirmation(settledError, event.call_id);
     }
 
     case 'stop': {

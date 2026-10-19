@@ -9,28 +9,47 @@ test('parses a user_message event', () => {
   if (ev.kind === 'user_message') assert.equal(ev.content, 'hi');
 });
 
-test('parses a text event and applies stream defaults', () => {
-  const ev = parseEventLine(JSON.stringify({ kind: 'text', chunk: 'hello' }));
-  assert.equal(ev.kind, 'text');
-  if (ev.kind === 'text') {
-    assert.equal(ev.chunk, 'hello');
-    assert.equal(ev.stream, false);
-    assert.equal(ev.stream_done, false);
+test('parses a chat_completion event with content only', () => {
+  const ev = parseEventLine(
+    JSON.stringify({ kind: 'chat_completion', response_id: 'r1', message: { role: 'assistant', content: 'hello' } }),
+  );
+  assert.equal(ev.kind, 'chat_completion');
+  if (ev.kind === 'chat_completion') {
+    assert.equal(ev.message.content, 'hello');
+    assert.equal(ev.message.reasoning_content ?? null, null);
   }
 });
 
-test('parses a streamed text event with flags', () => {
-  const ev = parseEventLine(JSON.stringify({ kind: 'text', chunk: 'x', stream: true, stream_done: true }));
-  assert.equal(ev.kind, 'text');
-  if (ev.kind === 'text') {
-    assert.equal(ev.stream, true);
-    assert.equal(ev.stream_done, true);
+test('parses a chat_completion event with reasoning_content and tolerates extra message keys', () => {
+  const ev = parseEventLine(
+    JSON.stringify({
+      kind: 'chat_completion',
+      response_id: 'r1',
+      message: { role: 'assistant', content: 'answer', reasoning_content: 'thinking', tool_calls: [] },
+    }),
+  );
+  assert.equal(ev.kind, 'chat_completion');
+  if (ev.kind === 'chat_completion') {
+    assert.equal(ev.message.reasoning_content, 'thinking');
+    assert.equal(ev.message.content, 'answer');
   }
 });
 
-test('parses a reasoning event', () => {
-  const ev = parseEventLine(JSON.stringify({ kind: 'reasoning', chunk: 'thinking' }));
-  assert.equal(ev.kind, 'reasoning');
+test('parses a chat_completion event with null content and usage', () => {
+  const ev = parseEventLine(
+    JSON.stringify({
+      kind: 'chat_completion',
+      response_id: 'r1',
+      message: { role: 'assistant', content: null },
+      usage: { prompt_tokens: 10, completion_tokens: 5 },
+    }),
+  );
+  assert.equal(ev.kind, 'chat_completion');
+  if (ev.kind === 'chat_completion') {
+    assert.equal(ev.message.content ?? null, null);
+    assert.equal(ev.usage?.prompt_tokens, 10);
+    assert.equal(ev.usage?.reasoning_tokens, 0);
+  }
 });
 
 test('parses a tool_call event with confirmation default', () => {
@@ -66,10 +85,13 @@ test('parses a tool_result event', () => {
 
 test('parses a tool_error event', () => {
   const ev = parseEventLine(
-    JSON.stringify({ kind: 'tool_error', failure: 'execution_error', tool_call_id: 'c1', name: 'terminal', error: 'boom' }),
+    JSON.stringify({ kind: 'tool_error', failure: 'execution_error', call_id: 'c1', name: 'terminal', error: 'boom' }),
   );
   assert.equal(ev.kind, 'tool_error');
-  if (ev.kind === 'tool_error') assert.equal(ev.failure, 'execution_error');
+  if (ev.kind === 'tool_error') {
+    assert.equal(ev.failure, 'execution_error');
+    assert.equal(ev.call_id, 'c1');
+  }
 });
 
 test('parses a stop event with defaults', () => {
@@ -90,12 +112,19 @@ test('throws EventParseError on unknown kind', () => {
 });
 
 test('throws EventParseError when a required field is missing', () => {
-  assert.throws(() => parseEventLine(JSON.stringify({ kind: 'text' })), EventParseError);
+  assert.throws(
+    () => parseEventLine(JSON.stringify({ kind: 'chat_completion', message: { content: 'x' } })),
+    EventParseError,
+  );
+});
+
+test('throws EventParseError on a dropped legacy event kind', () => {
+  assert.throws(() => parseEventLine(JSON.stringify({ kind: 'text', chunk: 'x' })), EventParseError);
 });
 
 test('throws EventParseError on invalid tool_error failure enum', () => {
   assert.throws(
-    () => parseEventLine(JSON.stringify({ kind: 'tool_error', failure: 'weird', tool_call_id: 'c', name: 'n', error: 'e' })),
+    () => parseEventLine(JSON.stringify({ kind: 'tool_error', failure: 'weird', call_id: 'c', name: 'n', error: 'e' })),
     EventParseError,
   );
 });

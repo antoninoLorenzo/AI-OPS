@@ -6,8 +6,7 @@ import { z } from 'zod';
 // `kind` values are the lowercased `StrEnum.auto()` names from the backend.
 export const EventKind = {
   UserMessage: 'user_message',
-  Text: 'text',
-  Reasoning: 'reasoning',
+  ChatCompletion: 'chat_completion',
   ToolCall: 'tool_call',
   ToolResult: 'tool_result',
   ToolError: 'tool_error',
@@ -25,16 +24,25 @@ export const UserMessageEventSchema = z.object({
   content: z.string(),
 });
 
-export const TextEventSchema = z.object({
-  kind: z.literal(EventKind.Text),
-  chunk: z.string(),
-  stream: z.boolean().default(false),
-  stream_done: z.boolean().default(false),
+// A full assistant completion. 
+// Tool calls arrive as separate events, `message.tool_calls` is ignored here. 
+// Usage metadata (`.usage`) is ignored in favor of `GET /conversation/{id}/usage` 
+// polling, the reason is to keep usage accounting decoupled from concrete requests.
+export const ChatCompletionUsageSchema = z.object({
+  prompt_tokens: z.number(),
+  completion_tokens: z.number(),
+  reasoning_tokens: z.number().default(0),
+  cached_tokens: z.number().default(0),
 });
 
-export const ReasoningEventSchema = z.object({
-  kind: z.literal(EventKind.Reasoning),
-  chunk: z.string(),
+export const ChatCompletionEventSchema = z.object({
+  kind: z.literal(EventKind.ChatCompletion),
+  response_id: z.string(),
+  message: z.object({
+    content: z.string().nullish(),
+    reasoning_content: z.string().nullish(),
+  }),
+  usage: ChatCompletionUsageSchema.nullish(),
 });
 
 export const ToolCallEventSchema = z.object({
@@ -56,7 +64,7 @@ export const ToolResultEventSchema = z.object({
 export const ToolErrorEventSchema = z.object({
   kind: z.literal(EventKind.ToolError),
   failure: z.enum(['validation_error', 'execution_error']),
-  tool_call_id: z.string(),
+  call_id: z.string(),
   name: z.string(),
   error: z.string(),
 });
@@ -80,8 +88,7 @@ export const ToolConfirmationEventSchema = z.object({
 // Received event union. Mirrors `AnyEvent` minus the client-only confirmation.
 export const AnyEventSchema = z.discriminatedUnion('kind', [
   UserMessageEventSchema,
-  TextEventSchema,
-  ReasoningEventSchema,
+  ChatCompletionEventSchema,
   ToolCallEventSchema,
   ToolResultEventSchema,
   ToolErrorEventSchema,
@@ -89,8 +96,7 @@ export const AnyEventSchema = z.discriminatedUnion('kind', [
 ]);
 
 export type UserMessageEvent = z.infer<typeof UserMessageEventSchema>;
-export type TextEvent = z.infer<typeof TextEventSchema>;
-export type ReasoningEvent = z.infer<typeof ReasoningEventSchema>;
+export type ChatCompletionEvent = z.infer<typeof ChatCompletionEventSchema>;
 export type ToolCallEvent = z.infer<typeof ToolCallEventSchema>;
 export type ToolResultEvent = z.infer<typeof ToolResultEventSchema>;
 export type ToolErrorEvent = z.infer<typeof ToolErrorEventSchema>;

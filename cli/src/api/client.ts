@@ -7,14 +7,12 @@ import { streamResponseLines } from './stream.js';
 
 export const API_KEY_HEADER = 'X-AI-OPS-ApiKey';
 
+// Mirrors the backend `ModelInfo` (`ai_ops/api/model.py`): provider, model id,
+// and context window. Capability flags are not returned by `/model`.
 export const ModelMetadataSchema = z.object({
   provider: z.string(),
   model_id: z.string(),
   max_context_length: z.number().nullish(),
-  tool_use: z.boolean(),
-  reasoning: z.boolean(),
-  response_format: z.boolean(),
-  structured_output: z.boolean(),
 });
 export type ModelMetadata = z.infer<typeof ModelMetadataSchema>;
 

@@ -24,10 +24,6 @@ const MODEL = {
   provider: 'openai',
   model_id: 'gpt-4o',
   max_context_length: 8192,
-  tool_use: true,
-  reasoning: false,
-  response_format: true,
-  structured_output: true,
 };
 
 const STREAM_EVENTS = [
@@ -149,7 +145,7 @@ test('getModel parses model metadata', async () => {
     const model = await new ApiClient({ baseUrl }).getModel();
     assert.equal(model.model_id, 'gpt-4o');
     assert.equal(model.max_context_length, 8192);
-    assert.equal(model.tool_use, true);
+    assert.equal(model.provider, 'openai');
   });
 });
 

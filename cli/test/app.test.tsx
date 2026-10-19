@@ -94,7 +94,7 @@ test('submitting a prompt starts the agent and renders the streamed transcript',
   const scenario: Step[] = [
     { kind: 'tool_call', call_id: 'c1', name: 'terminal', args: { command: 'nmap host' }, requires_confirmation: false },
     { kind: 'tool_result', call_id: 'c1', name: 'terminal', args: { command: 'nmap host' }, result: { session_id: 's', command: 'nmap host', allowed: true, status: 0, output: '80/tcp open' } },
-    { kind: 'text', chunk: 'Found a web port.', stream: false, stream_done: false },
+    { kind: 'chat_completion', response_id: 'r1', message: { content: 'Found a web port.' } },
     { kind: 'stop', issuer: 'agent', reason: null, error: null, max_iteration: false },
   ];
   const { client, calls } = makeFake(scenario);
@@ -137,7 +137,7 @@ test('a confirmation-required tool call shows the form and confirms on y', async
 
 test('a slash command is routed to the registry (/stop)', async () => {
   const scenario: Step[] = [
-    { kind: 'text', chunk: 'working…', stream: false, stream_done: false },
+    { kind: 'chat_completion', response_id: 'r1', message: { content: 'working…' } },
     GATE,
     { kind: 'stop', issuer: 'user', reason: null, error: null, max_iteration: false },
   ];
@@ -157,7 +157,7 @@ test('Ctrl+R toggles reasoning visibility', async () => {
   const { client } = makeFake([]);
   const initialEvents: AnyEvent[] = [
     { kind: 'user_message', content: 'hi' },
-    { kind: 'reasoning', chunk: 'the secret plan' },
+    { kind: 'chat_completion', response_id: 'r1', message: { reasoning_content: 'the secret plan' } },
     { kind: 'stop', issuer: 'agent', reason: null, error: null, max_iteration: false },
   ];
   const { stdin, lastFrame } = render(
@@ -175,7 +175,7 @@ test('resuming renders the historical transcript and prior token usage', async (
   const { client } = makeFake([]);
   const initialEvents: AnyEvent[] = [
     { kind: 'user_message', content: 'earlier prompt' },
-    { kind: 'text', chunk: 'earlier answer', stream: false, stream_done: false },
+    { kind: 'chat_completion', response_id: 'r1', message: { content: 'earlier answer' } },
     { kind: 'stop', issuer: 'agent', reason: null, error: null, max_iteration: false },
   ];
   const { lastFrame } = render(

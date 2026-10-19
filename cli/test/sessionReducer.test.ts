@@ -26,18 +26,21 @@ function ev(event: AnyEvent): Action {
   return { type: 'EVENT', event };
 }
 
-const text = (chunk: string, stream = false, stream_done = false): AnyEvent => ({
-  kind: 'text', chunk, stream, stream_done,
-});
-const reasoning = (chunk: string): AnyEvent => ({ kind: 'reasoning', chunk });
+const chatCompletion = (
+  message: { content?: string | null; reasoning_content?: string | null },
+  response_id = 'r',
+): AnyEvent => ({ kind: 'chat_completion', response_id, message });
+// Convenience wrappers: a completion carrying only an answer / only reasoning.
+const text = (content: string): AnyEvent => chatCompletion({ content });
+const reasoning = (content: string): AnyEvent => chatCompletion({ reasoning_content: content });
 const toolCall = (call_id: string, name: string, args: Record<string, unknown>, requires = false): AnyEvent => ({
   kind: 'tool_call', call_id, name, args, requires_confirmation: requires,
 });
 const toolResult = (call_id: string, name: string, result: Record<string, unknown>): AnyEvent => ({
   kind: 'tool_result', call_id, name, args: {}, result,
 });
-const toolError = (tool_call_id: string, name: string, failure: 'validation_error' | 'execution_error', error: string): AnyEvent => ({
-  kind: 'tool_error', tool_call_id, name, failure, error,
+const toolError = (call_id: string, name: string, failure: 'validation_error' | 'execution_error', error: string): AnyEvent => ({
+  kind: 'tool_error', call_id, name, failure, error,
 });
 const stop = (issuer: 'agent' | 'user', extra: Partial<{ reason: string; error: string; max_iteration: boolean }> = {}): AnyEvent => ({
   kind: 'stop', issuer, reason: extra.reason ?? null, error: extra.error ?? null, max_iteration: extra.max_iteration ?? false,
@@ -99,9 +102,9 @@ test('STREAM_ERROR appends an error block and resets transient state', () => {
   assert.equal(last.type === 'error' && last.message, 'connection lost');
 });
 
-// --- text accumulation ------------------------------------------------------
+// --- chat_completion rendering ----------------------------------------------
 
-test('non-streamed text renders as one finalized block', () => {
+test('a chat_completion with content renders one finalized text block', () => {
   const s = run(initialState(), ev(text('hello world')));
   const b = s.blocks[0] as TextBlock;
   assert.equal(b.type, 'text');
@@ -110,42 +113,32 @@ test('non-streamed text renders as one finalized block', () => {
   assert.equal(s.openTextId, null);
 });
 
-test('streamed text chunks append to a single block and finalize on stream_done', () => {
-  let s = run(initialState(), ev(text('he', true)));
-  assert.equal(s.openTextId, (s.blocks[0] as TextBlock).id);
-  assert.equal((s.blocks[0] as TextBlock).streaming, true);
-  s = run(s, ev(text('llo', true)));
-  s = run(s, ev(text('!', true, true)));
-  assert.equal(s.blocks.length, 1);
-  const b = s.blocks[0] as TextBlock;
-  assert.equal(b.content, 'hello!');
-  assert.equal(b.streaming, false);
-  assert.equal(s.openTextId, null);
-});
-
-test('a reasoning event finalizes an open streaming text block', () => {
-  let s = run(initialState(), ev(text('partial', true)));
-  s = run(s, ev(reasoning('hmm')));
-  assert.equal((s.blocks[0] as TextBlock).streaming, false);
-  assert.equal(s.openTextId, null);
-  assert.equal(s.blocks[1].type, 'reasoning');
-});
-
-// --- reasoning accumulation -------------------------------------------------
-
-test('consecutive reasoning events accumulate into one block', () => {
-  let s = run(initialState(), ev(reasoning('step 1. ')), ev(reasoning('step 2.')));
+test('a chat_completion with reasoning_content renders one reasoning block', () => {
+  const s = run(initialState(), ev(reasoning('let me think')));
   const reasoningBlocks = s.blocks.filter((b) => b.type === 'reasoning');
   assert.equal(reasoningBlocks.length, 1);
-  assert.equal((reasoningBlocks[0] as { content: string }).content, 'step 1. step 2.');
+  assert.equal((reasoningBlocks[0] as { content: string }).content, 'let me think');
+  assert.equal(s.openReasoningId, null);
 });
 
-test('a text event ends reasoning accumulation', () => {
-  let s = run(initialState(), ev(reasoning('thinking')), ev(text('answer')));
-  assert.equal(s.openReasoningId, null);
+test('a chat_completion carrying both renders reasoning before the answer', () => {
+  const s = run(initialState(), ev(chatCompletion({ reasoning_content: 'thinking', content: 'answer' })));
   assert.equal(s.blocks.length, 2);
   assert.equal(s.blocks[0].type, 'reasoning');
   assert.equal(s.blocks[1].type, 'text');
+});
+
+test('a chat_completion with empty or null content adds no text block', () => {
+  const nullContent = run(initialState(), ev(chatCompletion({ content: null })));
+  assert.equal(nullContent.blocks.length, 0);
+  const emptyContent = run(initialState(), ev(chatCompletion({ content: '' })));
+  assert.equal(emptyContent.blocks.length, 0);
+});
+
+test('two chat_completions produce two separate text blocks', () => {
+  const s = run(initialState(), ev(text('first')), ev(text('second')));
+  const textBlocks = s.blocks.filter((b) => b.type === 'text');
+  assert.equal(textBlocks.length, 2);
 });
 
 // --- tool call / result correlation -----------------------------------------
@@ -390,7 +383,7 @@ test('enqueued message clears once pending tool calls drain to zero', () => {
 test('enqueued message clears on stop even with no pending tool calls', () => {
   let s = run(initialState(),
     { type: 'STREAM_START' },
-    ev(text('working', false)),
+    ev(text('working')),
     { type: 'ENQUEUE_MESSAGE', content: 'next' },
     ev(stop('agent')),
   );
@@ -511,14 +504,13 @@ test('a full run: prompt -> reasoning -> tool -> result -> text -> stop', () => 
 
 // --- settled / live split ---------------------------------------------------
 
-test('settledCount excludes the block still accumulating text', () => {
+test('settledCount includes a finalized chat_completion text block', () => {
   let s = initialState();
   s = run(s, { type: 'SUBMIT_PROMPT', content: 'hi' }, { type: 'STREAM_START' });
-  s = run(s, ev(text('partial', true, false)));
-  assert.equal(settledCount(s), 1, 'the open text block is still live');
-
-  s = run(s, ev(text('', true, true)));
-  assert.equal(settledCount(s), 2, 'a finalized text block is settled');
+  s = run(s, ev(text('the answer')));
+  // chat_completion renders a finalized (non-streaming) block, so it settles at
+  // once; only pending/awaiting-confirmation tool blocks stay live.
+  assert.equal(settledCount(s), s.blocks.length, 'a finalized text block is settled');
 });
 
 test('settledCount excludes a tool call awaiting confirmation', () => {

@@ -39,10 +39,10 @@ test('transcript renders a full conversation in order', () => {
   const state = build(
     { type: 'SUBMIT_PROMPT', content: 'enumerate the host' },
     { type: 'STREAM_START' },
-    ev({ kind: 'reasoning', chunk: 'let me scan' }),
+    ev({ kind: 'chat_completion', response_id: 'r1', message: { reasoning_content: 'let me scan' } }),
     ev({ kind: 'tool_call', call_id: 'c1', name: 'terminal', args: { command: 'nmap host' }, requires_confirmation: false }),
     ev({ kind: 'tool_result', call_id: 'c1', name: 'terminal', args: { command: 'nmap host' }, result: { session_id: 's', command: 'nmap host', allowed: true, status: 0, output: '80/tcp open' } }),
-    ev({ kind: 'text', chunk: 'Found a web server.', stream: false, stream_done: false }),
+    ev({ kind: 'chat_completion', response_id: 'r2', message: { content: 'Found a web server.' } }),
   );
 
   const f = frame(state);
@@ -54,7 +54,7 @@ test('transcript renders a full conversation in order', () => {
 });
 
 test('transcript reveals reasoning when toggled', () => {
-  const state = build(ev({ kind: 'reasoning', chunk: 'the secret plan' }));
+  const state = build(ev({ kind: 'chat_completion', response_id: 'r1', message: { reasoning_content: 'the secret plan' } }));
   assert.doesNotMatch(frame(state, false), /the secret plan/);
   assert.match(frame(state, true), /the secret plan/);
 });
