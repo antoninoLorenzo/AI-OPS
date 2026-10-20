@@ -62,6 +62,7 @@ def tree_view(base: str):
 class WriteFileError(StrEnum):
     NOT_AUTHORIZED = auto() # outside of workspace
     OS_ERROR = auto()   # stuff like path too long
+    UNKNOWN = auto()    # any other unexpected failure (ex. encoding errors)
 
 
 class WriteFileInput(BaseModel):
@@ -104,11 +105,12 @@ class WriteFile(Tool[WriteFileInput, WriteFileOutput]):
             path.parent.mkdir()
             
         try:
-            path.write_text(tool_args.content)        
+            path.write_text(tool_args.content)
         except OSError:
             return WriteFileOutput(error=WriteFileError.OS_ERROR)
         except Exception as err:
-            return WriteFileOutput(error=str(err))
+            _logger.warning("WriteFile unexpected error. error=%s", str(err))
+            return WriteFileOutput(error=WriteFileError.UNKNOWN)
 
         return WriteFileOutput(
             tree_view=tree_view(str(self.working_directory))

@@ -42,6 +42,13 @@ _WRITE_FILE_TESTS = [
         "call": WriteFileInput(path="dir/file.txt", content="deez"),
         "expected": lambda out: out.tree_view and "file.txt" in out.tree_view
     },
+    # unexpected (non-OSError) write failure: a lone surrogate in the content
+    # raises UnicodeEncodeError (a ValueError, not an OSError). The generic
+    # branch must return a structured UNKNOWN error, not raise.
+    {
+        "call": WriteFileInput(path="bad.txt", content="\ud800"),
+        "expected": lambda out: out.error == WriteFileError.UNKNOWN
+    },
     # overwrite (allowed within workspace)
     {
         "call": [

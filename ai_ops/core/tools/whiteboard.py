@@ -16,15 +16,15 @@ class WhiteboardEntry(BaseModel):
 class WhiteboardWriteRequest(BaseModel):
     name: Annotated[
         str,
-        Field(description="Finding name / index key. Required for both read and write.")
+        Field(description="Finding name / index key.")
     ]
     description: Annotated[
         str,
-        Field(description="Required when mode='w'. One-sentence summary used for the whiteboard index. Omit when mode='r'.")
+        Field(description="One-sentence summary used for the whiteboard index.")
     ]
     content: Annotated[
         str,
-        Field(description="Required when mode='w'. Full finding content. Omit when mode='r'.")
+        Field(description="Full finding content.")
     ]
 
 
