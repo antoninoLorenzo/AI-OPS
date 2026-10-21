@@ -25,10 +25,14 @@ Usage:
     # drop tools from the agent (by tool name)
     python -m benchmark.auto_pen_bench.run deepseek/deepseek-v4-flash \\
         --excluded-tools think write_whiteboard
-
+    
+    # configure context transforms
+    python -m benchmark.auto_pen_bench.run deepseek/deepseek-v4-flash \
+        --context-transforms "[{\"kind\": \"terminal\", \"config\": {\"terminal_alias\": \"execute_bash\"}}]" 
 
 Results are written per task to `results/<timestamp>_<model>/<target>.json`. 
 """
+import sys
 import os
 import json
 import time
@@ -173,6 +177,13 @@ def get_parser() -> argparse.ArgumentParser:
         nargs="*",
         choices=[WhiteboardWrite.name, LoadSkill.name, ThinkTool.name],
         default=[]
+    )
+
+    parser.add_argument(
+        "--context-transforms",
+        type=str,
+        default="[]",
+        help="JSON string with context transforms configuration."
     )
 
     return parser
@@ -383,17 +394,17 @@ def main():
         ExecuteBashTool, FileWriteTool, SSHConnectTool, FinalAnswerTool
     ]
     
-    # TODO: make context_transforms configurable from cli
-    transforms = [
-        {"kind": "reasoning"},
-        {"kind": "terminal", "config": {"terminal_alias": ExecuteBashTool.name}}
-    ]
+    try:
+        transforms = json.loads(args.context_transforms)
+    except json.JSONDecodeError as err:
+        print(f"ERROR: Malformed JSON {err}. Provided context_transforms={args.context_transforms}")
+        sys.exit(1)
+    
     agent_spec = AgentSpec(
        tools=[tool.name for tool in selected_tools if not tool.name in run_settings.excluded_tools],
        context_transforms=transforms,
        prompt_extension=_BASE_PROMPT_EXTENSION
     )
-
     agent_model = ModelConfig(model=run_settings.model, api_base=api_base, api_key=api_key)
     
     # [date]_[provider]_[model]
