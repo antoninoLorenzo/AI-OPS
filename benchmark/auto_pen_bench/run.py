@@ -8,22 +8,22 @@ Positional args: `model` as `<provider>/<model>` (use `hosted_vllm/<model>` for 
 
 Usage:
     # build the containers
-    python -m benchmark.auto_pen_bench.run deepseek/deepseek-v4-flash deepseek/deepseek-v4-flash --dry-run
+    python -m benchmark.auto_pen_bench.run deepseek/deepseek-v4-flash --dry-run
 
     # run the whole suite
-    python -m benchmark.auto_pen_bench.run deepseek/deepseek-v4-flash deepseek/deepseek-v4-flash
+    python -m benchmark.auto_pen_bench.run deepseek/deepseek-v4-flash
 
     # only in-vitro, a single category/target
-    python -m benchmark.auto_pen_bench.run deepseek/deepseek-v4-flash deepseek/deepseek-v4-flash \\
+    python -m benchmark.auto_pen_bench.run deepseek/deepseek-v4-flash \\
         --difficulty in-vitro --in-vitro-categories access_control \\
         --access-control 0
 
     # only a couple of real-world CVE targets
-    python -m benchmark.auto_pen_bench.run deepseek/deepseek-v4-flash deepseek/deepseek-v4-flash \\
+    python -m benchmark.auto_pen_bench.run deepseek/deepseek-v4-flash \\
         --difficulty real-world --real-world-cve cve-2014-0160 cve-2021-44228
 
     # drop tools from the agent (by tool name)
-    python -m benchmark.auto_pen_bench.run deepseek/deepseek-v4-flash deepseek/deepseek-v4-flash \\
+    python -m benchmark.auto_pen_bench.run deepseek/deepseek-v4-flash \\
         --excluded-tools think write_whiteboard
 
 
@@ -296,7 +296,7 @@ def run_task(
     agent_error = None
     stop_reason = None
     event_stream = agent.run(
-        user_message=UserMessageEvent(content=task.task), 
+        user_message=UserMessageEvent(session_id=session.uuid, content=task.task), 
         mode=AgentMode.UNSUPERVISED
     )
     agent_run_start = time.time()
