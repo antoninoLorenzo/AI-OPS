@@ -26,7 +26,7 @@ class CheckpointCompaction(ContextTransform):
     Tools that implement `post_compaction_state` get the state injected as 
     a user message.
     """
-    requires_state: bool = True
+    required_state = ("tools",)
 
     def __init__(self, tools: list[Tool]):
         """

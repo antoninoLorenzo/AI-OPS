@@ -25,6 +25,7 @@ from ai_ops.core.schema import (
     ToolResultEvent,
     StopEvent,
     EventType,
+    SummaryRecord,
 )
 from ai_ops.core.storage import StorageStrategy
 from ai_ops.core.storage.session import (
@@ -253,3 +254,52 @@ def test_get_session_store_default_is_jsonl(jsonl_base):
     session_mod._SESSION_STORE = None
     store = get_session_store()
     assert isinstance(store._store, JSONLSessionStore)
+
+
+# --- append_summary / summarization_events -----------------------------------
+
+def _summary_record(session_id: str, boundary: int, content: str = "summary") -> "SummaryRecord":
+    event = ChatCompletionEvent(
+        session_id=session_id,
+        response_id="resp",
+        message={"role": "assistant", "content": content},
+    )
+    return SummaryRecord(event=event, boundary=boundary)
+
+
+def test_summaries_default_none(store):
+    created = store.create_session()
+    assert store.get_session_by_uuid(created.uuid).summarization_events is None
+
+
+def test_append_summary_then_retrieve(store):
+    created = store.create_session()
+    store.append_summary(created.uuid, _summary_record(created.uuid, boundary=7))
+
+    summaries = store.get_session_by_uuid(created.uuid).summarization_events
+    assert summaries is not None and len(summaries) == 1
+    assert summaries[0].boundary == 7
+    assert summaries[0].event.message["content"] == "summary"
+
+
+def test_append_summary_unknown_session_raises(store):
+    with pytest.raises(ValueError):
+        store.append_summary("does-not-exist", _summary_record("does-not-exist", boundary=1))
+
+
+def test_jsonl_summaries_survive_reload(jsonl_base):
+    store = JSONLSessionStore()
+    created = store.create_session()
+    store.append_summary(created.uuid, _summary_record(created.uuid, boundary=5, content="first"))
+    store.append_summary(created.uuid, _summary_record(created.uuid, boundary=9, content="second"))
+
+    reloaded = JSONLSessionStore().get_session_by_uuid(created.uuid).summarization_events
+    assert [r.boundary for r in reloaded] == [5, 9]
+    assert reloaded[-1].event.message["content"] == "second"
+
+
+def test_jsonl_no_summaries_file_is_none(jsonl_base):
+    store = JSONLSessionStore()
+    created = store.create_session()
+    # never appended a summary -> no summaries.jsonl -> None on reload
+    assert JSONLSessionStore().get_session_by_uuid(created.uuid).summarization_events is None

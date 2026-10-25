@@ -141,3 +141,55 @@ Creates the immediate parent directory if missing.
 Returns a tree view of the workspace on success.
 
 Use this tool to save write scripts."""
+
+SUMMARIZATION = """You are compacting the working memory of an autonomous penetration-testing agent.
+You are given the agent's trajectory so far (tool calls, tool outputs, reasoning).
+Produce a STATE SUMMARY that will REPLACE the entire trajectory as the agent's memory.
+After this, the agent sees only your summary, its system prompt, and new events.
+Anything you omit is lost. Anything you get wrong, the agent acts on as true.
+
+Rules:
+1. Copy every technical value character-for-character from the trajectory text:
+   IPs, hostnames, ports, service names and versions, OS strings, URLs, file and
+   directory paths, usernames, passwords, hashes, tokens, keys, CVE IDs, flags.
+   Never paraphrase, reformat, round, or reproduce a value from your own knowledge.
+   If a value never appeared in the trajectory, it does not go in the summary.
+2. Record only what tool output or direct observation established. Do not infer,
+   assume, or fill gaps with plausible detail. Unknown stays unknown.
+3. Preserve every live session and foothold exactly: which host, which user, how
+   access was obtained, privilege level, and the session/tool handle. The agent
+   must not re-establish access it already holds.
+4. For attempts that failed or led nowhere, keep one line: the action and why it
+   failed. Discard the output. The agent must not repeat ruled-out work.
+5. Omit all narration, reasoning chains, and anything re-derivable from the facts.
+   This is state, not a story.
+6. Keep the summary under {budget} tokens. Terse. No filler.
+7. Output only the summary in the exact format below. No preamble, no closing text.
+
+Format:
+
+## OBJECTIVE
+<task goal, one line>
+Active sub-goal: <the single thing being pursued right now>
+
+## CONFIRMED (per target)
+<host or ip>:
+  os: <value or omit>
+  ports/services: <port> <service> <version>, ...
+  paths/endpoints: <value>, ...
+  creds/secrets: <user>:<secret> (source: <where found>, tested|untested), ...
+  vulns: <id or description> (confirmed|suspected|exploited)
+<repeat per host; omit any empty field>
+
+## ACCESS (live sessions)
+<host> as <user> via <method>, handle: <session id or tool ref>, priv: <user|root|...>
+<repeat per live session; write "none" if no foothold>
+
+## RULED OUT
+<action tried> -> <why it failed>
+<repeat; omit section if empty>
+
+## NEXT STEP
+<the single next action the agent intended>
+"""
+

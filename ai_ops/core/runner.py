@@ -205,6 +205,14 @@ class AgentRunner:
         }
         _logger.debug("Done loading tools")
 
+        # agent state owned by runner injected into the transforms that declare 
+        # the key in `required_state`
+        available_state = {
+            "tools": self.tools.values(),
+            "client": self.client,
+            "session_id": self.session_id,
+        }
+
         self._context_transforms = []
         for ctx_settings in config.context_transforms:
             ctx_cls = ContextTransformRegistry[ctx_settings.kind]
@@ -213,9 +221,9 @@ class AgentRunner:
                 ctx_config = ctx_settings.config.model_dump()
             else:
                 ctx_config = {}
-            
-            if ctx_cls.requires_state:
-                ctx_config["tools"] = self.tools.values()
+
+            for key in ctx_cls.required_state:
+                ctx_config[key] = available_state[key]
 
             self._context_transforms.append(ctx_cls(**ctx_config))
 

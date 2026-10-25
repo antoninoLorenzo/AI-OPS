@@ -63,7 +63,10 @@ def get_token_count(
 
 class Message(BaseModel):
     message: Annotated[
-        Annotated[ChatCompletionSystemMessage, Tag("system")] | Annotated[ChatCompletionUserMessage, Tag("user")] | Annotated[ChatCompletionAssistantMessage, Tag("assistant")] | Annotated[ChatCompletionToolMessage, Tag("tool")],
+        Annotated[ChatCompletionSystemMessage, Tag("system")] 
+        | Annotated[ChatCompletionUserMessage, Tag("user")] 
+        | Annotated[ChatCompletionAssistantMessage, Tag("assistant")] 
+        | Annotated[ChatCompletionToolMessage, Tag("tool")],
         Discriminator(lambda v: v.get("role") if isinstance(v, dict) else None)
     ]
     """`ChatCompletionX` is just a `TypedDict` of OpenAI schemas."""
@@ -191,7 +194,7 @@ def find_parent_assistant_index(messages: list[Message], tool_result_idx: int)->
         if msg["role"] != "assistant":
             continue
 
-        for tool_call in msg.get("tool_calls", []):
+        for tool_call in msg.get("tool_calls") or []:
             if tool_call.get("id", "") == tool_call_id:
                 return idx
     

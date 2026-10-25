@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, ValidationError
 from ai_ops.config import AI_OPS_BASE_DIR
 from ai_ops.core.conversation import Message
 from ai_ops.core.log import get_logger
-from ai_ops.core.schema import AnyEvent, Event, deserialize_events
+from ai_ops.core.schema import AnyEvent, Event, SummaryRecord, deserialize_events
 from ai_ops.core.storage.json_utils import append_jsonl, read_jsonl
 from ai_ops.core.tools import resolve_args_type, resolve_result_type
 
@@ -20,6 +20,7 @@ class Session(BaseModel):
     short_id: int
     events: list[AnyEvent] = Field(default_factory=list)
     messages: list[Message] = Field(default_factory=list)
+    summarization_events: list[SummaryRecord] | None = None
 
 
 class StorageStrategy(StrEnum):
@@ -56,11 +57,16 @@ class AbstractSessionStore(abc.ABC):
     def get_events_by_uuid(self, session_id: str) -> list[Event]:
         raise NotImplementedError()
 
+    @abc.abstractmethod
+    def append_summary(self, session_id: str, summary: SummaryRecord) -> None:
+        raise NotImplementedError()
+
 
 class JSONLSessionStore(AbstractSessionStore):
-    INDEX_FILE    = "index.json"
-    MESSAGES_FILE = "messages.jsonl"
-    EVENTS_FILE   = "events.jsonl"
+    INDEX_FILE     = "index.json"
+    MESSAGES_FILE  = "messages.jsonl"
+    EVENTS_FILE    = "events.jsonl"
+    SUMMARIES_FILE = "summaries.jsonl"
 
     def __init__(self):
         self.base_dir = AI_OPS_BASE_DIR / "sessions"
@@ -111,6 +117,18 @@ class JSONLSessionStore(AbstractSessionStore):
         except ValidationError:
             raise RuntimeError(f"Malformed event list at {events_path}")
 
+    def __load_summaries(self, session_id: str) -> list[SummaryRecord] | None:
+        # summaries.jsonl is absent on sessions created before the summarization
+        # transform existed, treat that (and an empty file) as "no summaries".
+        p = self.base_dir / session_id / self.SUMMARIES_FILE
+        if not p.exists():
+            return None
+
+        summaries = [
+            SummaryRecord.model_validate(raw) for raw in read_jsonl(file=p)
+        ]
+        return summaries or None
+
     def __load_session(self, session_id: str) -> Session:
         short_id = None
         for _short_id, _session_id in self.__index.items():
@@ -120,12 +138,14 @@ class JSONLSessionStore(AbstractSessionStore):
 
         messages = self.__load_messages(session_id)
         events = self.__load_events(session_id)
+        summaries = self.__load_summaries(session_id)
 
         return Session(
             short_id=short_id,
             uuid=session_id,
             messages=messages,
-            events=events
+            events=events,
+            summarization_events=summaries
         )
 
     def __update_index(self, short_id: int, session_id: str):
@@ -196,6 +216,18 @@ class JSONLSessionStore(AbstractSessionStore):
             raise ValueError(f"No session with uuid={session_id}")
         return self.__load_events(session_id)
 
+    def append_summary(self, session_id: str, summary: SummaryRecord) -> None:
+        if session_id not in self.__sessions:
+            raise ValueError(f"No session with uuid={session_id}")
+
+        p = self.base_dir / session_id / self.SUMMARIES_FILE
+        append_jsonl(file=p, raw=summary.model_dump_json())
+
+        session = self.__sessions[session_id]
+        if session.summarization_events is None:
+            session.summarization_events = []
+        session.summarization_events.append(summary)
+
 
 class InMemorySessionStore(AbstractSessionStore):
     def __init__(self):
@@ -237,6 +269,12 @@ class InMemorySessionStore(AbstractSessionStore):
     def get_events_by_uuid(self, session_id: str) -> list[Event]:
         return self.get_session_by_uuid(session_id).events
 
+    def append_summary(self, session_id: str, summary: SummaryRecord) -> None:
+        session = self.get_session_by_uuid(session_id)
+        if session.summarization_events is None:
+            session.summarization_events = []
+        session.summarization_events.append(summary)
+
 
 class SessionStore:
 
@@ -263,6 +301,9 @@ class SessionStore:
 
     def get_events_by_uuid(self, session_id: str) -> list[Event]:
         return self._store.get_events_by_uuid(session_id=session_id)
+
+    def append_summary(self, session_id: str, summary: SummaryRecord) -> None:
+        return self._store.append_summary(session_id=session_id, summary=summary)
 
 
 _SESSION_STORE_IMPL = {

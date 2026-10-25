@@ -1,7 +1,10 @@
 # Interface to LiteLLM
+import json
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
-from functools import lru_cache
+from functools import cached_property, lru_cache
+from types import MappingProxyType
 from typing import Protocol, runtime_checkable
 
 import litellm
@@ -13,9 +16,13 @@ from litellm.exceptions import (
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 from ai_ops.config import (
+    API_MODEL_MAX_COMPLETION_TOKENS,
     API_MODEL_MAX_CONTEXT_LENGTH,
+    DEFAULT_LLM_EXTRA_PARAMS,
+    DEFAULT_MAX_COMPLETION_TOKENS,
     DEFAULT_MAX_CONTEXT_LENGTH,
     DEFAULT_TEMPERATURE,
+    LLM_EXTRA_PARAMS_ENV,
     TEMPERATURE_ENV,
     env_or_default,
 )
@@ -49,11 +56,48 @@ class ModelConfig(BaseModel):
     temperature: float = Field(
         default_factory=lambda: env_or_default(TEMPERATURE_ENV, DEFAULT_TEMPERATURE, float)
     )
-
+    
     max_context_length: int = Field(
-        default_factory=lambda: env_or_default(API_MODEL_MAX_CONTEXT_LENGTH, DEFAULT_MAX_CONTEXT_LENGTH, int)
+        default_factory=lambda: env_or_default(
+            API_MODEL_MAX_CONTEXT_LENGTH, 
+            DEFAULT_MAX_CONTEXT_LENGTH, 
+            int
+        )
     )
     """Maximum context length supported by LLM/API."""
+
+    max_completion_tokens: int = Field(
+        default_factory=lambda: env_or_default(
+            API_MODEL_MAX_COMPLETION_TOKENS,
+            DEFAULT_MAX_COMPLETION_TOKENS,
+            int
+        )
+    )
+   
+    # raw JSON string keeps the model hashable (it keys the inference-client cache)
+    extra_params_json: str = Field(
+        default_factory=lambda: env_or_default(
+            LLM_EXTRA_PARAMS_ENV, DEFAULT_LLM_EXTRA_PARAMS, str
+        )
+    )
+    """Provider-specific completion kwargs (reasoning, etc.) as a JSON object.
+
+    Forwarded verbatim to the litellm completion call, so provider differences
+    stay in config instead of code, e.g.
+      DeepSeek:   {"reasoning_effort": "high"}
+      OpenRouter: {"extra_body": {"reasoning": {"enabled": true}}}
+    """
+
+    @cached_property
+    def extra_params(self) -> Mapping:
+        """Parsed, read-only view of `extra_params_json`."""
+        try:
+            parsed = json.loads(self.extra_params_json)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid {LLM_EXTRA_PARAMS_ENV}: {e}") from e
+        if not isinstance(parsed, dict):
+            raise TypeError(f"{LLM_EXTRA_PARAMS_ENV} must be a JSON object")
+        return MappingProxyType(parsed)
 
 
 @dataclass
@@ -78,6 +122,7 @@ async def aquery(
     client: InferenceClient,
     messages: list[dict],
     tools: list | None = None,
+    max_completion_tokens: int | None = None,
     **kwargs
 ) -> ModelResponse:
     """
@@ -85,13 +130,20 @@ async def aquery(
     :raises `RuntimeError`: Fatal unrecoverable error.
     """
     _logger.debug("Starting async query model=%s", client.model_id)
+
+    if max_completion_tokens is None:
+        max_completion_tokens = client.config.max_completion_tokens
+
+    merged = {**client.config.extra_params, **kwargs}  # call-site kwargs win
+
     try:
         response = await client.client.acompletion(
             model=client.model_id,
             messages=messages,
             tools=tools,
             temperature=client.config.temperature,
-            **kwargs
+            max_completion_tokens=max_completion_tokens,
+            **merged
         )
         _logger.debug("Completed async query model=%s", client.model_id)
     except RateLimitError as rate_limit:
@@ -113,6 +165,7 @@ def query(
     client: InferenceClient,
     messages: list,
     tools: list | None = None,
+    max_completion_tokens: int | None = None,
     **kwargs # additional configs to pass to litellm
 ) -> ModelResponse:
     """
@@ -120,6 +173,11 @@ def query(
     :raises `RuntimeError`: Fatal unrecoverable error.
     """
     _logger.info("Starting query model=%s", client.model_id)
+    
+    if max_completion_tokens is None:
+        max_completion_tokens = client.config.max_completion_tokens
+
+    merged = {**client.config.extra_params, **kwargs}  # call-site kwargs win
 
     try:
         response = client.client.completion(
@@ -127,7 +185,8 @@ def query(
             messages=messages,
             tools=tools,
             temperature=client.config.temperature,
-            **kwargs
+            max_completion_tokens=max_completion_tokens,
+            **merged
         )
     except RateLimitError as rate_limit:
         raise RuntimeError(f"Maximum retry limit reached: {rate_limit}")

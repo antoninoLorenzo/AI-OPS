@@ -9,6 +9,14 @@ API_BASE_ENV_NAME = "LLM_API_BASE"
 API_KEY_ENV_NAME = "LLM_API_KEY"
 API_MODEL_MAX_CONTEXT_LENGTH = "LLM_MAX_CONTEXT_LENGTH"
 
+LLM_EXTRA_PARAMS_ENV = "LLM_EXTRA_PARAMS"
+"""JSON object of extra kwargs forwarded verbatim to the litellm completion call.
+Provider-specific reasoning config lives here, e.g.
+  DeepSeek:   {"reasoning_effort": "high"}
+  OpenRouter: {"extra_body": {"reasoning": {"enabled": true}}}
+"""
+DEFAULT_LLM_EXTRA_PARAMS = "{}"
+
 SKILL_VERIFY_INSTALLED_ENV = "SKILL_VERIFY_INSTALLED"
 """Whether to ensure binaries declared in skill requirements are available. If True, the agent 
 won't start. Defaults to False."""
@@ -16,7 +24,11 @@ DEFAULT_SKILL_VERIFY_INSTALLED = False
 
 TEMPERATURE_ENV = "AI_OPS_AGENT_TEMPERATURE"
 DEFAULT_TEMPERATURE = 0.0
+
 DEFAULT_MAX_CONTEXT_LENGTH = "32768"
+
+API_MODEL_MAX_COMPLETION_TOKENS = "AI_OPS_MAX_COMPLETION_TOKENS"
+DEFAULT_MAX_COMPLETION_TOKENS = "1024"
 
 CONFIRMATION_TIMEOUT_S = 300.0
 """

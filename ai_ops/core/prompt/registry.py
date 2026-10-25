@@ -3,6 +3,7 @@ import functools
 from ai_ops.core.prompt._prompts import (
     LOAD_SKILL,
     REACT,
+    SUMMARIZATION,
     TERMINAL,
     WRITE_FILE,
     WRITE_WHITEBOARD,
@@ -14,6 +15,7 @@ _PROMPT_REGISTRY = {
     "write_whiteboard": WRITE_WHITEBOARD,
     "load_skill": LOAD_SKILL,
     "write_file": WRITE_FILE,
+    "summarization": SUMMARIZATION
 }
 
 

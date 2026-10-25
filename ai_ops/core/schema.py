@@ -91,7 +91,23 @@ class ChatCompletionEvent(Event):
             usage=usage
         )
 
-# Tool serialization/deserialization depends on the schema of the tool implementation,  
+
+class SummaryRecord(BaseModel):
+    """
+    A summarization-compaction result together with the fold boundary it covers.
+    Persisted per session so the extra summarization call is accounted for in costs
+    and so the compaction state can be recovered on resume.
+    """
+    event: ChatCompletionEvent
+    boundary: int
+    """
+    Number of leading session messages folded into `event` (i.e. `len(session.messages)`
+    when the summary was generated). Messages `[0:boundary]` are represented by the
+    summary; `[boundary:]` is the still-verbatim tail.
+    """
+
+
+# Tool serialization/deserialization depends on the schema of the tool implementation,
 # at serialization time we can use SerializeAsAny; at deserialization time we need to 
 # resolve the schema and that can be done through the core.tools.ToolRegistry, however 
 # to keep everything in one place and avoid circular imports the resolve function is 

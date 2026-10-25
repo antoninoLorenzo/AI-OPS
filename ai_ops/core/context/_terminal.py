@@ -10,7 +10,7 @@ from ai_ops.core.conversation import (
 )
 from ai_ops.core.tools import Terminal, ToolRegistry
 
-DEFAULT_TERMINAL_MAX_TOKENS = 5_000
+DEFAULT_TERMINAL_MAX_TOKENS = 2_000
 
 
 class TerminalOutputCompactionConfig(BaseModel):

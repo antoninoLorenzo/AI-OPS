@@ -63,9 +63,14 @@ def test_initialize_transforms(test_case):
         else:
             ctx_config = {}
         
-        if ctx_cls.requires_state:
-            ctx_config["tools"] = ["not-a-tool"]
-        
+        available_state = {
+            "tools": ["not-a-tool"],
+            "client": object(),
+            "session_id": "test-session",
+        }
+        for key in ctx_cls.required_state:
+            ctx_config[key] = available_state[key]
+
         context_transforms.append(ctx_cls(**ctx_config))
 
 

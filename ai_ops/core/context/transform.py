@@ -13,9 +13,10 @@ _logger = get_logger(__name__)
 
 
 class ContextTransformType(StrEnum):
-    CHECKPOINT = "checkpoint"
-    REASONING  = "reasoning"
-    TERMINAL   = "terminal"
+    CHECKPOINT    = "checkpoint"
+    REASONING     = "reasoning"
+    TERMINAL      = "terminal"
+    SUMMARIZATION = "summarization"
 
 
 class EmptyTransformConfig(BaseModel):
@@ -29,13 +30,16 @@ class ContextTransformSettings(BaseModel):
 
 
 DEFAULT_CONTEXT_TRANSFORMS = [
-    ContextTransformSettings(kind=ContextTransformType.CHECKPOINT)
+    ContextTransformSettings(kind=ContextTransformType.TERMINAL)
 ]
 
 
 class ContextTransform(abc.ABC):
-    requires_state: bool = False
-    """True if the transform needs agent state (currently only tools) at initialization time."""
+    required_state: tuple[str, ...] = ()
+    """
+    Agent state keys the transform needs injected at initialization time, on top of
+    its config. The runner supplies any of: "tools", "client", "session_id".
+    """
 
     @abc.abstractmethod
     def __call__(self, messages: list[Message]) -> list[Message]:
