@@ -23,7 +23,7 @@
     "typescript": "^7.0.2"
   },
   "dependencies": {
-    "ink": "^7.1.1",
+    "ink": "^8.0.0",
     "ink-scroll-view": "^0.3.7",
     "react": "^19.3.0",
     "zod": "^4.6.5"
